@@ -1,0 +1,40 @@
+<!-- sequoia:start -->
+# Sequoia v{{.Version}} — AI Code Audit System
+
+Sequoia is installed and provides comprehensive multi-agent code auditing.
+
+## Agent Roster
+
+| Agent | Role | Trigger |
+|-------|------|---------|
+| C0 Orchestrator | Coordinates all agents and synthesizes findings | All /sequoia commands |
+| C1 Context | Builds the Project Map (stack detection, size estimation) | /sequoia init, always first |
+| P1 Security | Authentication, injection, secrets, attack surface | Always |
+| P2 Performance | Bundle size, queries, caching, Core Web Vitals | Frontend, backend, fullstack |
+| P3 Architecture | Patterns, coupling, API design, tech debt | Always |
+| P4 Quality | Test coverage, naming, dead code, documentation | Always |
+| P5 Experience | Accessibility, UX patterns, conversion flows | Frontend, fullstack, mobile |
+| P6 Operations | CI/CD, containerization, observability, IaC | Backend, fullstack, infra |
+| M1 Correlator | Deduplicates and correlates findings across agents | After all phase agents |
+| M2 Reporter | Calculates Health Score, generates deliverables | Final step |
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/sequoia init` | Initialize Sequoia. Builds Project Map. Always run first. |
+| `/sequoia audit` | Full audit — all agents, correlation, Health Score 0–100. |
+| `/sequoia review` | PR/diff review — faster, focused on changed files. |
+| `/sequoia fix` | Generate actionable tasks from latest audit findings. |
+| `/sequoia diff` | Compare current state against last recorded audit. |
+
+## Health Score
+
+`score = 100 − Σ(severity_weight × scope_multiplier)`
+- critical=15, high=8, medium=4, low=2, info=0
+- scope_multiplier: 1.0 (isolated) | 1.5 (shared root cause)
+
+## Quick Start
+
+Run `/sequoia init` first, then `/sequoia audit` for a full analysis.
+<!-- sequoia:end -->

@@ -1,0 +1,52 @@
+// Package adapters defines the ToolAdapter contract and the infrastructure
+// (Registry, Factory) for registering and retrieving tool integrations.
+package adapters
+
+// PromptStrategy defines how Sequoia injects content into a tool's config.
+type PromptStrategy int
+
+const (
+	// StrategyMarkdownSections injects a delimited section using start/end markers.
+	StrategyMarkdownSections PromptStrategy = iota
+	// StrategyFileReplace replaces the entire file, creating a backup first.
+	StrategyFileReplace
+)
+
+// AdapterStatus reports the current installation state of a tool adapter.
+type AdapterStatus struct {
+	// Installed reports whether Sequoia content is present for this tool.
+	Installed bool
+	// Version is the Sequoia version string present in the installation, or ""
+	// if Sequoia has not been installed.
+	Version string
+	// Path is the absolute, OS-correct root installation path.
+	Path string
+}
+
+// ToolAdapter is the contract every tool integration must satisfy.
+// Each concrete adapter lives in its own sub-package (e.g. adapters/claude)
+// and self-registers via its init() function.
+type ToolAdapter interface {
+	// ID returns the unique machine-readable identifier (e.g. "claude-code").
+	ID() string
+	// Name returns the human-readable display name.
+	Name() string
+	// Detect reports whether the tool is installed on this machine.
+	Detect() bool
+	// IsInstalled reports whether Sequoia has already been installed for this tool.
+	IsInstalled() bool
+	// Install installs Sequoia files for this tool.
+	Install() error
+	// Uninstall removes Sequoia files for this tool.
+	Uninstall() error
+	// Status returns the current installation status.
+	Status() AdapterStatus
+	// SkillsPath returns the absolute path to the skills directory for this tool.
+	SkillsPath() string
+	// CommandsPath returns the absolute path to the commands directory for this tool.
+	CommandsPath() string
+	// SystemPromptPath returns the absolute path to the system prompt file for this tool.
+	SystemPromptPath() string
+	// PromptStrategy returns the injection strategy used by this adapter.
+	PromptStrategy() PromptStrategy
+}
