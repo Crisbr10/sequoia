@@ -114,8 +114,9 @@ and installation path.`,
 // newUninstallCmd creates the 'uninstall' subcommand.
 func newUninstallCmd() *cobra.Command {
 	var (
-		toolID string
-		all    bool
+		toolID  string
+		all     bool
+		yesFlag bool
 	)
 
 	cmd := &cobra.Command{
@@ -125,16 +126,21 @@ func newUninstallCmd() *cobra.Command {
 supported AI tools. Backups created during installation are restored
 where applicable.
 
+Use --yes/-y to skip the confirmation prompt. When stdin is not a
+terminal (e.g. piped), --yes is required.
+
 Examples:
   sequoia uninstall --tool=claude-code  # Remove from Claude Code
-  sequoia uninstall --all               # Remove from all tools`,
+  sequoia uninstall --all               # Remove from all tools
+  sequoia uninstall --all --yes         # Remove from all tools without prompt`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUninstall(toolID, all, cmd.OutOrStdout())
+			return runUninstall(toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
 
 	cmd.Flags().StringVar(&toolID, "tool", "", "Target adapter ID (e.g. claude-code, opencode)")
 	cmd.Flags().BoolVar(&all, "all", false, "Remove Sequoia from all installed tools")
+	cmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompt")
 
 	return cmd
 }
@@ -153,6 +159,11 @@ func newVersionCmd() *cobra.Command {
 
 	return cmd
 }
+
+// isTerminalFn wraps isTerminal so it can be overridden in tests.
+// Defaults to os.Stdin.Stat() check. Tests override it to simulate
+// terminal vs. piped stdin without touching os.Stdin.
+var isTerminalFn = isTerminal
 
 // -- Command handlers ---------------------------------------------------------
 
@@ -226,7 +237,12 @@ func ScanTools() []adapters.AdapterStatus {
 }
 
 // runUninstall removes Sequoia from a specific adapter or all installed adapters.
-func runUninstall(toolID string, all bool, out io.Writer) error {
+//
+// When yes is false and stdin is a terminal, it displays a confirmation prompt
+// listing the affected tools and waits for "y"/"Y" input. When stdin is piped
+// and yes is false, it returns an error directing users to --yes. When yes is
+// true, the confirmation prompt is skipped entirely.
+func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer) error {
 	targets := targetAdapters(toolID)
 	if all && toolID == "" {
 		targets = adapters.DefaultRegistry.All()
@@ -237,6 +253,31 @@ func runUninstall(toolID string, all bool, out io.Writer) error {
 		}
 		fmt.Fprintln(out, "No adapters to uninstall from.")
 		return nil
+	}
+
+	// Confirmation gate: skip if --yes, error if piped, prompt otherwise.
+	if !yes {
+		if !isTerminalFn() {
+			return fmt.Errorf("stdin is not a terminal; use --yes to skip confirmation")
+		}
+
+		// Build the confirmation prompt.
+		if len(targets) == 1 {
+			fmt.Fprintf(out, "Remove Sequoia from %s? [y/N]: ", targets[0].Name())
+		} else {
+			fmt.Fprintln(out, "This will remove Sequoia from:")
+			for _, a := range targets {
+				fmt.Fprintf(out, "  %s\n", a.Name())
+			}
+			fmt.Fprint(out, "Continue? [y/N]: ")
+		}
+
+		var response string
+		_, _ = fmt.Fscanln(in, &response)
+		if response != "y" && response != "Y" {
+			fmt.Fprintln(out, "Uninstall aborted.")
+			return nil
+		}
 	}
 
 	for _, a := range targets {

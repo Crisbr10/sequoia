@@ -303,6 +303,148 @@ func TestRunStatus_RowsHaveSixFields(t *testing.T) {
 	}
 }
 
+// -- T-021: Uninstall confirmation gate tests ---------------------------------
+
+// TestUninstall_YesFlagBypass verifies that --yes skips the confirmation prompt.
+// When yes=true, no interactive prompt must appear and uninstall proceeds directly.
+func TestUninstall_YesFlagBypass(t *testing.T) {
+	var out bytes.Buffer
+	err := runUninstall("claude-code", false, true, nil, &out)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "?") {
+		t.Errorf("expected no confirmation prompt when --yes is set, got: %q", got)
+	}
+}
+
+// TestUninstall_ConfirmYes verifies that entering "y" confirms the uninstall.
+func TestUninstall_ConfirmYes(t *testing.T) {
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return true }
+	defer func() { isTerminalFn = prev }()
+
+	in := strings.NewReader("y\n")
+	var out bytes.Buffer
+	err := runUninstall("claude-code", false, false, in, &out)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "y/N") {
+		t.Errorf("expected confirmation prompt containing 'y/N', got: %q", got)
+	}
+}
+
+// TestUninstall_ConfirmNo verifies that "n" aborts with exit code 0 (nil error).
+func TestUninstall_ConfirmNo(t *testing.T) {
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return true }
+	defer func() { isTerminalFn = prev }()
+
+	in := strings.NewReader("n\n")
+	var out bytes.Buffer
+	err := runUninstall("claude-code", false, false, in, &out)
+	if err != nil {
+		t.Fatalf("expected nil error for user abort, got: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "aborted") {
+		t.Errorf("expected 'aborted' message, got: %q", got)
+	}
+}
+
+// TestUninstall_ConfirmEmpty verifies that empty input aborts the uninstall.
+func TestUninstall_ConfirmEmpty(t *testing.T) {
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return true }
+	defer func() { isTerminalFn = prev }()
+
+	in := strings.NewReader("\n")
+	var out bytes.Buffer
+	err := runUninstall("claude-code", false, false, in, &out)
+	if err != nil {
+		t.Fatalf("expected nil error for abort on empty input, got: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "aborted") {
+		t.Errorf("expected 'aborted' message on empty input, got: %q", got)
+	}
+}
+
+// TestUninstall_PipedStdinError verifies that piped/non-interactive stdin
+// without --yes returns an error directing users to use --yes.
+func TestUninstall_PipedStdinError(t *testing.T) {
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return false }
+	defer func() { isTerminalFn = prev }()
+
+	var out bytes.Buffer
+	err := runUninstall("claude-code", false, false, nil, &out)
+	if err == nil {
+		t.Fatal("expected error for piped stdin without --yes, got nil")
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("expected error to mention --yes, got: %v", err)
+	}
+}
+
+// TestUninstall_AllListsTools verifies that --all with confirmation
+// lists the affected tool names before the prompt.
+func TestUninstall_AllListsTools(t *testing.T) {
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return true }
+	defer func() { isTerminalFn = prev }()
+
+	in := strings.NewReader("n\n")
+	var out bytes.Buffer
+	err := runUninstall("", true, false, in, &out)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "aborted") {
+		t.Errorf("expected 'aborted' on cancel, got: %q", got)
+	}
+	if !strings.Contains(got, "Continue?") {
+		t.Errorf("expected multi-tool prompt with 'Continue?', got: %q", got)
+	}
+}
+
+// TestUninstall_InvalidTool verifies that an invalid --tool value fails
+// before any prompt is shown, even when --yes is set.
+func TestUninstall_InvalidTool(t *testing.T) {
+	var out bytes.Buffer
+	err := runUninstall("no-existe", false, true, nil, &out)
+	if err == nil {
+		t.Fatal("expected error for unknown adapter, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown adapter") {
+		t.Errorf("expected 'unknown adapter' error, got: %v", err)
+	}
+}
+
+// TestUninstall_YesFlagRegistered verifies that the --yes/-y flag appears
+// in the uninstall subcommand help output.
+func TestUninstall_YesFlagRegistered(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	cmd := newRootCmdWithOut(&out)
+	cmd.SetArgs([]string{"uninstall", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("uninstall --help returned unexpected error: %v", err)
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "--yes") {
+		t.Errorf("uninstall help output does not contain --yes flag; got: %q", got)
+	}
+}
+
 // T-020-04: ScanTools populates Version when installed.
 func TestScanTools_PopulatesVersion(t *testing.T) {
 	t.Parallel()
