@@ -37,3 +37,18 @@ vendor/
 
 # Build artifacts
 dist/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Temp directories
+tmp/
+temp/
+
+# OS generated
+[Tt]humbs.db
+*.orig
