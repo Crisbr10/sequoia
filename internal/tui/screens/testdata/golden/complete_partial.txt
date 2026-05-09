@@ -1,0 +1,10 @@
+✅  Installation Complete!
+
+  ✅ Claude Code
+  ⚠️ OpenCode
+
+  Installed: Skills, Commands, System Prompt
+
+  Try running: sequoia status
+
+  r — Status screen  q — Quit

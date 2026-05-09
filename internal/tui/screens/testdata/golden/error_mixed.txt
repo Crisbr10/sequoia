@@ -1,0 +1,7 @@
+❌  Installation Failed
+
+  ✅ Claude Code
+  ❌ OpenCode
+      Commands: mkdir /home/user/.opencode: permission denied
+
+  r — Retry failed  Esc — Back to tools  q — Quit
