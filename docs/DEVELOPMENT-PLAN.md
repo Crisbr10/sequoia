@@ -418,84 +418,84 @@ Two prompt strategies:
 
 ---
 
-#### T-024 — Bubbletea architecture
+#### T-024 — Bubbletea architecture ✅
 
 - **Effort**: L | **Priority**: P1 | **Deps**: T-019
 - **Description**: Central model, update, view, and screen router. Follows the same patterns as Gentle-AI.
 - **Acceptance criteria**:
-  - [ ] `internal/app/model.go` — root model with screen state
-  - [ ] `internal/app/update.go` — message dispatch
-  - [ ] `internal/app/view.go` — screen rendering delegation
-  - [ ] `internal/tui/router.go` — screen transitions
-  - [ ] `internal/model/` — domain types (InstalledTool, InstallResult, etc.)
-  - [ ] Skeleton compiles and runs (blank screen is fine)
+  - [x] `internal/app/model.go` — root model with screen state
+  - [x] `internal/app/update.go` — message dispatch
+  - [x] `internal/app/view.go` — screen rendering delegation
+  - [x] `internal/tui/router.go` — screen transitions
+  - [x] `internal/model/` — domain types (InstalledTool, InstallResult, etc.)
+  - [x] Skeleton compiles and runs (blank screen is fine)
 
 ---
 
-#### T-025 — Welcome screen
+#### T-025 — Welcome screen ✅
 
 - **Effort**: M | **Priority**: P1 | **Deps**: T-024
 - **Description**: Entry screen. Shows branding, version, and lists auto-detected tools.
 - **Acceptance criteria**:
-  - [ ] `internal/tui/screens/welcome.go`
-  - [ ] Displays Sequoia name, version, and tagline
-  - [ ] Lists detected tools with install status
-  - [ ] `Enter` or `→` transitions to Tool Selection
-  - [ ] Golden file test
+  - [x] `internal/tui/screens/welcome.go`
+  - [x] Displays Sequoia name, version, and tagline
+  - [x] Lists detected tools with install status
+  - [x] `Enter` or `→` transitions to Tool Selection
+  - [x] Golden file test
 
 ---
 
-#### T-026 — Tool Selection screen
+#### T-026 — Tool Selection screen ✅
 
 - **Effort**: M | **Priority**: P1 | **Deps**: T-025
 - **Description**: Checkbox list of detected tools. Multi-select. At least one must be chosen to proceed.
 - **Acceptance criteria**:
-  - [ ] `internal/tui/screens/tool-selection.go`
-  - [ ] Shows each detected tool with `[x]` / `[ ]` toggle
-  - [ ] `Space` toggles selection, `Enter` proceeds
-  - [ ] Validation: shows error if zero tools selected
-  - [ ] Transitions to Configuration screen
-  - [ ] Golden file test
+  - [x] `internal/tui/screens/tool-selection.go`
+  - [x] Shows each detected tool with `[x]` / `[ ]` toggle
+  - [x] `Space` toggles selection, `Enter` proceeds
+  - [x] Validation: shows error if zero tools selected
+  - [x] Transitions to Configuration screen
+  - [x] Golden file test
 
 ---
 
-#### T-027 — Configuration screen
+#### T-027 — Configuration screen ✅
 
 - **Effort**: M | **Priority**: P2 | **Deps**: T-026
 - **Description**: User preferences: language and persistence backend.
 - **Acceptance criteria**:
-  - [ ] `internal/tui/screens/configuration.go`
-  - [ ] Language selector: English / Español
-  - [ ] Persistence selector: Engram (if detected) / Files / Both
-  - [ ] Engram option disabled with note if MCP not detected
-  - [ ] Transitions to Install Progress
-  - [ ] Golden file test
+  - [x] `internal/tui/screens/configuration.go`
+  - [x] Language selector: English / Español
+  - [x] Persistence selector: Engram (if detected) / Files / Both
+  - [x] Engram option disabled with note if MCP not detected
+  - [x] Transitions to Install Progress
+  - [x] Golden file test
 
 ---
 
-#### T-028 — Install Progress screen
+#### T-028 — Install Progress screen ✅
 
 - **Effort**: L | **Priority**: P1 | **Deps**: T-027
 - **Description**: Visual step-by-step progress for each selected tool. Runs actual installation in a goroutine and receives progress messages.
 - **Acceptance criteria**:
-  - [ ] `internal/tui/screens/install-progress.go`
-  - [ ] Per-tool progress: `[ ] Skills` → `[✓] Skills` → `[✓] Commands` → `[✓] System Prompt`
-  - [ ] Spinner while step is running
-  - [ ] Error state per step with message
-  - [ ] Transitions to Complete or Error screen on finish
-  - [ ] Tested with a mock installer
+  - [x] `internal/tui/screens/install-progress.go`
+  - [x] Per-tool progress: `[ ] Skills` → `[✓] Skills` → `[✓] Commands` → `[✓] System Prompt`
+  - [x] Spinner while step is running
+  - [x] Error state per step with message
+  - [x] Transitions to Complete or Error screen on finish
+  - [x] Tested with a mock installer
 
 ---
 
-#### T-029 — Complete and Error screens
+#### T-029 — Complete and Error screens ✅
 
 - **Effort**: M | **Priority**: P1 | **Deps**: T-028
 - **Description**: Post-installation summary.
 - **Acceptance criteria**:
-  - [ ] `internal/tui/screens/complete.go` — lists what succeeded, shows first command to try
-  - [ ] `internal/tui/screens/error.go` — shows what failed, error message, retry option
-  - [ ] `r` retries failed tools, `q` exits
-  - [ ] Golden file tests
+  - [x] `internal/tui/screens/complete.go` — lists what succeeded, shows first command to try
+  - [x] `internal/tui/screens/error.go` — shows what failed, error message, retry option
+  - [x] `r` retries failed tools, `q` exits
+  - [x] Golden file tests
 
 ---
 
