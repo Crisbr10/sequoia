@@ -1,36 +1,80 @@
-# Sequoia AI — SDD Configuration
-# Bootstrapped by sdd-init on 2026-05-09
+# Sequoia — SDD Configuration
+# Initialized by sdd-init on 2026-05-09, updated 2026-05-09
 
-project: sequoia-ai
+project: Sequoia
 language: go
-module: sequoia-ai
+modules:
+  - name: sequoia-ai
+    path: sequoia/
+    go_version: "1.24.2"
+  - name: github.com/gentleman-programming/gentle-ai
+    path: gentle-ai/
+    go_version: "1.24.2"
 
 stack:
   language: go
-  version: "1.22+"
-  cli_framework: cobra
-  tui_framework: bubbletea
-  test_framework: testify
+  version: "1.24+"
+  cli_framework: cobra v1.10.2
+  tui_framework: bubbletea v1.3.10 + lipgloss + bubbles
+  test_framework: stdlib testing + testify v1.11.1
+  linting: golangci-lint v2 (errcheck, gosimple, govet, ineffassign, staticcheck, unused, gofmt, goimports, misspell, revive)
 
 testing:
   runner: go test ./...
   coverage: go test -cover ./...
   race_detector: true
   strict_tdd: true
+  coverage_current:
+    adapters: 100.0%
+    adapters/claude: 76.5%
+    adapters/common: 79.7%
+    adapters/opencode: 73.6%
+    cmd/sequoia: 74.5%
+    internal/app: 100.0%
+  known_failures:
+    - symlink path resolution on Windows (claude/opencode adapter tests)
 
 conventions:
-  package_layout: standard
-  adapter_pattern: database/sql self-registration
+  package_layout: standard (cmd/, internal/, adapters/)
+  adapter_pattern: database/sql self-registration via init()
   installer_pipeline: Prepare → Apply → Verify → Rollback
+  tui_scope: Install/config/status ONLY — hard rule
+  paths: filepath.Join() always — never string concatenation
+  commits: Conventional Commits, no AI attribution
+  tests: table-driven with t.Run(), temp dirs via t.TempDir()
 
 persistence:
   backend: hybrid
   engram: true
   openspec: true
 
+development:
+  current_phase: 5
+  next_phase: 5 (TUI Installer — design + specs done, tasks pending)
+  active_change: tui-installer
+  completed_phases: [1, 2, 3, 4]
+
 ci:
   provider: github_actions
   matrix: [ubuntu-latest, macos-latest, windows-latest]
 
-current_phase: 4
-next_phase: 5
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Document architecture decisions with rationale (Decision/Options/Choice/Rationale table)
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    tdd: true
+    test_command: go test -race -count=1 ./...
+  verify:
+    test_command: go test -race -count=1 ./...
+    build_command: go build ./...
+    coverage_threshold: 80
+  archive:
+    - Warn before merging destructive deltas

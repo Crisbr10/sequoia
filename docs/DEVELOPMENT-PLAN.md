@@ -198,12 +198,12 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-005, T-006
 - **Description**: Adapter that knows Claude Code's file layout and installation strategy.
 - **Acceptance criteria**:
-  - [ ] `adapters/claude/adapter.go` implements `ToolAdapter`
-  - [ ] `adapters/claude/paths.go` defines all paths under `~/.claude/`
-  - [ ] `Detect()` checks for Claude Code binary or config directory
-  - [ ] `IsInstalled()` checks for existing Sequoia markers in `CLAUDE.md`
-  - [ ] `PromptStrategy()` returns `StrategyMarkdownSections`
-  - [ ] Unit tests using temp directories for all path methods
+  - [x] `adapters/claude/adapter.go` implements `ToolAdapter`
+  - [x] `adapters/claude/paths.go` defines all paths under `~/.claude/`
+  - [x] `Detect()` checks for Claude Code binary or config directory
+  - [x] `IsInstalled()` checks for existing Sequoia markers in `CLAUDE.md`
+  - [x] `PromptStrategy()` returns `StrategyMarkdownSections`
+  - [x] Unit tests using temp directories for all path methods
 
 ---
 
@@ -212,14 +212,14 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-008
 - **Description**: All Markdown templates for Claude Code: skill, commands, and `CLAUDE.md` section. Commands must include chunking awareness (read `chunks:` from Project Map if present).
 - **Acceptance criteria**:
-  - [ ] `adapters/claude/templates/skill.md.tmpl` — `SKILL.md` with Claude frontmatter
+  - [x] `adapters/claude/templates/skill.md.tmpl` — `SKILL.md` with Claude frontmatter
   - [ ] `adapters/claude/templates/commands/sequoia-init.md` — init command with chunking logic
-  - [ ] `adapters/claude/templates/commands/sequoia-audit.md`
-  - [ ] `adapters/claude/templates/commands/sequoia-review.md`
-  - [ ] `adapters/claude/templates/commands/sequoia-fix.md`
-  - [ ] `adapters/claude/templates/commands/sequoia-diff.md`
-  - [ ] `adapters/claude/templates/claude-md-section.md.tmpl` — section to inject into `CLAUDE.md`
-  - [ ] Golden file tests for all templates
+  - [x] `adapters/claude/templates/commands/sequoia-audit.md`
+  - [x] `adapters/claude/templates/commands/sequoia-review.md`
+  - [x] `adapters/claude/templates/commands/sequoia-fix.md`
+  - [x] `adapters/claude/templates/commands/sequoia-diff.md`
+  - [x] `adapters/claude/templates/claude-md-section.md.tmpl` — section to inject into `CLAUDE.md`
+  - [x] Golden file tests for all templates
 
 ---
 
@@ -228,12 +228,12 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-009
 - **Description**: Safely inject and remove the Sequoia section from `~/.claude/CLAUDE.md` using start/end markers.
 - **Acceptance criteria**:
-  - [ ] `adapters/claude/installer.go` — `InjectSection()` and `RemoveSection()` methods
-  - [ ] Markers: `<!-- sequoia:start -->` … `<!-- sequoia:end -->`
-  - [ ] Idempotent: running twice produces identical result
-  - [ ] Non-destructive: all existing content preserved
-  - [ ] Handles three cases: file missing, markers absent, markers present
-  - [ ] Tests for all three cases + idempotency
+  - [x] `adapters/claude/installer.go` — `InjectSection()` and `RemoveSection()` methods
+  - [x] Markers: `<!-- sequoia:start -->` … `<!-- sequoia:end -->`
+  - [x] Idempotent: running twice produces identical result
+  - [x] Non-destructive: all existing content preserved
+  - [x] Handles three cases: file missing, markers absent, markers present
+  - [x] Tests for all three cases + idempotency
 
 ---
 
@@ -242,12 +242,12 @@ Two prompt strategies:
 - **Effort**: L | **Priority**: P1 | **Deps**: T-010, T-006
 - **Description**: Wire the common installer framework to the Claude adapter. Runs the full Prepare → Apply → Verify → Rollback cycle.
 - **Acceptance criteria**:
-  - [ ] `Install()` creates `~/.claude/skills/sequoia/SKILL.md`
-  - [ ] `Install()` creates `~/.claude/commands/sequoia-*.md` (5 files)
-  - [ ] `Install()` injects section into `~/.claude/CLAUDE.md`
-  - [ ] `Verify()` confirms all files readable
-  - [ ] `Rollback()` restores previous state on any error
-  - [ ] Full pipeline tested in temp directory
+  - [x] `Install()` creates `~/.claude/skills/sequoia/SKILL.md`
+  - [x] `Install()` creates `~/.claude/commands/sequoia-*.md` (5 files)
+  - [x] `Install()` injects section into `~/.claude/CLAUDE.md`
+  - [x] `Verify()` confirms all files readable
+  - [x] `Rollback()` restores previous state on any error
+  - [x] Full pipeline tested in temp directory
 
 ---
 
@@ -278,10 +278,10 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-005, T-006
 - **Description**: Adapter for OpenCode with `StrategyFileReplace` prompt strategy.
 - **Acceptance criteria**:
-  - [ ] `adapters/opencode/adapter.go` implements `ToolAdapter`
-  - [ ] `adapters/opencode/paths.go` defines all paths under `~/.config/opencode/`
-  - [ ] `PromptStrategy()` returns `StrategyFileReplace`
-  - [ ] Unit tests parallel to Claude adapter
+  - [x] `adapters/opencode/adapter.go` implements `ToolAdapter`
+  - [x] `adapters/opencode/paths.go` defines all paths under `~/.config/opencode/`
+  - [x] `PromptStrategy()` returns `StrategyFileReplace`
+  - [x] Unit tests parallel to Claude adapter
 
 ---
 
@@ -290,10 +290,10 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-013
 - **Description**: Templates for OpenCode. All 9 agents are inlined in the skill (no sub-files). Commands same as Claude but with OpenCode frontmatter.
 - **Acceptance criteria**:
-  - [ ] `adapters/opencode/templates/skill.md.tmpl` — all 9 agents inline
-  - [ ] `adapters/opencode/templates/commands/` — 5 command files
-  - [ ] `adapters/opencode/templates/agents-md-section.md.tmpl` — `AGENTS.md` content
-  - [ ] Golden file tests
+  - [x] `adapters/opencode/templates/skill.md.tmpl` — all 9 agents inline
+  - [x] `adapters/opencode/templates/commands/` — 5 command files
+  - [x] `adapters/opencode/templates/agents-md-section.md.tmpl` — `AGENTS.md` content
+  - [x] Golden file tests
 
 ---
 
@@ -302,11 +302,11 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-014
 - **Description**: Generate or update `AGENTS.md` for OpenCode. Backs up existing file before overwrite.
 - **Acceptance criteria**:
-  - [ ] `adapters/opencode/installer.go` — `GenerateAgentsMD()` method
-  - [ ] Backs up existing `AGENTS.md` before writing
-  - [ ] Three cases handled: file missing, exists with Sequoia section, exists with other content
-  - [ ] `RemoveSection()` removes only Sequoia content and restores backup on uninstall
-  - [ ] Tests for all three cases
+  - [x] `adapters/opencode/installer.go` — `GenerateAgentsMD()` method
+  - [x] Backs up existing `AGENTS.md` before writing
+  - [x] Three cases handled: file missing, exists with Sequoia section, exists with other content
+  - [x] `RemoveSection()` removes only Sequoia content and restores backup on uninstall
+  - [x] Tests for all three cases
 
 ---
 
@@ -315,11 +315,11 @@ Two prompt strategies:
 - **Effort**: L | **Priority**: P1 | **Deps**: T-015, T-006
 - **Description**: Full pipeline for OpenCode. Same structure as T-011.
 - **Acceptance criteria**:
-  - [ ] `Install()` creates `~/.config/opencode/skills/sequoia/`
-  - [ ] `Install()` creates `~/.config/opencode/commands/`
-  - [ ] `Install()` generates `AGENTS.md`
-  - [ ] `Verify()` + `Rollback()` working
-  - [ ] Tests in temp directory
+  - [x] `Install()` creates `~/.config/opencode/skills/sequoia/`
+  - [x] `Install()` creates `~/.config/opencode/commands/`
+  - [x] `Install()` generates `AGENTS.md`
+  - [x] `Verify()` + `Rollback()` working
+  - [x] Tests in temp directory
 
 ---
 
@@ -354,12 +354,12 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-018
 - **Description**: Main entry point. All subcommands wired. TUI launches from `sequoia install` when stdin is a terminal.
 - **Acceptance criteria**:
-  - [ ] `cmd/sequoia/main.go`
-  - [ ] `sequoia install [--tool=<id>] [--no-tui]`
-  - [ ] `sequoia status`
-  - [ ] `sequoia uninstall [--tool=<id>] [--all]`
-  - [ ] `sequoia version`
-  - [ ] Help text for all commands and flags
+  - [x] `cmd/sequoia/main.go`
+  - [x] `sequoia install [--tool=<id>] [--no-tui]`
+  - [x] `sequoia status`
+  - [x] `sequoia uninstall [--tool=<id>] [--all]`
+  - [x] `sequoia version`
+  - [x] Help text for all commands and flags
 
 ---
 
@@ -368,10 +368,10 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P1 | **Deps**: T-019
 - **Description**: Scan home directory for all supported tools and report installation state.
 - **Acceptance criteria**:
-  - [ ] Detects Claude Code, OpenCode on macOS, Linux, and Windows
-  - [ ] Reports: tool name, installation path, Sequoia installed (yes/no), Sequoia version
+  - [x] Detects Claude Code, OpenCode on macOS, Linux, and Windows
+  - [x] Reports: tool name, installation path, Sequoia installed (yes/no), Sequoia version
   - [ ] Works correctly with symlinked paths
-  - [ ] Tests per OS using temp directories
+  - [x] Tests per OS using temp directories
 
 ---
 
@@ -380,11 +380,11 @@ Two prompt strategies:
 - **Effort**: M | **Priority**: P2 | **Deps**: T-020
 - **Description**: Safe removal of Sequoia from one or all tools.
 - **Acceptance criteria**:
-  - [ ] `sequoia uninstall --tool=claude-code` removes skill, commands, and `CLAUDE.md` section
-  - [ ] `sequoia uninstall --all` loops all installed tools
-  - [ ] Restores backups where applicable
-  - [ ] Prompts for confirmation unless `--yes` flag passed
-  - [ ] Tests for each tool
+  - [x] `sequoia uninstall --tool=claude-code` removes skill, commands, and `CLAUDE.md` section
+  - [x] `sequoia uninstall --all` loops all installed tools
+  - [x] Restores backups where applicable
+  - [x] Prompts for confirmation unless `--yes` flag passed
+  - [x] Tests for each tool
 
 ---
 
@@ -393,10 +393,10 @@ Two prompt strategies:
 - **Effort**: S | **Priority**: P2 | **Deps**: T-019
 - **Description**: Shell scripts for zero-dependency installation via `curl | bash` and `irm | iex`.
 - **Acceptance criteria**:
-  - [ ] `scripts/install.sh` — detects OS/arch, downloads correct binary, verifies SHA-256, runs `sequoia install`
-  - [ ] `scripts/install.ps1` — same for Windows PowerShell
-  - [ ] Both scripts handle existing installations gracefully
-  - [ ] Both tested on each platform
+  - [x] `scripts/install.sh` — detects OS/arch, downloads correct binary, verifies SHA-256, runs `sequoia install`
+  - [x] `scripts/install.ps1` — same for Windows PowerShell
+  - [x] Both scripts handle existing installations gracefully
+  - [x] Both tested on each platform
 
 ---
 
@@ -405,10 +405,10 @@ Two prompt strategies:
 - **Effort**: L | **Priority**: P1 | **Deps**: T-022
 - **Description**: CI matrix that validates install/status/uninstall on all three OS.
 - **Acceptance criteria**:
-  - [ ] GitHub Actions matrix: `ubuntu-latest`, `macos-latest`, `windows-latest`
-  - [ ] Install → status → uninstall cycle passes on all three
-  - [ ] Path separators handled correctly everywhere
-  - [ ] All tests green in CI
+  - [x] GitHub Actions matrix: `ubuntu-latest`, `macos-latest`, `windows-latest`
+  - [x] Install → status → uninstall cycle passes on all three
+  - [x] Path separators handled correctly everywhere
+  - [x] All tests green in CI
 
 ---
 
