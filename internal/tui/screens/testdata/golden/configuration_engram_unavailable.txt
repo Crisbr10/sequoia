@@ -1,0 +1,12 @@
+   Configuration 
+
+  Language:
+    English
+    Español
+
+  Persistence:
+    Engram (not detected)
+  ► Files
+    Both
+
+  ←/→ change  Tab field  Enter confirm  Esc back

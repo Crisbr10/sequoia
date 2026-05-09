@@ -1,0 +1,11 @@
+   Installing 
+
+  Installing 0 of 1 tools...
+
+    Claude Code
+    [✓] Skills
+    [✗] Commands
+          mkdir /home/user/.claude: permission denied
+    [ ] System Prompt
+
+  q quit

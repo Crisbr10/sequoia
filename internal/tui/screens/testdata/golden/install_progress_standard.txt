@@ -1,0 +1,15 @@
+   Installing 
+
+  Installing 1 of 2 tools...
+
+    Claude Code
+    [✓] Skills
+    ⠋ Commands
+    [ ] System Prompt
+
+    OpenCode
+    [✓] Skills
+    [✓] Commands
+    [✓] System Prompt
+
+  q quit
