@@ -1,0 +1,36 @@
+# Sequoia AI — SDD Configuration
+# Bootstrapped by sdd-init on 2026-05-09
+
+project: sequoia-ai
+language: go
+module: sequoia-ai
+
+stack:
+  language: go
+  version: "1.22+"
+  cli_framework: cobra
+  tui_framework: bubbletea
+  test_framework: testify
+
+testing:
+  runner: go test ./...
+  coverage: go test -cover ./...
+  race_detector: true
+  strict_tdd: true
+
+conventions:
+  package_layout: standard
+  adapter_pattern: database/sql self-registration
+  installer_pipeline: Prepare → Apply → Verify → Rollback
+
+persistence:
+  backend: hybrid
+  engram: true
+  openspec: true
+
+ci:
+  provider: github_actions
+  matrix: [ubuntu-latest, macos-latest, windows-latest]
+
+current_phase: 4
+next_phase: 5
