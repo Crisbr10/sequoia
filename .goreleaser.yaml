@@ -38,7 +38,6 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     formats:
       - tar.gz
-      - zip
     format_overrides:
       - goos: windows
         formats:
@@ -103,8 +102,7 @@ changelog:
       - "^Merge pull request"
 
 brews:
-  - id: sequoia
-    name: sequoia
+  - name: sequoia
     description: |
       Multi-agent code audit framework with Go CLI installer and TUI.
       Deploy specialized AI agents to inspect projects from every angle
@@ -126,8 +124,7 @@ brews:
       bin.install "sequoia"
 
 scoops:
-  - id: sequoia
-    name: sequoia
+  - name: sequoia
     description: |
       Multi-agent code audit framework with Go CLI installer and TUI.
       Deploy specialized AI agents to inspect projects from every angle.
