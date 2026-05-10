@@ -7,7 +7,6 @@ project_name: sequoia
 before:
   hooks:
     - go mod tidy
-    - go generate ./...
 
 builds:
   - id: sequoia
