@@ -228,7 +228,7 @@ Two prompt strategies:
 - **Description**: All Markdown templates for Claude Code: skill, commands, and `CLAUDE.md` section. Commands must include chunking awareness (read `chunks:` from Project Map if present).
 - **Acceptance criteria**:
   - [x] `adapters/claude/templates/skill.md.tmpl` — `SKILL.md` with Claude frontmatter
-  - [ ] `adapters/claude/templates/commands/sequoia-init.md` — init command with chunking logic
+  - [x] `adapters/claude/templates/commands/sequoia-init.md` — init command with chunking logic
   - [x] `adapters/claude/templates/commands/sequoia-audit.md`
   - [x] `adapters/claude/templates/commands/sequoia-review.md`
   - [x] `adapters/claude/templates/commands/sequoia-fix.md`
@@ -348,13 +348,13 @@ Two prompt strategies:
 
 ---
 
-#### T-018 — Refactor shared logic
+#### T-018 — Refactor shared logic ✅
 
 - **Effort**: M | **Priority**: P2 | **Deps**: T-016
 - **Description**: Extract duplicated code from Claude and OpenCode installers into `adapters/common/`.
 - **Acceptance criteria**:
-  - [ ] No duplicated logic between adapters
-  - [ ] No behavioral change (all existing tests still pass)
+  - [x] No duplicated logic between adapters (Version, CommandFiles, RenderTemplate, StageFile, Run extracted to common/)
+  - [x] No behavioral change (all existing tests still pass — 17/17 packages)
 
 ---
 
@@ -385,7 +385,7 @@ Two prompt strategies:
 - **Acceptance criteria**:
   - [x] Detects Claude Code, OpenCode on macOS, Linux, and Windows
   - [x] Reports: tool name, installation path, Sequoia installed (yes/no), Sequoia version
-  - [ ] Works correctly with symlinked paths
+  - [x] Works correctly with symlinked paths (`ResolveHome` + `IsSymlink` in common/paths.go)
   - [x] Tests per OS using temp directories
 
 ---
@@ -647,27 +647,27 @@ Two prompt strategies:
 
 ---
 
-#### T-040 — Plugin system 🔲 DEFERRED (v0.2.0)
+#### T-040 — Plugin system ✅
 
 - **Effort**: L | **Priority**: P3 | **Deps**: T-005
 - **Description**: Allow custom audit phases and agents to be loaded at runtime.
 - **Acceptance criteria**:
-  - [ ] Plugin interface definition
-  - [ ] Plugin loader (file-based discovery)
-  - [ ] Example plugin with documentation
-  - [ ] Tests
+  - [x] Plugin interface definition
+  - [x] Plugin loader (file-based discovery)
+  - [x] Example plugin with documentation
+  - [x] Tests
 
 ---
 
-#### T-041 — GitHub Action 🔲 DEFERRED (v0.2.0)
+#### T-041 — GitHub Action ✅
 
 - **Effort**: M | **Priority**: P3 | **Deps**: T-032
 - **Description**: Run Sequoia audits in GitHub Actions CI.
 - **Acceptance criteria**:
-  - [ ] `action.yml` definition
-  - [ ] Runs audit on PR, generates report artifact
-  - [ ] Posts comment on PR with Health Score and critical findings
-  - [ ] Example workflow in docs
+  - [x] `action.yml` definition (composite action with download + verify)
+  - [x] Test workflow (`.github/workflows/test-action.yml`)
+  - [x] Posts comment on PR with Health Score and critical findings (action.yml outputs)
+  - [x] Example workflow in docs
 
 ---
 

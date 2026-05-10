@@ -34,6 +34,25 @@ func NewInstaller(cfg InstallerConfig) *Installer {
 	return &Installer{config: cfg}
 }
 
+// Run executes the full Prepare → Apply → Verify cycle.
+// On Apply or Verify failure it calls Rollback (best-effort) and returns the
+// original error. This is the convenience wrapper that most adapters use
+// instead of calling each phase individually.
+func (i *Installer) Run() error {
+	if err := i.Prepare(); err != nil {
+		return err
+	}
+	if err := i.Apply(); err != nil {
+		_ = i.Rollback()
+		return err
+	}
+	if err := i.Verify(); err != nil {
+		_ = i.Rollback()
+		return err
+	}
+	return nil
+}
+
 // Prepare validates paths, checks write permissions, and backs up existing files.
 // It MUST be called before Apply.
 // Returns an error if TargetDir is not writable or any backup fails.

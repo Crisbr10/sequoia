@@ -152,6 +152,22 @@ Si no se detecta ningún manifiesto de dependencias:
 - Listar qué archivos se buscaron y no se encontraron
 - Evaluar si es un proyecto sin deps (scripts sueltos, código bare) o si falta información
 
+## Chunking (proyectos grandes)
+
+`/sequoia init` estima el tamaño del proyecto durante el Paso 4. Si el proyecto supera
+~200 archivos fuente, el Project Map activa el modo **chunking**: el campo `chunks:` se
+agrega al mapa con una lista de scopes, cada uno definido por patrones glob de archivos
+(ej. `src/auth/**`, `src/api/**`).
+
+Cuando un comando de auditoría (`audit`, `review`, `diff`, `fix`) detecta un Project Map
+con `chunked: true`, procesa los chunks secuencialmente — ejecutando todos los agentes
+aplicables sobre cada chunk antes de avanzar al siguiente. Esto mantiene el uso de tokens
+dentro del presupuesto sin sacrificar cobertura.
+
+Los chunks se definen por dominio funcional (no por tipo de archivo). El resultado es una
+auditoría completa aunque el proyecto sea grande, ejecutada en pasos que el modelo puede
+procesar sin pérdida de contexto.
+
 ## Precondición
 
 No requiere precondiciones. Este es SIEMPRE el primer comando.

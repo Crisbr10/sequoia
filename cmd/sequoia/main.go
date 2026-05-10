@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"sequoia-ai/adapters"
+	"sequoia-ai/adapters/common"
 	"sequoia-ai/internal/app"
 
 	// Register all adapters via their init() functions (database/sql pattern).
@@ -200,6 +201,8 @@ func runInstall(toolID string, out io.Writer) error {
 
 // runStatus prints the installation status for all registered adapters
 // in a 6-column fixed-width table: ID, NAME, DETECTED, INSTALLED, VERSION, PATH.
+// If the user's home directory is a symlink, a note is included showing the
+// real resolved path.
 func runStatus(out io.Writer) error {
 	all := adapters.DefaultRegistry.All()
 	if len(all) == 0 {
@@ -224,6 +227,16 @@ func runStatus(out io.Writer) error {
 		}
 		fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
 			a.ID(), a.Name(), detected, installed, s.Version, s.Path)
+	}
+
+	// Symlink detection: if the home directory is a symlink, note the real path.
+	if home, err := os.UserHomeDir(); err == nil {
+		if common.IsSymlink(home) {
+			resolved, err := common.ResolveHome(home)
+			if err == nil {
+				fmt.Fprintf(out, "\nHome directory is a symlink: %s → %s\n", home, resolved)
+			}
+		}
 	}
 
 	return nil

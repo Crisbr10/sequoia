@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 
@@ -110,8 +111,7 @@ func (a *Adapter) Status() adapters.AdapterStatus {
 		if err == nil {
 			data, err := os.ReadFile(versionFilePath(base))
 			if err == nil {
-				version = string(data)
-				version = trimSpace(version)
+				version = strings.TrimSpace(string(data))
 			}
 		}
 	}
@@ -130,7 +130,7 @@ func (a *Adapter) Install() error {
 	}
 
 	data := templateData{
-		Version:      Version,
+		Version:      common.Version,
 		SkillsPath:   skillsPath(base),
 		CommandsPath: commandsPath(base),
 	}
@@ -143,21 +143,21 @@ func (a *Adapter) Install() error {
 	defer os.RemoveAll(staging)
 
 	// Render and stage the skill file.
-	skillContent, err := renderTemplate("templates/skill.md.tmpl", data)
+	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-	if err := stageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
+	if err := common.StageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
 		return fmt.Errorf("install: stage skill: %w", err)
 	}
 
 	// Stage command files (static — no rendering needed).
-	for _, cmd := range commandFiles {
+	for _, cmd := range common.CommandFiles {
 		content, err := templateFS.ReadFile("templates/commands/" + cmd)
 		if err != nil {
 			return fmt.Errorf("install: read command %q: %w", cmd, err)
 		}
-		if err := stageFile(staging, cmd, content); err != nil {
+		if err := common.StageFile(staging, cmd, content); err != nil {
 			return fmt.Errorf("install: stage command %q: %w", cmd, err)
 		}
 	}
@@ -176,7 +176,7 @@ func (a *Adapter) Install() error {
 		BackupDir: backupPath(base),
 		Files:     []string{"SKILL.md"},
 	})
-	if err := runInstaller(skillInstaller); err != nil {
+	if err := skillInstaller.Run(); err != nil {
 		return fmt.Errorf("install: skill: %w", err)
 	}
 
@@ -185,9 +185,9 @@ func (a *Adapter) Install() error {
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
 		BackupDir: backupPath(base),
-		Files:     commandFiles,
+		Files:     common.CommandFiles,
 	})
-	if err := runInstaller(cmdInstaller); err != nil {
+	if err := cmdInstaller.Run(); err != nil {
 		_ = skillInstaller.Rollback()
 		return fmt.Errorf("install: commands: %w", err)
 	}
@@ -204,7 +204,7 @@ func (a *Adapter) Install() error {
 	}
 
 	// Write the version marker file.
-	if err := os.WriteFile(versionFilePath(base), []byte(Version+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(versionFilePath(base), []byte(common.Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
 
@@ -221,7 +221,7 @@ func (a *Adapter) Uninstall() error {
 	// Remove skill file, version marker, and command files (best-effort — missing files are not errors).
 	_ = os.Remove(filepath.Join(skillsPath(base), "SKILL.md"))
 	_ = os.Remove(versionFilePath(base))
-	for _, cmd := range commandFiles {
+	for _, cmd := range common.CommandFiles {
 		_ = os.Remove(filepath.Join(commandsPath(base), cmd))
 	}
 
@@ -245,18 +245,4 @@ func containsSequoiaSection(tomlContent string) bool {
 	}
 	_, ok := data["sequoia"]
 	return ok
-}
-
-// trimSpace removes leading and trailing whitespace from s.
-func trimSpace(s string) string {
-	// Simple implementation equivalent to strings.TrimSpace without importing strings.
-	i := 0
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r') {
-		i++
-	}
-	j := len(s) - 1
-	for j >= i && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n' || s[j] == '\r') {
-		j--
-	}
-	return s[i : j+1]
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"sequoia-ai/adapters/claude"
+	"sequoia-ai/adapters/common"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func TestInstall_SkillContainsVersion(t *testing.T) {
 
 	raw, err := os.ReadFile(filepath.Join(a.SkillsPath(), "SKILL.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(raw), claude.Version)
+	assert.Contains(t, string(raw), common.Version)
 }
 
 func TestInstall_ClaudeMDHasSection(t *testing.T) {

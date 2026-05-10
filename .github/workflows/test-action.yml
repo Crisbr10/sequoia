@@ -1,0 +1,66 @@
+name: Test GitHub Action
+
+# Validates that the Sequoia GitHub Action (action.yml) is functional.
+# Runs on push to main and on PRs that modify the action or this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-action.yml'
+      - 'cmd/sequoia/**'
+  pull_request:
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-action.yml'
+      - 'cmd/sequoia/**'
+
+jobs:
+  test-action:
+    name: Test Sequoia Action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Sequoia Action
+        id: sequoia
+        uses: ./  # Test the action from the local repository
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on: critical
+          sequoia-version: latest
+          working-directory: .
+
+      - name: Verify Outputs
+        run: |
+          echo "Health Score: ${{ steps.sequoia.outputs.health-score }}"
+          echo "Findings Count: ${{ steps.sequoia.outputs.findings-count }}"
+
+          if [ -z "${{ steps.sequoia.outputs.health-score }}" ]; then
+            echo "ERROR: health-score output is empty"
+            exit 1
+          fi
+
+          if [ -z "${{ steps.sequoia.outputs.findings-count }}" ]; then
+            echo "ERROR: findings-count output is empty"
+            exit 1
+          fi
+
+          echo "Action outputs verified successfully."
+
+      - name: Verify Report Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sequoia-audit-report
+          path: ./report-output
+
+      - name: Inspect Report
+        run: |
+          if [ ! -f ./report-output/sequoia-report.txt ]; then
+            echo "ERROR: Report artifact not found"
+            exit 1
+          fi
+          echo "Report content:"
+          cat ./report-output/sequoia-report.txt

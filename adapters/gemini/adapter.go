@@ -124,7 +124,7 @@ func (a *Adapter) Install() error {
 		return fmt.Errorf("install: resolve home: %w", err)
 	}
 
-	data := templateData{Version: Version}
+	data := templateData{Version: common.Version}
 
 	// Stage rendered templates to a temp dir for common.Installer.
 	staging, err := os.MkdirTemp("", "sequoia-gemini-*")
@@ -134,21 +134,21 @@ func (a *Adapter) Install() error {
 	defer os.RemoveAll(staging)
 
 	// Render and stage the skill file.
-	skillContent, err := renderTemplate("templates/skill.md.tmpl", data)
+	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-	if err := stageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
+	if err := common.StageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
 		return fmt.Errorf("install: stage skill: %w", err)
 	}
 
 	// Stage command files (static — no rendering needed).
-	for _, cmd := range commandFiles {
+	for _, cmd := range common.CommandFiles {
 		content, err := templateFS.ReadFile("templates/commands/" + cmd)
 		if err != nil {
 			return fmt.Errorf("install: read command %q: %w", cmd, err)
 		}
-		if err := stageFile(staging, cmd, content); err != nil {
+		if err := common.StageFile(staging, cmd, content); err != nil {
 			return fmt.Errorf("install: stage command %q: %w", cmd, err)
 		}
 	}
@@ -167,7 +167,7 @@ func (a *Adapter) Install() error {
 		BackupDir: backupPath(base),
 		Files:     []string{"SKILL.md"},
 	})
-	if err := runInstaller(skillInstaller); err != nil {
+	if err := skillInstaller.Run(); err != nil {
 		return fmt.Errorf("install: skill: %w", err)
 	}
 
@@ -176,15 +176,15 @@ func (a *Adapter) Install() error {
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
 		BackupDir: backupPath(base),
-		Files:     commandFiles,
+		Files:     common.CommandFiles,
 	})
-	if err := runInstaller(cmdInstaller); err != nil {
+	if err := cmdInstaller.Run(); err != nil {
 		_ = skillInstaller.Rollback()
 		return fmt.Errorf("install: commands: %w", err)
 	}
 
 	// Inject the Sequoia section into GEMINI.md (marker-based, not file copy).
-	sectionContent, err := renderTemplate("templates/gemini-md-section.md.tmpl", data)
+	sectionContent, err := common.RenderTemplate(templateFS, "templates/gemini-md-section.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -193,7 +193,7 @@ func (a *Adapter) Install() error {
 	}
 
 	// Write the version marker file.
-	if err := os.WriteFile(versionFilePath(base), []byte(Version+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(versionFilePath(base), []byte(common.Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
 

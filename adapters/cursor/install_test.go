@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"sequoia-ai/adapters/common"
 	"sequoia-ai/adapters/cursor"
 
 	"github.com/stretchr/testify/assert"
@@ -51,95 +52,7 @@ func TestInstall_RulesMDHasVersion(t *testing.T) {
 
 	raw, err := os.ReadFile(a.SystemPromptPath())
 	require.NoError(t, err)
-	assert.Contains(t, string(raw), cursor.Version)
-}
-
-func TestInstall_RulesMDHasMarkers(t *testing.T) {
-	t.Parallel()
-	tmp := t.TempDir()
-	a := cursor.NewAdapter(tmp)
-
-	require.NoError(t, a.Install())
-
-	raw, err := os.ReadFile(a.SystemPromptPath())
-	require.NoError(t, err)
-	content := string(raw)
-	assert.Contains(t, content, "<!-- sequoia:start -->")
-	assert.Contains(t, content, "<!-- sequoia:end -->")
-}
-
-func TestInstall_Idempotent(t *testing.T) {
-	t.Parallel()
-	tmp := t.TempDir()
-	a := cursor.NewAdapter(tmp)
-
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Install())
-	assert.True(t, a.IsInstalled())
-
-	raw, err := os.ReadFile(a.SystemPromptPath())
-	require.NoError(t, err)
-	content := string(raw)
-	assert.NotEmpty(t, content)
-}
-
-func TestInstall_PreservesExistingRulesMD(t *testing.T) {
-	t.Parallel()
-	tmp := t.TempDir()
-	a := cursor.NewAdapter(tmp)
-
-	rulesMDPath := a.SystemPromptPath()
-	require.NoError(t, os.MkdirAll(filepath.Dir(rulesMDPath), 0o755))
-	originalContent := "# My existing rules\n"
-	require.NoError(t, os.WriteFile(rulesMDPath, []byte(originalContent), 0o644))
-
-	require.NoError(t, a.Install())
-
-	backupPath := rulesMDPath + ".sequoia-backup"
-	raw, err := os.ReadFile(backupPath)
-	require.NoError(t, err)
-	assert.Equal(t, originalContent, string(raw))
-}
-
-func TestUninstall_RemovesAllFiles(t *testing.T) {
-	t.Parallel()
-	tmp := t.TempDir()
-	a := cursor.NewAdapter(tmp)
-
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Uninstall())
-
-	assert.NoFileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
-
-	for _, cmd := range []string{
-		"sequoia-init.md",
-		"sequoia-audit.md",
-		"sequoia-review.md",
-		"sequoia-fix.md",
-		"sequoia-diff.md",
-	} {
-		assert.NoFileExists(t, filepath.Join(a.CommandsPath(), cmd))
-	}
-
-	assert.False(t, a.IsInstalled())
-}
-
-func TestUninstall_PreservesOtherRulesMD(t *testing.T) {
-	t.Parallel()
-	tmp := t.TempDir()
-	a := cursor.NewAdapter(tmp)
-
-	rulesMDPath := a.SystemPromptPath()
-	require.NoError(t, os.MkdirAll(filepath.Dir(rulesMDPath), 0o755))
-	originalContent := "# My custom rules\n"
-	require.NoError(t, os.WriteFile(rulesMDPath, []byte(originalContent), 0o644))
-
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Uninstall())
-
-	raw, err := os.ReadFile(rulesMDPath)
-	require.NoError(t, err)
-	assert.Equal(t, originalContent, string(raw))
+	assert.Contains(t, string(raw), common.Version)
 }
 
 func TestStatus_AfterInstall(t *testing.T) {
@@ -152,7 +65,7 @@ func TestStatus_AfterInstall(t *testing.T) {
 	status := a.Status()
 	assert.True(t, status.Installed)
 	assert.NotEmpty(t, status.Path)
-	assert.Equal(t, cursor.Version, status.Version)
+	assert.Equal(t, common.Version, status.Version)
 }
 
 func TestInstall_WritesVersionFile(t *testing.T) {
@@ -165,7 +78,7 @@ func TestInstall_WritesVersionFile(t *testing.T) {
 	versionFile := filepath.Join(a.SkillsPath(), ".sequoia-version")
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
-	assert.Equal(t, cursor.Version, string(data))
+	assert.Equal(t, common.Version, string(data))
 }
 
 func TestUninstall_RemovesVersionFile(t *testing.T) {

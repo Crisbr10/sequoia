@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"sequoia-ai/adapters/common"
 	"sequoia-ai/adapters/opencode"
 
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,7 @@ func TestInstall_SkillContainsVersion(t *testing.T) {
 
 	raw, err := os.ReadFile(filepath.Join(a.SkillsPath(), "SKILL.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(raw), opencode.Version)
+	assert.Contains(t, string(raw), common.Version)
 }
 
 func TestInstall_AgentsMDHasMarkers(t *testing.T) {
