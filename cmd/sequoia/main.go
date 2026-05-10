@@ -16,6 +16,9 @@ import (
 
 	// Register all adapters via their init() functions (database/sql pattern).
 	_ "sequoia-ai/adapters/claude"
+	_ "sequoia-ai/adapters/codex"
+	_ "sequoia-ai/adapters/cursor"
+	_ "sequoia-ai/adapters/gemini"
 	_ "sequoia-ai/adapters/opencode"
 )
 
@@ -177,7 +180,7 @@ func runInstall(toolID string, out io.Writer) error {
 			return fmt.Errorf("unknown adapter %q — use 'sequoia status' to list available adapters", toolID)
 		}
 		fmt.Fprintln(out, "No supported AI tools detected on this machine.")
-		fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode")
+		fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
 		return nil
 	}
 

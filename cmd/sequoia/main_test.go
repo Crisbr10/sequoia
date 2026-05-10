@@ -296,9 +296,17 @@ func TestRunStatus_RowsHaveSixFields(t *testing.T) {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		// Each data row should contain the adapter name.
-		if !strings.Contains(line, "Claude Code") && !strings.Contains(line, "OpenCode") {
-			t.Errorf("data row %d does not contain expected adapter name: %q", i, line)
+		// Each data row should contain a known adapter name.
+		knownNames := []string{"Claude Code", "OpenCode", "Cursor IDE", "Gemini CLI", "OpenAI Codex"}
+		found := false
+		for _, name := range knownNames {
+			if strings.Contains(line, name) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("data row %d does not contain a known adapter name: %q", i, line)
 		}
 	}
 }

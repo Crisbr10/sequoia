@@ -10,6 +10,13 @@ const (
 	StrategyMarkdownSections PromptStrategy = iota
 	// StrategyFileReplace replaces the entire file, creating a backup first.
 	StrategyFileReplace
+	// StrategyConfigMerge injects a delimited section using start/end markers
+	// for tools whose config format does not match Markdown sections but
+	// still uses markers to delimit Sequoia content (e.g. Gemini CLI GEMINI.md).
+	StrategyConfigMerge
+	// StrategyTOMLMerge merges a [sequoia] TOML table into an existing TOML
+	// config file, preserving all pre-existing keys and sections (e.g. Codex config.toml).
+	StrategyTOMLMerge
 )
 
 // AdapterStatus reports the current installation state of a tool adapter.

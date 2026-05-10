@@ -1,0 +1,29 @@
+## Sequoia v0.1.0
+
+Sequoia is installed and active. It provides multi-agent code auditing with 9 specialized agents (6 phase agents + 2 meta-agents + 1 orchestrator).
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `/sequoia init` | Initialize Sequoia in the current project. Builds the Project Map. Run first. |
+| `/sequoia audit` | Full technical audit — all agents in parallel, then correlation and scoring. |
+| `/sequoia review` | Focused review of changed files. Faster than audit, deeper than a linter. |
+| `/sequoia fix` | Generate actionable tasks from the latest audit findings. |
+| `/sequoia diff` | Compare current state against the last recorded audit. |
+
+### Quick Start
+
+```
+/sequoia init          # always first
+/sequoia audit         # full audit
+/sequoia audit --phase=security --mode=quick   # quick security scan
+/sequoia review --pr=42    # review a PR
+```
+
+### Agent Coverage
+
+P1 Security · P2 Performance · P3 Architecture · P4 Quality · P5 Experience · P6 Operations
+M1 Correlator · M2 Reporter · C0 Orchestrator
+
+The skill is at `~/.gemini/sequoia/skills/SKILL.md`. The orchestrator (C0) coordinates all agents and synthesizes findings into a Health Score (0–100).

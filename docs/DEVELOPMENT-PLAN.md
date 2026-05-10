@@ -574,36 +574,36 @@ Two prompt strategies:
 
 ---
 
-#### T-035 — Cursor adapter
+#### T-035 — Cursor adapter ✅
 
 - **Effort**: M | **Priority**: P2 | **Deps**: T-005, T-006
 - **Description**: Adapter for Cursor IDE (`.cursor/rules/`).
 - **Acceptance criteria**:
-  - [ ] `adapters/cursor/adapter.go` implements `ToolAdapter`
-  - [ ] Correct paths for `.cursor/rules/` directory
-  - [ ] Installation + templates + tests
+  - [x] `adapters/cursor/adapter.go` implements `ToolAdapter`
+  - [x] Correct paths for `.cursor/rules/` directory
+  - [x] Installation + templates + tests (49 tests)
 
 ---
 
-#### T-036 — Gemini CLI adapter
+#### T-036 — Gemini CLI adapter ✅
 
 - **Effort**: M | **Priority**: P2 | **Deps**: T-005, T-006
 - **Description**: Adapter for Google Gemini CLI with config merge strategy.
 - **Acceptance criteria**:
-  - [ ] `adapters/gemini/adapter.go` implements `ToolAdapter`
-  - [ ] Config merge strategy implemented
-  - [ ] Installation + templates + tests
+  - [x] `adapters/gemini/adapter.go` implements `ToolAdapter`
+  - [x] `StrategyConfigMerge` — marker-based section injection in GEMINI.md
+  - [x] Installation + templates + tests
 
 ---
 
-#### T-037 — Codex adapter
+#### T-037 — Codex adapter ✅
 
 - **Effort**: M | **Priority**: P3 | **Deps**: T-005, T-006
 - **Description**: Adapter for OpenAI Codex (TOML config strategy).
 - **Acceptance criteria**:
-  - [ ] `adapters/codex/adapter.go` implements `ToolAdapter`
-  - [ ] TOML config merge implemented
-  - [ ] Installation + templates + tests
+  - [x] `adapters/codex/adapter.go` implements `ToolAdapter`
+  - [x] `StrategyTOMLMerge` — TOML config merge via BurntSushi/toml
+  - [x] Installation + templates + tests
 
 ---
 
