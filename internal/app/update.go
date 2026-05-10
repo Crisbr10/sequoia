@@ -2,6 +2,7 @@ package app
 
 import (
 	"sequoia-ai/internal/model"
+	"sequoia-ai/internal/pipeline"
 	"sequoia-ai/internal/tui"
 	"sequoia-ai/internal/tui/screens"
 
@@ -28,6 +29,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Global quit keybindings.
 		if msg.String() == "q" || msg.Type == tea.KeyCtrlC {
 			m.Quitting = true
+			m.cancel()
 			return m, tea.Quit
 		}
 
@@ -87,9 +89,12 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.InstallCompleted = 0
 			m.InstallFailed = 0
 			m.ErrorMsg = ""
-			return m, func() tea.Msg {
+			navigateCmd := func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenInstallProgress}
 			}
+			installCmd := pipeline.RunInstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+			pollCmd := waitForProgress(m.Progress)
+			return m, tea.Batch(navigateCmd, installCmd, pollCmd)
 		case "back":
 			m.ErrorMsg = ""
 			return m, func() tea.Msg {
@@ -124,6 +129,71 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case model.ScreenError:
 		return m, screens.ErrorUpdate(msg)
 
+	case model.ScreenStatus:
+		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
+		m.Cursor = newCursor
+
+		switch action {
+		case "uninstall":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenUninstall}
+			}
+		case "reinstall":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenInstallProgress}
+			}
+		case "update":
+			// Placeholder — update functionality not yet implemented.
+		}
+		return m, nil
+
+	case model.ScreenUninstall:
+		// Confirmation mode: only y and n matter.
+		if m.UninstallConfirming {
+			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+				switch msg.Runes[0] {
+				case 'y':
+					m.UninstallConfirming = false
+					// Build progress state for selected+installed tools.
+					m.ProgressTools = buildUninstallProgressTools(m.Tools)
+					m.InstallCompleted = 0
+					m.InstallFailed = 0
+					m.ErrorMsg = ""
+					navigateCmd := func() tea.Msg {
+						return tui.NavigateMsg{Target: model.ScreenInstallProgress}
+					}
+					uninstallCmd := pipeline.RunUninstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+					pollCmd := waitForProgress(m.Progress)
+					return m, tea.Batch(navigateCmd, uninstallCmd, pollCmd)
+				case 'n':
+					m.UninstallConfirming = false
+					return m, nil
+				}
+			}
+			return m, nil
+		}
+
+		newCursor, shouldToggle, action := screens.UninstallUpdate(msg, m.Cursor, len(m.Tools))
+		m.Cursor = newCursor
+		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
+			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
+		}
+
+		switch action {
+		case "confirm":
+			// Check at least one tool is selected and installed.
+			if hasSelectedInstalled(m.Tools) {
+				m.UninstallConfirming = true
+			}
+			return m, nil
+		case "back":
+			m.UninstallConfirming = false
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenStatus}
+			}
+		}
+		return m, nil
+
 	default:
 		return m, nil
 	}
@@ -153,11 +223,25 @@ func (m Model) updateScreenMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return tui.NavigateMsg{Target: model.ScreenError}
 				}
 			}
+
+			// Keep polling the channel for more progress messages.
+			return m, waitForProgress(m.Progress)
 		}
 		return m, nil
 	default:
 		return m, nil
 	}
+}
+
+// hasSelectedInstalled returns true if at least one tool that is both
+// selected and installed exists.
+func hasSelectedInstalled(tools []model.ToolState) bool {
+	for _, t := range tools {
+		if t.Selected && t.Adapter.IsInstalled() {
+			return true
+		}
+	}
+	return false
 }
 
 // countSelected returns the number of tools with Selected=true.
@@ -189,9 +273,48 @@ func buildProgressTools(tools []model.ToolState) []screens.ProgressTool {
 			}
 		}
 		result = append(result, screens.ProgressTool{
+			ToolID:   ts.Adapter.ID(),
 			ToolName: ts.Adapter.Name(),
 			Steps:    steps,
 		})
 	}
 	return result
+}
+
+// buildUninstallProgressTools creates progress state for uninstall.
+// Only tools that are BOTH selected and installed are included.
+func buildUninstallProgressTools(tools []model.ToolState) []screens.ProgressTool {
+	stepNames := []string{"Skills", "Commands", "System Prompt"}
+	var result []screens.ProgressTool
+	for _, ts := range tools {
+		if !ts.Selected || !ts.Adapter.IsInstalled() {
+			continue
+		}
+		steps := make([]screens.ProgressStep, len(stepNames))
+		for i, name := range stepNames {
+			steps[i] = screens.ProgressStep{
+				Name:   name,
+				Status: screens.StepPending,
+			}
+		}
+		result = append(result, screens.ProgressTool{
+			ToolID:   ts.Adapter.ID(),
+			ToolName: ts.Adapter.Name(),
+			Steps:    steps,
+		})
+	}
+	return result
+}
+
+// waitForProgress returns a tea.Cmd that reads the next model.ProgressMsg
+// from the buffered channel. When the channel is closed (and drained),
+// it returns nil, stopping the polling loop.
+func waitForProgress(ch <-chan model.ProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return nil // channel closed — stop polling
+		}
+		return msg
+	}
 }

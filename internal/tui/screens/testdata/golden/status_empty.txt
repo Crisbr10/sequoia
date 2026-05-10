@@ -1,0 +1,5 @@
+   Status 
+
+  No adapters registered
+
+  ↑/↓ j/k navigate  u update  r reinstall  d uninstall  q quit

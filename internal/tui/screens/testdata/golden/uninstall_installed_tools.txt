@@ -1,0 +1,6 @@
+   Uninstall 
+
+▶ [ ] Claude Code
+  [x] Gemini CLI
+
+  ↑/↓ j/k navigate  Space toggle  Enter confirm  q quit

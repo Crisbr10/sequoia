@@ -21,6 +21,8 @@ type dummyAdapter struct {
 	id   string
 	name string
 	inst bool
+	ver  string
+	path string
 }
 
 func (d *dummyAdapter) ID() string                     { return d.id }
@@ -30,7 +32,7 @@ func (d *dummyAdapter) IsInstalled() bool              { return d.inst }
 func (d *dummyAdapter) Install() error                 { return nil }
 func (d *dummyAdapter) Uninstall() error               { return nil }
 func (d *dummyAdapter) Status() adapters.AdapterStatus {
-	return adapters.AdapterStatus{Installed: d.inst}
+	return adapters.AdapterStatus{Installed: d.inst, Version: d.ver, Path: d.path}
 }
 func (d *dummyAdapter) SkillsPath() string       { return "" }
 func (d *dummyAdapter) CommandsPath() string     { return "" }

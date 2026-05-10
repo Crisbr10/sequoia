@@ -4,6 +4,8 @@
 package app
 
 import (
+	"context"
+
 	"sequoia-ai/adapters"
 	"sequoia-ai/internal/model"
 	"sequoia-ai/internal/tui/screens"
@@ -47,8 +49,16 @@ type Model struct {
 	// EngramAvailable indicates whether the Engram MCP backend was detected at startup.
 	// When false, the Engram option on the Configuration screen is greyed out.
 	EngramAvailable bool
+	// UninstallConfirming is true when the Uninstall screen is in
+	// confirmation mode (user pressed Enter and is being asked y/N).
+	UninstallConfirming bool
 	// Quitting is set to true when the user initiates exit.
 	Quitting bool
+
+	// ctx is the pipeline context, cancelled on quit to stop goroutines.
+	ctx context.Context
+	// cancel cancels the pipeline context.
+	cancel context.CancelFunc
 }
 
 // NewModel creates the root Model populated with all registered adapters
@@ -65,11 +75,15 @@ func NewModel(toolID string) Model {
 		tools = append(tools, ts)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return Model{
 		Screen:   model.ScreenWelcome,
 		Tools:    tools,
 		Config:   model.TUIConfig{Language: "en", Persistence: "engram"},
 		Progress: make(chan model.ProgressMsg, 64),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 }
 

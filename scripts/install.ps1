@@ -6,7 +6,7 @@
     Downloads, verifies, and installs the Sequoia CLI on Windows.
     Equivalent to the Unix install.sh, adapted for PowerShell 5.1+.
 .PARAMETER Repo
-    GitHub org/repo (default: sequoia-ai/sequoia-ai).
+    GitHub org/repo (default: Crisbr10/sequoia).
 .PARAMETER Version
     Release version tag (default: latest, resolved via GitHub API).
 .PARAMETER InstallDir
@@ -16,13 +16,13 @@
 .PARAMETER AddToPath
     Add INSTALL_DIR to the user-level PATH environment variable.
 .EXAMPLE
-    irm https://raw.githubusercontent.com/sequoia-ai/sequoia-ai/main/scripts/install.ps1 | iex
+    irm https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.ps1 | iex
 .EXAMPLE
     .\install.ps1 -Version v0.2.0 -InstallDir "C:\tools\sequoia" -AddToPath
 #>
 
 param(
-    [string]$Repo = "sequoia-ai/sequoia-ai",
+    [string]$Repo = "Crisbr10/sequoia",
     [string]$Version = "latest",
     [string]$InstallDir = "$env:LOCALAPPDATA\sequoia",
     [switch]$SkipChecksum,

@@ -157,6 +157,118 @@ func TestIsValidTransition_EdgeCases(t *testing.T) {
 	assert.False(t, tui.IsValidTransition(model.ScreenCount, model.ScreenCount))
 }
 
+func TestNewRouter_StartsAtWelcome(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+	require.NotNil(t, r, "NewRouter should return a non-nil router")
+
+	assert.Equal(t, model.ScreenWelcome, r.CurrentScreen(),
+		"NewRouter should start at ScreenWelcome")
+}
+
+func TestCurrentScreen_ReturnsWelcome(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+	sc := r.CurrentScreen()
+	assert.Equal(t, model.ScreenWelcome, sc, "CurrentScreen should return ScreenWelcome")
+}
+
+func TestNavigateTo_ValidTransition_ReturnsCmd(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+
+	// Valid transition: Welcome → ToolSelection.
+	cmd := r.NavigateTo(model.ScreenToolSelection)
+	require.NotNil(t, cmd, "valid transition should return a tea.Cmd")
+
+	// Execute the command — should produce a NavigateMsg.
+	result := cmd()
+	nav, ok := result.(tui.NavigateMsg)
+	require.True(t, ok, "valid NavigateTo should produce NavigateMsg, got %T", result)
+	assert.Equal(t, model.ScreenToolSelection, nav.Target,
+		"NavigateMsg target should be ToolSelection")
+
+	// CurrentScreen should be updated.
+	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen(),
+		"CurrentScreen should reflect the transition")
+}
+
+func TestNavigateTo_InvalidTransition_ReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+
+	// Invalid transition: Welcome → Complete (not in transition map).
+	cmd := r.NavigateTo(model.ScreenComplete)
+	assert.Nil(t, cmd, "invalid transition should return nil")
+
+	// CurrentScreen should NOT change.
+	assert.Equal(t, model.ScreenWelcome, r.CurrentScreen(),
+		"CurrentScreen should not change on invalid transition")
+}
+
+func TestNavigateTo_SelfTransition_ReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+
+	// Self-transition is invalid.
+	cmd := r.NavigateTo(model.ScreenWelcome)
+	assert.Nil(t, cmd, "self-transition should return nil")
+	assert.Equal(t, model.ScreenWelcome, r.CurrentScreen())
+}
+
+func TestNavigateTo_MultipleValidTransitions(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+
+	// Welcome → ToolSelection.
+	cmd := r.NavigateTo(model.ScreenToolSelection)
+	require.NotNil(t, cmd)
+	nav, ok := cmd().(tui.NavigateMsg)
+	require.True(t, ok)
+	assert.Equal(t, model.ScreenToolSelection, nav.Target)
+	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen())
+
+	// ToolSelection → Configuration.
+	cmd = r.NavigateTo(model.ScreenConfiguration)
+	require.NotNil(t, cmd)
+	nav, ok = cmd().(tui.NavigateMsg)
+	require.True(t, ok)
+	assert.Equal(t, model.ScreenConfiguration, nav.Target)
+	assert.Equal(t, model.ScreenConfiguration, r.CurrentScreen())
+
+	// Configuration → InstallProgress.
+	cmd = r.NavigateTo(model.ScreenInstallProgress)
+	require.NotNil(t, cmd)
+	nav, ok = cmd().(tui.NavigateMsg)
+	require.True(t, ok)
+	assert.Equal(t, model.ScreenInstallProgress, nav.Target)
+	assert.Equal(t, model.ScreenInstallProgress, r.CurrentScreen())
+}
+
+func TestNavigateTo_InvalidAfterSecondTransition(t *testing.T) {
+	t.Parallel()
+
+	r := tui.NewRouter()
+
+	// Navigate to ToolSelection first.
+	cmd := r.NavigateTo(model.ScreenToolSelection)
+	require.NotNil(t, cmd)
+	_ = cmd()
+	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen())
+
+	// Try invalid transition from ToolSelection → Welcome.
+	cmd = r.NavigateTo(model.ScreenWelcome)
+	assert.Nil(t, cmd, "ToolSelection → Welcome should be invalid")
+	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen(),
+		"CurrentScreen should stay at ToolSelection after invalid transition")
+}
+
 func TestTransitionMap_NoDuplicateTargets(t *testing.T) {
 	t.Parallel()
 

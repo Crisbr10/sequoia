@@ -3,13 +3,13 @@
 # Sequoia One-Line Installer (Unix: macOS & Linux)
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/sequoia-ai/sequoia-ai/main/scripts/install.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.sh | bash
 #
 # Or with custom options:
-#   curl -sSL ... | REPO=myfork/sequoia-ai VERSION=v0.2.0 bash
+#   curl -sSL ... | REPO=myfork/sequoia VERSION=v0.2.0 bash
 #
 # Environment variables:
-#   REPO         GitHub org/repo (default: sequoia-ai/sequoia-ai)
+#   REPO         GitHub org/repo (default: Crisbr10/sequoia)
 #   VERSION      Release version tag (default: latest, resolved via GitHub API)
 #   INSTALL_DIR  Target directory for the binary (default: /usr/local/bin)
 # =============================================================================
@@ -18,7 +18,7 @@ set -euo pipefail
 
 # -- Configuration ------------------------------------------------------------
 BINARY="sequoia"
-REPO="${REPO:-sequoia-ai/sequoia-ai}"
+REPO="${REPO:-Crisbr10/sequoia}"
 VERSION_INPUT="${VERSION:-latest}"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 

@@ -36,6 +36,8 @@ type ProgressStep struct {
 
 // ProgressTool represents per-tool install progress data for the display.
 type ProgressTool struct {
+	// ToolID is the adapter's unique ID (e.g., "claude-code").
+	ToolID string
 	// ToolName is the display name of the tool being installed.
 	ToolName string
 	// Steps tracks the progress of each installation step for this tool.
@@ -184,7 +186,8 @@ func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTo
 	completedCount := 0
 
 	for i := range tools {
-		if tools[i].ToolName != msg.ToolID && !toolNameMatches(tools[i], msg.ToolID) {
+		// Match by ToolID first, fall back to ToolName for backwards compat.
+		if tools[i].ToolID != msg.ToolID && tools[i].ToolName != msg.ToolID && !toolNameMatches(tools[i], msg.ToolID) {
 			continue
 		}
 

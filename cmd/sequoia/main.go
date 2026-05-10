@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	tea "github.com/charmbracelet/bubbletea"
 
 	"sequoia-ai/adapters"
+	"sequoia-ai/internal/app"
 
 	// Register all adapters via their init() functions (database/sql pattern).
 	_ "sequoia-ai/adapters/claude"
@@ -295,9 +297,19 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 	return nil
 }
 
-// runTUI launches the interactive TUI installer (placeholder for Phase 5).
+// runTUI launches the interactive TUI installer using Bubbletea.
+// It creates the root model, configures the program with alt-screen and mouse
+// support, and blocks until the user quits.
 func runTUI(toolID string) error {
-	return fmt.Errorf("TUI mode is not yet implemented — use --no-tui for headless mode or wait for Phase 5")
+	p := tea.NewProgram(
+		app.NewModel(toolID),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+	return nil
 }
 
 // targetAdapters returns adapters matching toolID, or all detected adapters if toolID is empty.
