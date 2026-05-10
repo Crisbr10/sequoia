@@ -11,6 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/go-1.22+-00ADD8?style=flat&logo=go" alt="Go">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version">
   <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=flat&logo=githubactions" alt="CI"></a>
 </p>
 
@@ -19,6 +20,25 @@
 > *"A sequoia doesn't grow in haste. It grows with deep roots."*
 
 Sequoia is a **multi-agent code audit framework** that deploys specialized AI agents to inspect a project from every angle — security, performance, architecture, quality, UX, and operations — in parallel. Every finding is traced to a real file, a real line, or a documented absence. No generic advice. No hallucinated code.
+
+## Quick Start
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.ps1 | iex
+```
+
+Then open your project in any supported AI tool and run:
+
+```
+/sequoia init          # Analyze your project
+/sequoia audit         # Full parallel audit
+```
+
+[Full getting started guide →](docs/getting-started.md)
 
 ## How It Works
 
@@ -40,15 +60,17 @@ P1    P2    P3 ... P6     M1 · M2
 3. **M1 correlates findings** — when five symptoms share one root cause, you get one fix, not five tickets.
 4. **M2 produces the report** — a Health Score (0–100), a prioritized action plan, and actionable tasks.
 
-Sequoia integrates directly into your AI coding assistant — **Claude Code** and **OpenCode** — so auditing is a slash command away:
+## Features
 
-```bash
-/sequoia init          # Analyze project context
-/sequoia audit         # Full parallel audit
-/sequoia review        # PR / diff review
-/sequoia fix           # Generate task list from findings
-/sequoia diff          # Compare against last audit
-```
+- **9 specialized agents** — security, performance, architecture, quality, UX, operations, plus correlation and reporting
+- **5 AI tool adapters** — Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex
+- **Interactive TUI installer** — multi-select tools, real-time progress, error recovery
+- **Headless CLI** — script-friendly mode for CI/CD and automation
+- **Cross-platform** — macOS, Linux, Windows (amd64 + arm64)
+- **Atomic installation** — Prepare → Apply → Verify → Rollback pipeline; idempotent
+- **Four prompt strategies** — adapts to each tool's config format
+- **Plugin-ready** — `ToolAdapter` interface with self-registration pattern
+- **Strict TDD suite** — 327+ tests, 90%+ coverage
 
 ## Agents
 
@@ -64,70 +86,127 @@ Sequoia integrates directly into your AI coding assistant — **Claude Code** an
 | M1 | Correlator | Cross-phase deduplication and root cause analysis | Always |
 | M2 | Reporter | Health Score, deliverables | Always |
 
-## CLI Installer
+## Slash Commands
 
-This repository contains the Go CLI that installs Sequoia into your tools. It handles the file placement, template rendering, and prompt injection so you don't have to.
+Sequoia integrates directly into your AI coding assistant:
 
 ```bash
-# Install Sequoia into all detected AI tools (interactive TUI)
+/sequoia init          # Analyze project context
+/sequoia audit         # Full parallel audit
+/sequoia review        # PR / diff review
+/sequoia fix           # Generate task list from findings
+/sequoia diff          # Compare against last audit
+```
+
+## CLI Installer
+
+The Go CLI installs Sequoia into your tools. It handles file placement, template rendering, and prompt injection.
+
+```bash
+# Interactive TUI — select tools, configure, watch progress
 sequoia install
 
-# Headless install into a specific tool
+# Headless — install into all detected tools
+sequoia install --no-tui
+
+# Install into a specific tool
 sequoia install --tool=claude-code --no-tui
 
 # Check installation status
 sequoia status
 
-# Remove Sequoia (with confirmation)
+# Remove Sequoia
 sequoia uninstall --all
 ```
 
 ### Supported Tools
 
-| Tool | Prompt Strategy | Config File |
-|------|----------------|-------------|
-| Claude Code | Section injection (markers) | `~/.claude/CLAUDE.md` |
-| OpenCode | File replace with backup | `~/.config/opencode/AGENTS.md` |
+| Tool | Adapter ID | Prompt Strategy | Config File |
+|------|-----------|----------------|-------------|
+| Claude Code | `claude-code` | Markdown section injection | `~/.claude/CLAUDE.md` |
+| OpenCode | `opencode` | File replace with backup | `~/.config/opencode/AGENTS.md` |
+| Cursor IDE | `cursor` | File replace with backup | `~/.cursor/rules/sequoia-ai.md` |
+| Gemini CLI | `gemini-cli` | Config merge | `GEMINI.md` |
+| OpenAI Codex | `codex` | TOML merge | `~/.codex/config.toml` |
 
-More adapters (Gemini CLI, Continue, Cursor) are on the roadmap.
+## Architecture
+
+```
+                          sequoia CLI
+                         ┌─────────┐
+                         │  main() │
+                         └────┬────┘
+                              │
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+        ┌─────────┐    ┌──────────┐    ┌─────────────┐
+        │  Cobra  │    │Bubbletea │    │   Adapter   │
+        │  CLI    │    │   TUI    │    │  Registry   │
+        └────┬────┘    └────┬─────┘    └──────┬──────┘
+             │              │                  │
+             └──────────────┼──────────────────┘
+                            │
+                   ┌────────┴────────┐
+                   │  ToolAdapter    │
+                   │  (interface)    │
+                   └────────┬────────┘
+                            │
+      ┌─────────┬───────────┼───────────┬──────────┐
+      ▼         ▼           ▼           ▼          ▼
+   Claude    OpenCode    Cursor      Gemini     Codex
+```
+
+[Full architecture docs →](docs/architecture.md)
 
 ## Project Structure
 
 ```
-sequoia-ai/
+sequoia/
 ├── cmd/sequoia/              # Cobra CLI entrypoint
 ├── adapters/                 # ToolAdapter interface + implementations
 │   ├── interface.go          # Contract every adapter satisfies
 │   ├── registry.go           # Plugin registry (database/sql pattern)
 │   ├── factory.go            # NewAdapter(id) constructor
-│   ├── common/               # Shared installer (Prepare → Apply → Verify → Rollback)
-│   ├── claude/                # Claude Code adapter
-│   │   └── templates/        # SKILL.md, commands, CLAUDE.md section
-│   ├── opencode/              # OpenCode adapter
-│   │   └── templates/        # SKILL.md, commands, AGENTS.md section
+│   ├── common/               # Shared installer framework
+│   ├── claude/               # Claude Code adapter + templates
+│   ├── opencode/             # OpenCode adapter + templates
+│   ├── cursor/               # Cursor IDE adapter + templates
+│   ├── gemini/               # Gemini CLI adapter + templates
+│   ├── codex/                # OpenAI Codex adapter + templates
 │   └── _template/            # Adapter scaffolding reference
 ├── internal/                 # Private packages
 │   ├── app/                  # Bubbletea model, update, view
-│   ├── tui/screens/          # Welcome, Tool Selection, Install Progress, etc.
+│   ├── tui/screens/          # 8 TUI screens
 │   ├── model/                # Domain types
-│   └── pipeline/             # Installation pipeline orchestration
-├── scripts/                  # One-line installers (curl | bash, irm | iex)
-├── docs/                     # Framework specification and design docs
-└── openspec/                 # Artifacts (proposals, specs, verify reports)
+│   └── pipeline/             # Installation pipeline
+├── scripts/                  # One-line installers
+├── docs/                     # Documentation
+├── .goreleaser.yaml          # GoReleaser config
+└── .golangci.yaml            # Linter config
 ```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | 5-minute guide to your first audit |
+| [Architecture](docs/architecture.md) | Design overview |
+| [CLI Reference](docs/cli-reference.md) | All commands and flags |
+| [FAQ](docs/faq.md) | Frequently asked questions |
+| [Development Plan](docs/DEVELOPMENT-PLAN.md) | Full task breakdown |
+| [Contributing Guide](CONTRIBUTING.md) | How to add a new adapter |
+| [Release Notes](docs/release-notes/) | Version history |
 
 ## Development Status
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | 1 — Foundation | Specs, Go module, adapter interface, common installer | ✅ Done |
-| 2 — Claude Code | Full install pipeline for `~/.claude/` | 🚧 In progress |
-| 3 — OpenCode | Full install pipeline for `~/.config/opencode/` | 🚧 In progress |
+| 2 — Claude Code | Full install pipeline for `~/.claude/` | ✅ Done |
+| 3 — OpenCode | Full install pipeline for `~/.config/opencode/` | ✅ Done |
 | 4 — CLI Installer | Headless `sequoia` binary with Cobra | ✅ Done |
-| 5 — TUI Installer | Interactive Bubbletea interface | 📋 Planned |
-| 6 — Distribution | GoReleaser, Homebrew, CI/CD | 📋 Planned |
-
-Full details in [`docs/DEVELOPMENT-PLAN.md`](docs/DEVELOPMENT-PLAN.md).
+| 5 — TUI Installer | Interactive Bubbletea interface | ✅ Done |
+| 6 — Extensibility & Release | More adapters, docs, GoReleaser, v0.1.0 | ✅ Done |
 
 ## Philosophy
 

@@ -1,0 +1,34 @@
+<!-- sequoia:start -->
+# Sequoia Code Audit Framework v{{.Version}}
+
+Sequoia is a comprehensive multi-agent code audit framework that inspects
+projects from multiple specialized angles: security, performance,
+architecture, quality, experience, and operations.
+
+## Available Commands
+
+- `/sequoia init` — Initialize Sequoia in the project (required first step)
+- `/sequoia audit` — Run a full multi-agent audit
+- `/sequoia review` — Review previous audit findings
+- `/sequoia fix` — Apply recommended fixes from audit findings
+- `/sequoia diff` — Compare audit results across versions
+
+## How It Works
+
+1. Run `/sequoia init` to build the Project Map
+2. Run `/sequoia audit` to trigger a full audit across all applicable agents
+3. Each agent specializes in one dimension:
+   - Security: vulnerabilities, secrets, dependency risks
+   - Performance: bottlenecks, memory leaks, query optimization
+   - Architecture: coupling, cohesion, API design, module boundaries
+   - Quality: code health, test coverage, dependency freshness
+   - Experience: accessibility, usability, error handling
+   - Operations: CI/CD, observability, configuration management
+4. The Correlator deduplicates findings across agents
+5. The Reporter generates a Health Score (0-100) with actionable recommendations
+
+## Getting Started
+
+Run `/sequoia init` to start. This builds a Project Map that all agents
+reference during audits.
+<!-- sequoia:end -->

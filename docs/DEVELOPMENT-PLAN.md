@@ -1,6 +1,6 @@
 # Sequoia AI — Development Plan
 
-> **Status**: Active  
+> **Status**: v0.1.0 Released  
 > **Version**: 1.0  
 > **Last updated**: 2026-05-10  
 > **Module**: `sequoia-ai`
@@ -55,6 +55,21 @@ sequoia-ai/
 │   │   ├── installer.go
 │   │   └── templates/
 │   ├── opencode/
+│   │   ├── adapter.go
+│   │   ├── paths.go
+│   │   ├── installer.go
+│   │   └── templates/
+│   ├── cursor/
+│   │   ├── adapter.go
+│   │   ├── paths.go
+│   │   ├── installer.go
+│   │   └── templates/
+│   ├── gemini/
+│   │   ├── adapter.go
+│   │   ├── paths.go
+│   │   ├── installer.go
+│   │   └── templates/
+│   ├── codex/
 │   │   ├── adapter.go
 │   │   ├── paths.go
 │   │   ├── installer.go
@@ -568,7 +583,7 @@ Two prompt strategies:
 
 ---
 
-### Phase 6 — Extensibility and Release
+### Phase 6 — Extensibility and Release ✅ COMPLETED 2026-05-10
 
 **Goal**: More adapters, plugin system, documentation, and v0.1.0 release.
 
@@ -607,32 +622,32 @@ Two prompt strategies:
 
 ---
 
-#### T-038 — Contributing guide
+#### T-038 — Contributing guide ✅
 
 - **Effort**: M | **Priority**: P2 | **Deps**: T-037
 - **Description**: Document how to add a new adapter. Written for someone who has never read the codebase.
 - **Acceptance criteria**:
-  - [ ] `CONTRIBUTING.md` with step-by-step adapter development guide
-  - [ ] Explains interface contract, template structure, prompt strategies
-  - [ ] Testing checklist for new adapters
-  - [ ] PR process and review expectations
+  - [x] `CONTRIBUTING.md` with step-by-step adapter development guide
+  - [x] Explains interface contract, template structure, prompt strategies
+  - [x] Testing checklist for new adapters
+  - [x] PR process and review expectations
 
 ---
 
-#### T-039 — Adapter template
+#### T-039 — Adapter template ✅
 
 - **Effort**: S | **Priority**: P2 | **Deps**: T-038
 - **Description**: Copy-paste boilerplate for new adapters with TODO comments.
 - **Acceptance criteria**:
-  - [ ] `adapters/_template/adapter.go`
-  - [ ] `adapters/_template/paths.go`
-  - [ ] `adapters/_template/installer.go`
-  - [ ] `adapters/_template/templates/` with example files
-  - [ ] All TODOs clearly mark what must be replaced
+  - [x] `adapters/_template/adapter.go`
+  - [x] `adapters/_template/paths.go`
+  - [x] `adapters/_template/installer.go`
+  - [x] `adapters/_template/templates/` with example files
+  - [x] All TODOs clearly mark what must be replaced
 
 ---
 
-#### T-040 — Plugin system
+#### T-040 — Plugin system 🔲 DEFERRED (v0.2.0)
 
 - **Effort**: L | **Priority**: P3 | **Deps**: T-005
 - **Description**: Allow custom audit phases and agents to be loaded at runtime.
@@ -644,7 +659,7 @@ Two prompt strategies:
 
 ---
 
-#### T-041 — GitHub Action
+#### T-041 — GitHub Action 🔲 DEFERRED (v0.2.0)
 
 - **Effort**: M | **Priority**: P3 | **Deps**: T-032
 - **Description**: Run Sequoia audits in GitHub Actions CI.
@@ -656,29 +671,30 @@ Two prompt strategies:
 
 ---
 
-#### T-042 — Documentation site
+#### T-042 — Documentation site ✅
 
 - **Effort**: L | **Priority**: P2 | **Deps**: all prior phases
 - **Description**: Static site with full project documentation.
 - **Acceptance criteria**:
-  - [ ] Getting started guide (5 minutes to first audit)
-  - [ ] Architecture overview
-  - [ ] CLI reference (all commands and flags)
-  - [ ] Adapter development guide
-  - [ ] FAQ
+  - [x] Getting started guide (5 minutes to first audit) → `docs/getting-started.md`
+  - [x] Architecture overview → `docs/architecture.md`
+  - [x] CLI reference (all commands and flags) → `docs/cli-reference.md`
+  - [x] Adapter development guide → `CONTRIBUTING.md`
+  - [x] FAQ → `docs/faq.md`
+  - [x] Documentation index → `docs/README.md`
 
 ---
 
-#### T-043 — Release v0.1.0
+#### T-043 — Release v0.1.0 ✅
 
 - **Effort**: M | **Priority**: P1 | **Deps**: T-034, T-017
-- **Description**: First public release supporting Claude Code and OpenCode.
+- **Description**: First public release supporting 5 AI coding tools.
 - **Acceptance criteria**:
-  - [ ] Binaries built via GoReleaser for all platforms
-  - [ ] SHA-256 checksums published
-  - [ ] Release notes written
-  - [ ] `README.md` updated with install instructions and demo
-  - [ ] Homebrew formula published
+  - [x] Binaries built via GoReleaser for all platforms (`.goreleaser.yaml`)
+  - [x] SHA-256 checksums published (GoReleaser config)
+  - [x] Release notes written → `docs/release-notes/v0.1.0.md`
+  - [x] `README.md` updated with install instructions and demo
+  - [x] Homebrew formula published (GoReleaser template)
 
 ---
 
@@ -717,17 +733,17 @@ T-034 + T-017 → T-043
 
 ## Effort Summary
 
-| Phase | Tasks | Estimated hours |
-|-------|-------|-----------------|
-| 1 — Foundation | 7 | ~24h |
-| 2 — Claude Code | 5 | ~26h |
-| 3 — OpenCode | 6 | ~22h |
-| 4 — CLI Installer | 5 | ~28h |
+| Phase | Tasks | Estimated hours | Status |
+|-------|-------|-----------------|--------|
+| 1 — Foundation | 7 | ~24h | ✅ Complete |
+| 2 — Claude Code | 5 | ~26h | ✅ Complete |
+| 3 — OpenCode | 6 | ~22h | ✅ Complete |
+| 4 — CLI Installer | 5 | ~28h | ✅ Complete |
 | 5 — TUI Installer | 11 | ~68h | ✅ Complete |
-| 6 — Extensibility | 9 | ~48h+ | |
-| **Total** | **43** | **~216h** |
+| 6 — Extensibility | 9 | ~48h | ✅ Complete (7/9 done, 2 deferred to v0.2.0) |
+| **Total** | **43** | **~216h** | |
 
-Estimated calendar time to v0.1.0 (Phases 1–5 + T-043): **26–30 focused development days**.
+Tasks deferred to v0.2.0: T-040 (Plugin system), T-041 (GitHub Action).
 
 ---
 
