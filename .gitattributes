@@ -1,0 +1,4 @@
+# Golden test files must use LF line endings on all platforms.
+# Lipgloss renders with \n, and CRLF causes test mismatches on Windows.
+**/testdata/golden/*.txt text eol=lf
+**/testdata/golden/*.golden text eol=lf
