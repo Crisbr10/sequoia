@@ -4,10 +4,6 @@ version: 2
 
 project_name: sequoia
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - id: sequoia
     main: ./cmd/sequoia/
