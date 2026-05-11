@@ -20,6 +20,10 @@ import (
 func WelcomeView(tools []model.ToolState, version string) string {
 	var b strings.Builder
 
+	// Sequoia tree pixel art above the logo.
+	b.WriteString(styles.SequoiaTree())
+	b.WriteString("\n")
+
 	// ASCII logo.
 	b.WriteString(styles.Logo())
 	b.WriteString("\n")
