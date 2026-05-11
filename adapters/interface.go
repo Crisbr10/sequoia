@@ -19,6 +19,15 @@ const (
 	StrategyTOMLMerge
 )
 
+// InstallOpts carries optional configuration for Install and Uninstall calls.
+// It is designed to be extended with additional fields as needed without
+// breaking the adapter interface (pass-by-value).
+type InstallOpts struct {
+	// Language is the ISO 639-1 or BCP 47 code (e.g. "en", "es", "pt-BR")
+	// for the language to use when rendering templates and agent docs.
+	Language string
+}
+
 // AdapterStatus reports the current installation state of a tool adapter.
 type AdapterStatus struct {
 	// Installed reports whether Sequoia content is present for this tool.
@@ -43,9 +52,11 @@ type ToolAdapter interface {
 	// IsInstalled reports whether Sequoia has already been installed for this tool.
 	IsInstalled() bool
 	// Install installs Sequoia files for this tool.
-	Install() error
+	// opts carries optional configuration such as the target language.
+	Install(opts InstallOpts) error
 	// Uninstall removes Sequoia files for this tool.
-	Uninstall() error
+	// opts carries optional configuration such as the target language.
+	Uninstall(opts InstallOpts) error
 	// Status returns the current installation status.
 	Status() AdapterStatus
 	// SkillsPath returns the absolute path to the skills directory for this tool.

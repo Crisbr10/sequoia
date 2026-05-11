@@ -2,7 +2,7 @@
 name: sequoia
 description: >
   Comprehensive AI-powered code audit framework. Sequoia inspects projects from multiple
-  specialized angles: security, performance, architecture, quality, UX, and operations.
+  specialized angles: security, performance, architecture, quality, UX, operations, and i18n.
   Trigger: When user wants to audit code, review a project, check code quality, run security
   analysis, assess architecture, or says "audit", "review", "analyze code", "health check",
   "code review", "security audit", "performance audit", or uses /sequoia commands.
@@ -101,6 +101,7 @@ Usar el Project Map para determinar qué agentes fase ejecutar:
 | P4 (quality) | **Siempre** |
 | P5 (experience) | `type` ∈ {frontend, fullstack, mobile} |
 | P6 (operations) | `has_ci` OR `has_containerization` OR `has_iac` OR `type` ∈ {backend, fullstack, infrastructure} |
+| P7 (i18n) | **Siempre** |
 
 **Regla de default**: Ante duda, ejecutar el agente. Es preferible un falso positivo en selección que omitir un análisis relevante.
 
@@ -148,6 +149,7 @@ health_score:
     quality: [0-100]
     experience: [0-100|N/A]
     operations: [0-100|N/A]
+    i18n: [0-100|N/A]
   methodology: >
     score = 100 − Σ(severity_weight × scope_multiplier), floored at 0
     severity_weight: critical=15, high=8, medium=4, low=2, info=0

@@ -2,7 +2,7 @@
 name: sequoia
 description: >
   Comprehensive AI-powered code audit framework. Sequoia inspects projects from multiple
-  specialized angles: security, performance, architecture, quality, UX, and operations.
+  specialized angles: security, performance, architecture, quality, UX, operations, and i18n.
   Trigger: When user wants to audit code, review a project, check code quality, run security
   analysis, assess architecture, or says "audit", "review", "analyze code", "health check",
   "code review", "security audit", "performance audit", or uses /sequoia commands.
@@ -101,6 +101,7 @@ Usar el Project Map para determinar qué agentes fase ejecutar:
 | P4 (quality) | **Siempre** |
 | P5 (experience) | `type` ∈ {frontend, fullstack, mobile} |
 | P6 (operations) | `has_ci` OR `has_containerization` OR `has_iac` OR `type` ∈ {backend, fullstack, infrastructure} |
+| P7 (i18n) | **Siempre** |
 
 **Regla de default**: Ante duda, ejecutar el agente. Es preferible un falso positivo en selección que omitir un análisis relevante.
 
@@ -180,6 +181,7 @@ health_score:
     quality: [0-100]
     experience: [0-100|N/A]
     operations: [0-100|N/A]
+    i18n: [0-100|N/A]
 
   methodology: >
     score = 100 − Σ(severity_weight × scope_multiplier), floored at 0
@@ -1596,6 +1598,81 @@ Release process:
 
 ---
 
+# Sequoia i18n — P7
+
+## Misión
+
+Detectar deuda de internacionalización que impide o encarece la localización del producto. Strings hardcodeadas, formatos sin locale, ausencia de soporte RTL, y keys de traducción inconsistentes son bugs latentes que explotan cuando el producto cruza fronteras. No se trata de traducir — se trata de verificar que el código está preparado para ser traducido sin reescribirlo.
+
+## Inspecciones Principales
+
+### Hardcoded String Detection
+- Buscar strings user-facing sin framework de i18n en JSX, HTML, templates, Python, Go, Swift, Kotlin
+- Distinguir strings developer-facing (logs, nombres de variables, keys internas) de user-facing (UI, errores, notificaciones, meta tags)
+- Detectar interpolación que rompe el orden de traducción (debe usar ICU MessageFormat)
+
+### Locale Formatting Verification
+- Verificar que fechas, números, monedas y unidades usan APIs locale-aware (Intl.DateTimeFormat, toLocaleString)
+- Detectar formatos hardcodeados (ej: `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`)
+- Verificar que porcentajes y plurales usan Intl.NumberFormat / Intl.PluralRules
+
+### RTL Support Assessment
+- Buscar atributo `dir` en `<html>` y verificar que se actualiza según locale
+- Buscar propiedades CSS lógicas (margin-inline-start) vs físicas (margin-left)
+- Verificar que iconos direccionales se invierten en RTL
+- Evaluar tipografía para scripts RTL (árabe, hebreo, persa)
+
+### Translation Key Consistency
+- Cross-reference de locale files: detectar keys faltantes, extras, vacías, o con colisión de tipo
+- Verificar estructura de nesting consistente entre locales
+- Detectar keys de traducción no usadas en código (deuda de traducción)
+
+## Delegación
+
+Cuando delegates a sequoia-i18n, usa esta estructura:
+
+```
+Eres sequoia-i18n, agente de internacionalización de Sequoia.
+
+## Contexto del Proyecto
+[Project Map completo]
+
+## Tu Misión
+Analizar el código fuente buscando deuda de internacionalización:
+1. Strings hardcodeadas user-facing sin i18n
+2. Formateo de fechas/números/monedas sin locale
+3. Ausencia de soporte RTL (CSS logical properties, dir attributes)
+4. Translation keys inconsistentes entre archivos de locale
+
+## Restricciones
+- Solo strings user-facing (NO logs, nombres de variables, keys internas)
+- Solo hallazgos con evidencia directa en el código
+- Severidad calibrada al impacto real: ¿el producto tiene audiencia multi-idioma?
+- Máximo 15 hallazgos
+
+Comienza tu análisis ahora.
+```
+
+## Anti-patrones de i18n
+
+| Anti-patrón | Ejemplo | Por qué duele |
+|-------------|---------|---------------|
+| **String concatenation para traducción** | `t('tienes') + count + t('mensajes')` | Imposible de traducir. Orden de palabras varía. Usar ICU MessageFormat. |
+| **Locale hardcodeado** | `new Intl.DateTimeFormat('en-US')` | Ignora preferencia del usuario. Debe usar locale configurado. |
+| **Split sentences** | `t('click') + ' ' + t('here')` | Cada fragmento se traduce sin contexto. La frase debe ser una sola key. |
+| **HTML en translation strings** | `t('welcome {link}')` con HTML raw | Vulnerabilidad XSS. Usar componentes de traducción con slots. |
+| **Traducciones como afterthought** | "Primero implementamos, después traducimos" | La deuda de i18n crece exponencialmente con cada feature. |
+| **Plurales simplistas** | `count === 1 ? 'item' : 'items'` | Árabe tiene 6 formas, ruso 4. Usar ICU PluralRules. |
+
+## Calibración de Libertad
+
+- **Baja libertad**: Detección de strings hardcodeadas — objetiva: el string está en código o no
+- **Baja libertad**: Cross-reference de translation keys — objetiva: presente vs ausente vs vacío
+- **Media libertad**: Clasificación user-facing vs developer-facing — requiere entender intención del string
+- **Alta libertad**: Recomendación de framework de i18n — depende del stack, equipo, y roadmap
+
+---
+
 # Sequoia Correlator — M1
 
 ## Misión
@@ -1613,7 +1690,8 @@ Recopilar hallazgos de TODOS los agentes:
 ├── sequoia-architecture: coupling, god objects, leaky abstractions
 ├── sequoia-quality: test gaps, dep risks, complexity
 ├── sequoia-experience: flow blocks, a11y issues, UX friction
-└── sequoia-operations: CI gaps, monitoring holes, data risks
+├── sequoia-operations: CI gaps, monitoring holes, data risks
+└── sequoia-i18n: hardcoded strings, locale formatting, RTL support, translation keys
 
 Para cada hallazgo, extraer:
 - Ubicación (archivos/módulos afectados)
@@ -1833,6 +1911,7 @@ global_score:
 | Quality | {score} | {class} | {count} |
 | Experience | {score} | {class} | {count} |
 | Operations | {score} | {class} | {count} |
+| i18n | {score} | {class} | {count} |
 
 ### Causas Raíz Identificadas
 

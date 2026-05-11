@@ -186,7 +186,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Verify the version file exists with the correct content.
 	versionFile := filepath.Join(claudeDir, "skills", "sequoia", ".sequoia-version")
@@ -204,14 +204,14 @@ func TestAdapter_Uninstall_RemovesVersionFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Confirm version file exists before uninstall.
 	versionFile := filepath.Join(claudeDir, "skills", "sequoia", ".sequoia-version")
 	_, err := os.Stat(versionFile)
 	require.NoError(t, err, "version file must exist before uninstall")
 
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	// After uninstall, version file should not exist.
 	_, err = os.Stat(versionFile)
@@ -226,7 +226,7 @@ func TestAdapter_VersionRoundTrip(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
 	assert.True(t, s.Installed, "should be installed after Install()")
@@ -244,13 +244,13 @@ func TestAdapter_Reinstall_OverwritesVersion(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
 	assert.Equal(t, "0.1.0", s.Version, "first install should write version 0.1.0")
 
 	// Reinstall should overwrite (still 0.1.0 since the const hasn't changed).
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	s = a.Status()
 	assert.Equal(t, "0.1.0", s.Version, "reinstall should still report 0.1.0")
 }

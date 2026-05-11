@@ -37,7 +37,8 @@ func (a *testAdapter) Name() string                    { return a.name }
 func (a *testAdapter) Detect() bool                    { return true }
 func (a *testAdapter) IsInstalled() bool               { return a.installed }
 
-func (a *testAdapter) Install() error {
+func (a *testAdapter) Install(opts adapters.InstallOpts) error {
+	_ = opts.Language
 	a.mu.Lock()
 	a.installCalls++
 	a.mu.Unlock()
@@ -47,7 +48,8 @@ func (a *testAdapter) Install() error {
 	return a.installErr
 }
 
-func (a *testAdapter) Uninstall() error {
+func (a *testAdapter) Uninstall(opts adapters.InstallOpts) error {
+	_ = opts.Language
 	a.mu.Lock()
 	a.uninstallCalls++
 	a.mu.Unlock()

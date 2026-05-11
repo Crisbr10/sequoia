@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/adapters/cursor"
 
@@ -17,7 +18,7 @@ func TestInstall_CreatesAllFiles(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	assert.FileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
 
@@ -39,7 +40,7 @@ func TestInstall_IsInstalledAfterInstall(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	assert.True(t, a.IsInstalled())
 }
 
@@ -48,7 +49,7 @@ func TestInstall_RulesMDHasVersion(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	raw, err := os.ReadFile(a.SystemPromptPath())
 	require.NoError(t, err)
@@ -60,7 +61,7 @@ func TestStatus_AfterInstall(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	status := a.Status()
 	assert.True(t, status.Installed)
@@ -73,7 +74,7 @@ func TestInstall_WritesVersionFile(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	versionFile := filepath.Join(a.SkillsPath(), ".sequoia-version")
 	data, err := os.ReadFile(versionFile)
@@ -86,13 +87,13 @@ func TestUninstall_RemovesVersionFile(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	versionFile := filepath.Join(a.SkillsPath(), ".sequoia-version")
 	_, err := os.Stat(versionFile)
 	require.NoError(t, err, "version file must exist before uninstall")
 
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	_, err = os.Stat(versionFile)
 	assert.True(t, os.IsNotExist(err), "version file should be removed by Uninstall")
@@ -103,7 +104,7 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 	tmp := t.TempDir()
 	a := cursor.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	skillPath := filepath.Join(a.SkillsPath(), "SKILL.md")
 	assert.FileExists(t, skillPath)

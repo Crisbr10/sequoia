@@ -222,7 +222,7 @@ func runInstall(toolID string, out io.Writer) error {
 		if a.IsInstalled() {
 			fmt.Fprintf(out, "  Sequoia is already installed. Reinstalling ...\n")
 		}
-		if err := a.Install(); err != nil {
+		if err := a.Install(adapters.InstallOpts{}); err != nil {
 			return fmt.Errorf("install %s: %w", a.ID(), err)
 		}
 		fmt.Fprintf(out, "  Done! Use /sequoia-init inside %s to get started.\n", a.Name())
@@ -336,7 +336,7 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 			continue
 		}
 		fmt.Fprintf(out, "Removing Sequoia from %s ...\n", a.Name())
-		if err := a.Uninstall(); err != nil {
+		if err := a.Uninstall(adapters.InstallOpts{}); err != nil {
 			return fmt.Errorf("uninstall %s: %w", a.ID(), err)
 		}
 		fmt.Fprintf(out, "  Done.\n")

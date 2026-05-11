@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/codex"
 
 	"github.com/stretchr/testify/assert"
@@ -195,7 +196,7 @@ func TestInstall_And_Uninstall_RoundTrip(t *testing.T) {
 	a := codex.NewAdapter(tmp)
 
 	// Fresh install.
-	err := a.Install()
+	err := a.Install(adapters.InstallOpts{})
 	require.NoError(t, err)
 	assert.True(t, a.IsInstalled())
 
@@ -220,7 +221,7 @@ func TestInstall_And_Uninstall_RoundTrip(t *testing.T) {
 	assert.NotEmpty(t, status.Version)
 
 	// Uninstall.
-	err = a.Uninstall()
+	err = a.Uninstall(adapters.InstallOpts{})
 	require.NoError(t, err)
 	assert.False(t, a.IsInstalled())
 
@@ -241,10 +242,10 @@ func TestInstall_Idempotent(t *testing.T) {
 
 	a := codex.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	require.True(t, a.IsInstalled())
 
 	// Second install should succeed.
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	assert.True(t, a.IsInstalled())
 }

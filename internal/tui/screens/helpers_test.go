@@ -15,8 +15,8 @@ func (d *dummyAdapter) ID() string                     { return d.id }
 func (d *dummyAdapter) Name() string                   { return d.name }
 func (d *dummyAdapter) Detect() bool                   { return true }
 func (d *dummyAdapter) IsInstalled() bool              { return d.inst }
-func (d *dummyAdapter) Install() error                 { return nil }
-func (d *dummyAdapter) Uninstall() error               { return nil }
+func (d *dummyAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
+func (d *dummyAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
 func (d *dummyAdapter) Status() adapters.AdapterStatus {
 	return adapters.AdapterStatus{Installed: d.inst, Version: d.ver, Path: d.path}
 }

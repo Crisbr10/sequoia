@@ -71,6 +71,7 @@ Diez agentes especializados, cada uno dueño de un dominio:
 | A8 | `sequoia-api` | Diseño de API, contratos, versionado, documentación |
 | A9 | `sequoia-data` | Modelos de datos, esquemas, migraciones, integridad |
 | A10 | `sequoia-deps` | Dependencias, CVEs, licencias, salud del ecosistema |
+| A11 | `sequoia-i18n` | Internacionalización: strings hardcodeados, locale formatting, RTL, translation keys |
 
 ### Capa 2 — Agentes Meta (Post-run)
 
@@ -419,6 +420,24 @@ Compara el estado actual del proyecto contra la última auditoría registrada. M
 
 ---
 
+### A11 · sequoia-i18n (NUEVO)
+
+**Dominio**: Internacionalización (i18n) — strings hardcodeados, locale formatting, RTL support, translation keys.
+
+**Cuándo aplica**: Siempre. Todo proyecto con interfaz de usuario tiene deuda de i18n latente.
+
+**Inspecciones específicas**:
+- Strings hardcodeadas user-facing sin framework de i18n (distinguiendo de developer-facing)
+- Formateo de fechas, números, monedas sin APIs locale-aware (Intl.DateTimeFormat, toLocaleString)
+- Ausencia de soporte RTL (CSS logical properties, dir attributes, inversión de iconos)
+- Translation keys inconsistentes entre archivos de locale (faltantes, extras, vacías, colisiones de tipo)
+- Validación de ICU MessageFormat para plurales y género
+- Anti-patrones: string concatenation, locale hardcodeado, split sentences
+
+**Entregable nuevo**: Matrix de preparación i18n — tabla con columnas: locale, strings pendientes, formato por corregir, RTL readiness, translation key health.
+
+---
+
 ### M1 · sequoia-correlator (Meta)
 
 **Propósito**: Encontrar causas raíz transversales. Muchos síntomas en fases distintas tienen la misma causa.
@@ -730,8 +749,8 @@ Esto permite:
 | Aspecto | Original | Sequoia |
 |---------|----------|---------|
 | **Stack** | Asume frontend (package.json, vite, hooks) | Auto-detect: cualquier stack |
-| **Fases** | 7 fases | 10 agentes de fase + 3 meta |
-| **Nuevas áreas** | — | API Design, Data/Schema, Dependency Health |
+| **Fases** | 7 fases | 11 agentes de fase + 3 meta |
+| **Nuevas áreas** | — | API Design, Data/Schema, Dependency Health, i18n |
 | **Modo revisión** | Solo auditoría completa | Audit + Review (PR/diff) + Incremental |
 | **Correlación** | No existe | sequoia-correlator: causas raíz transversales |
 | **Scoring** | No existe | Health Scorecard por fase y global |
@@ -740,6 +759,7 @@ Esto permite:
 | **DX de API** | No existe | A8 incluye DX para consumidores de API |
 | **PII/Data** | Mencionado en seguridad | A9 dedicado a datos, integridad, privacidad |
 | **Deps** | Mencionado en DevOps | A10 dedicado con CVEs, licencias, risk score |
+| **i18n** | No existe | A11: hardcoded strings, locale formatting, RTL, translation keys |
 | **Tareas para agente** | Formato estático | /sequoia fix: output optimizado para implementador |
 | **Madurez del proyecto** | Ignora contexto | Adapta criterios según madurez (prototipo vs producción) |
 | **Hallazgos futuros** | Mezclados con actuales | `[SOLO SI ESCALA]` los separa explícitamente |

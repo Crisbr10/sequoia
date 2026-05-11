@@ -122,7 +122,9 @@ func (a *Adapter) Status() adapters.AdapterStatus {
 }
 
 // Install installs Sequoia files for Claude Code.
-func (a *Adapter) Install() error {
+func (a *Adapter) Install(opts adapters.InstallOpts) error {
+	_ = opts.Language
+
 	base, err := a.base()
 	if err != nil {
 		return fmt.Errorf("install: resolve home: %w", err)
@@ -205,7 +207,9 @@ func (a *Adapter) Install() error {
 }
 
 // Uninstall removes Sequoia files for Claude Code.
-func (a *Adapter) Uninstall() error {
+func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
+	_ = opts.Language
+
 	base, err := a.base()
 	if err != nil {
 		return fmt.Errorf("uninstall: resolve home: %w", err)

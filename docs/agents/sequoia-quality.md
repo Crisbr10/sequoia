@@ -186,8 +186,215 @@ def process_order(order):           # Nivel 0
 | **any/unknown en TypeScript** | `as any` para "evitar errores de tipos" | TypeScript se convierte en JavaScript con pasos extra |
 | **Dependencia abandonada en prod** | Package sin update en 2+ años como dependencia core | Sin patches de seguridad, bugs sin fix |
 
+## Deep Dependency Analysis (Análisis Profundo de Dependencias)
+
+Esta sección extiende el escaneo tradicional de dependencias con análisis de seguridad multi-fuente, cumplimiento de licencias en árbol transitivo, y generación de SBOM.
+
+### CVE Multi-Source Scanning con Severity Triage (R1)
+
+No confiar en una sola fuente de CVEs. Diferentes bases de datos tienen diferentes tiempos de publicación y niveles de detalle.
+
+```
+Para cada dependencia directa + transitiva:
+├── 1. Consultar múltiples fuentes de advisories:
+│   ├── NVD (National Vulnerability Database) — nvd.nist.gov
+│   ├── GitHub Advisory Database — github.com/advisories
+│   ├── OSV (Open Source Vulnerabilities) — osv.dev
+│   ├── Snyk Vulnerability Database — snyk.io/vuln
+│   └── Específicas del ecosistema:
+│       ├── npm: npm audit / github.com/advisories
+│       ├── Go: govulncheck / pkg.go.dev/vuln
+│       ├── Python: pip-audit / safety / pyup.io
+│       ├── Rust: cargo-audit / rustsec.org
+│       └── Java: OWASP Dependency-Check / snyk
+│
+├── 2. Para cada CVE encontrado, evaluar severidad EN CONTEXTO:
+│   ├── Severidad base (CVSS score): critical (9.0+), high (7.0-8.9), medium (4.0-6.9), low (<4.0)
+│   ├── Usage scope: ¿cómo usa el proyecto esta dependencia?
+│   │   ├── Directa en runtime → Severidad SE MANTIENE o AUMENTA
+│   │   ├── Directa solo en dev/test → Downgrade un nivel (critical→high, high→medium)
+│   │   ├── Transitiva en runtime → Severidad se mantiene
+│   │   ├── Transitiva solo en dev → Downgrade DOS niveles (critical→medium, high→low)
+│   │   └── No utilizada (phantom dep) → INFO: remover del árbol
+│   │
+│   ├── Exploitability en este proyecto:
+│   │   ├── ¿La superficie vulnerable está expuesta en este proyecto?
+│   │   │   Ej: CVE en función de parseo XML, pero el proyecto no procesa XML → downgrade
+│   │   ├── ¿Requiere condiciones específicas no presentes? → downgrade
+│   │   └── ¿Es remotely exploitable sin autenticación? → upgrade
+│   │
+│   └── Fix availability:
+│       ├── ¿Existe versión parchada? → Priorizar upgrade
+│       ├── ¿No hay fix publicado? → Evaluar workaround o reemplazo
+│       └── ¿El paquete está abandonado? → Migración obligatoria
+│
+└── 3. Priorizar corrección: severity × usage_scope × exploitability × fix_availability
+```
+
+### Árbol de Decisión: CVE Triage
+
+```
+¿El CVE tiene fix disponible?
+├── SÍ → ¿El fix es semver-compatible?
+│   ├── SÍ (patch/minor) → Upgrade inmediato, bajo riesgo
+│   ├── NO (major) → Evaluar breaking changes, planificar migración
+│   └── Backport disponible → Evaluar si aplica
+│
+├── NO → ¿Hay workaround documentado?
+│   ├── SÍ → Implementar workaround, planificar monitoreo del fix
+│   └── NO → Evaluar riesgo de continuar vs reemplazar dependencia
+│
+└── Paquete abandonado (sin mantenimiento >1 año)
+    └── Migración a alternativa es OBLIGATORIA si:
+        ├── CVE es critical o high
+        ├── Es dependencia directa en runtime
+        └── No hay workaround viable
+```
+
+### License Compliance con Árbol Transitivo (R2)
+
+No basta con verificar la licencia de las dependencias directas. Una dependencia transitiva con licencia copyleft fuerte (GPL, AGPL) puede contaminar legalmente todo el proyecto.
+
+```
+Flujo de Auditoría de Licencias:
+├── 1. Extraer árbol COMPLETO de dependencias
+│   ├── npm: npm ls --all --json (o lockfile parsing)
+│   ├── Go: go mod graph + go-licenses
+│   ├── Python: pip-licenses + pipdeptree
+│   ├── Rust: cargo-license + cargo tree
+│   └── Java: gradle dependencies / mvn dependency:tree
+│
+├── 2. Para CADA dependencia (directa + transitiva):
+│   ├── Detectar licencia declarada (package.json license, Cargo.toml, etc.)
+│   ├── Verificar si hay múltiples licencias (dual-licensing)
+│   ├── Clasificar riesgo de licencia:
+│   │   ├── MIT, Apache-2.0, BSD-2/3-Clause, ISC → PERMISIVO: sin restricciones
+│   │   ├── MPL-2.0, LGPL-2.1/3.0 → COPyleft DÉBIL: linking OK, modificaciones del archivo deben compartirse
+│   │   ├── GPL-2.0, GPL-3.0 → COPyleft FUERTE: todo el proyecto derivado debe ser GPL
+│   │   ├── AGPL-3.0 → COPyleft DE RED: incluso uso SaaS obliga a liberar código
+│   │   ├── SSPL, BSL, Commons Clause → RESTRICTIVO: no es open-source tradicional
+│   │   ├── Unlicense, CC0 → PUBLIC DOMAIN: sin restricciones
+│   │   └── Sin licencia / "All Rights Reserved" → PROPIETARIO: sin permiso explícito, USO NO PERMITIDO
+│   │
+│   └── Alertas especiales:
+│       ├── GPL/AGPL en dependencia transitiva de runtime → CRÍTICO si el proyecto es propietario
+│       ├── Múltiples licencias en conflicto en el mismo paquete
+│       └── Cambio de licencia entre versiones (ej: MIT → BSL)
+│
+└── 3. Reportar hallazgos por severidad:
+    ├── CRÍTICO: Copyleft fuerte en dependencia runtime de proyecto propietario
+    ├── ALTO: Copyleft fuerte en dependencia dev/build
+    ├── MEDIO: Copyleft débil sin cumplimiento documentado
+    └── BAJO: Licencia no estándar sin conflictos aparentes
+```
+
+### Árbol de Decisión: Cumplimiento de Copyleft
+
+```
+¿El proyecto es propietario (no open-source)?
+├── SÍ → Cualquier GPL/AGPL en dependencias runtime es BLOQUEANTE
+│   ├── ¿Es dependencia directa? → Reemplazar antes de distribución
+│   ├── ¿Es transitiva? → Buscar alternativa o negociar licencia comercial
+│   └── ¿Es dev-dependency solamente? → Riesgo menor (no se distribuye)
+│
+└── NO (proyecto open-source)
+    ├── ¿El proyecto usa licencia compatible con GPL?
+    │   ├── MIT, Apache-2.0, BSD → Compatible con GPL
+    │   ├── MPL-2.0 → Compatible con GPL (aunque copyleft débil)
+    │   └── Otra licencia → Verificar compatibilidad explícita
+    │
+    └── ¿El proyecto ES GPL?
+        └── AGPL en dependencias es aceptable (es más fuerte, el proyecto ya es copyleft)
+```
+
+### SBOM Generation Methodology (R3)
+
+Un Software Bill of Materials (SBOM) es un inventario formal de todos los componentes del proyecto. Es requerido por regulaciones como la Executive Order 14028 (US) y el Cyber Resilience Act (EU).
+
+**Esta es documentación de metodología para el agente. No se implementa código Go.**
+
+#### Cuándo generar SBOM
+
+```
+¿El proyecto distribuye software a terceros?
+├── SÍ → SBOM es OBLIGATORIO
+│   ├── Formato recomendado: CycloneDX (más rico, soporta hardware y servicios)
+│   ├── Alternativa: SPDX (estándar ISO/IEC 5962:2021, más legal/compliance)
+│   └── Ambos son aceptables — elige según las herramientas disponibles en el stack
+│
+├── NO (servicio interno/SaaS) → SBOM RECOMENDADO pero no obligatorio
+│   └── Permite auditorías de seguridad internas y respuesta a incidentes
+│
+└── Frecuencia:
+    ├── Generar en CI en cada build
+    ├── Adjuntar al release artifact
+    └── Actualizar cuando cambian dependencias (dependabot, renovate)
+```
+
+#### Herramientas de Generación por Stack
+
+| Stack | CycloneDX | SPDX |
+|-------|-----------|------|
+| **Node.js** | `@cyclonedx/cyclonedx-npm` | `spdx-sbom-generator` |
+| **Go** | `cyclonedx-gomod` | `spdx-sbom-generator` |
+| **Python** | `cyclonedx-bom` (poetry plugin) | `spdx-sbom-generator` |
+| **Rust** | `cyclonedx-rust` (cargo-cyclonedx) | `cargo-spdx` |
+| **Java** | `cyclonedx-maven-plugin` / `cyclonedx-gradle-plugin` | `spdx-maven-plugin` |
+| **Docker** | `syft` (Anchore) genera CycloneDX + SPDX | `syft` |
+| **Multi-lenguaje** | `syft`, `trivy`, `cdxgen` | `syft`, `trivy` |
+
+#### Workflow de SBOM (para documentar en el reporte de auditoría)
+
+```yaml
+sbom_workflow:
+  generation:
+    tool: "cyclonedx-gomod"  # según stack detectado
+    command: "cyclonedx-gomod app -json -output bom.json"
+    frequency: "ci_every_build"
+  
+  validation:
+    # Verificar que el SBOM generado es válido
+    - "cyclonedx validate --input-file bom.json"
+    # Verificar que no faltan dependencias conocidas
+    - "Comparar count de componentes vs go.mod/go.sum"
+  
+  enrichment:
+    # Agregar metadata de licencias (si la herramienta no las incluye)
+    - "go-licenses csv ./... > licenses.csv"
+    # Agregar información de CVEs
+    - "govulncheck -json ./... > vulns.json"
+  
+  distribution:
+    # Adjuntar al release
+    - "Incluir bom.json en GitHub Release assets"
+    # Firmar digitalmente
+    - "cosign sign-blob bom.json"
+    
+  consumption:
+    # El SBOM permite:
+    - "Identificar componentes afectados por un CVE en < 1 minuto"
+    - "Verificar compliance de licencias en todo el árbol"
+    - "Responder a auditorías de seguridad de clientes/reguladores"
+```
+
+#### Checklist de SBOM
+
+| Aspecto | Verificación |
+|---------|-------------|
+| ¿El proyecto genera SBOM? | SÍ / NO |
+| ¿Formato? | CycloneDX / SPDX / Ninguno |
+| ¿Cobertura? | Solo directas / Directas + transitivas |
+| ¿Incluye licencias? | SÍ / NO |
+| ¿Se genera en CI? | SÍ / NO |
+| ¿Se adjunta a releases? | SÍ / NO |
+| ¿Está firmado digitalmente? | SÍ / NO |
+| ¿Herramienta de generación? | [nombre y versión] |
+
 ## Calibración de Libertad
 
 - **Baja libertad**: CVE assessment — severidad es factual, no opinable
+- **Baja libertad**: License compliance — la licencia declarada es un hecho, no una opinión
 - **Media libertad**: Evaluación de test quality — juicio sobre comportamiento vs implementación
+- **Media libertad**: CVE severity scoping — requiere interpretación del contexto de uso real
 - **Alta libertad**: Recomendaciones de estrategia de testing — depende de recursos y timeline del equipo
+- **Alta libertad**: Recomendación de reemplazo de dependencias — trade-off entre esfuerzo de migración y riesgo

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/adapters/opencode"
 
@@ -18,7 +19,7 @@ func TestInstall_CreatesAllFiles(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	assert.FileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
 
@@ -40,7 +41,7 @@ func TestInstall_IsInstalledAfterInstall(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	assert.True(t, a.IsInstalled())
 }
 
@@ -49,7 +50,7 @@ func TestInstall_SkillContainsVersion(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	raw, err := os.ReadFile(filepath.Join(a.SkillsPath(), "SKILL.md"))
 	require.NoError(t, err)
@@ -61,7 +62,7 @@ func TestInstall_AgentsMDHasMarkers(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	raw, err := os.ReadFile(a.SystemPromptPath())
 	require.NoError(t, err)
@@ -75,8 +76,8 @@ func TestInstall_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	assert.True(t, a.IsInstalled())
 
 	raw, err := os.ReadFile(a.SystemPromptPath())
@@ -101,7 +102,7 @@ func TestInstall_PreservesExistingAgentsMD(t *testing.T) {
 	originalContent := "# Existing\n"
 	require.NoError(t, os.WriteFile(agentsMDPath, []byte(originalContent), 0o644))
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Backup should contain the original content.
 	backupPath := agentsMDPath + ".sequoia-backup"
@@ -115,8 +116,8 @@ func TestUninstall_RemovesAllFiles(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	assert.NoFileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
 
@@ -138,8 +139,8 @@ func TestUninstall_CleansAgentsMD(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	assert.False(t, a.IsInstalled())
 }
@@ -154,8 +155,8 @@ func TestUninstall_PreservesOtherAgentsMD(t *testing.T) {
 	originalContent := "# My content\n"
 	require.NoError(t, os.WriteFile(agentsMDPath, []byte(originalContent), 0o644))
 
-	require.NoError(t, a.Install())
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	raw, err := os.ReadFile(agentsMDPath)
 	require.NoError(t, err)
@@ -167,7 +168,7 @@ func TestStatus_AfterInstall(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	status := a.Status()
 	assert.True(t, status.Installed)
@@ -179,7 +180,7 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
 
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Skill file.
 	skillPath := filepath.Join(a.SkillsPath(), "SKILL.md")

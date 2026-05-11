@@ -15,6 +15,7 @@ Sequoia is installed and provides comprehensive multi-agent code auditing.
 | P4 Quality | Test coverage, naming, dead code, documentation | Always |
 | P5 Experience | Accessibility, UX patterns, conversion flows | Frontend, fullstack, mobile |
 | P6 Operations | CI/CD, containerization, observability, IaC | Backend, fullstack, infra |
+| P7 i18n | I18n, locale, RTL, translation keys | All /sequoia commands |
 | M1 Correlator | Deduplicates and correlates findings across agents | After all phase agents |
 | M2 Reporter | Calculates Health Score, generates deliverables | Final step |
 
@@ -51,6 +52,7 @@ contains the full orchestrator instructions; command files map to `/sequoia` com
 - **sequoia-quality**: Evaluates code health, dependencies, and testing effectiveness.
 - **sequoia-experience**: Evaluates end-user experience — usability, accessibility, effectiveness.
 - **sequoia-operations**: Evaluates operational readiness — CI/CD, observability, infrastructure.
+- **sequoia-i18n**: Audits internationalization readiness — hardcoded strings, locale formatting, RTL support, translation keys.
 - **sequoia-correlator**: Deduplicates and correlates findings across all phase agents.
 - **sequoia-reporter**: Calculates Health Score and generates structured deliverables.
 <!-- sequoia:end -->

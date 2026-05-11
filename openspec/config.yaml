@@ -1,7 +1,8 @@
 # Sequoia — SDD Configuration
-# Initialized by sdd-init on 2026-05-09, updated 2026-05-09
+# Initialized by sdd-init on 2026-05-09, updated 2026-05-11
 
 project: Sequoia
+version: "1.0"
 language: go
 modules:
   - name: sequoia-ai

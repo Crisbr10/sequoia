@@ -26,8 +26,8 @@ func (s *stubAdapter) ID() string                     { return s.id }
 func (s *stubAdapter) Name() string                   { return s.name }
 func (s *stubAdapter) Detect() bool                   { return s.installed }
 func (s *stubAdapter) IsInstalled() bool              { return s.installed }
-func (s *stubAdapter) Install() error                 { return nil }
-func (s *stubAdapter) Uninstall() error               { return nil }
+func (s *stubAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
+func (s *stubAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
 func (s *stubAdapter) Status() adapters.AdapterStatus { return adapters.AdapterStatus{} }
 func (s *stubAdapter) SkillsPath() string             { return "" }
 func (s *stubAdapter) CommandsPath() string           { return "" }

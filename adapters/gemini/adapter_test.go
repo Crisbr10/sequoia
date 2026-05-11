@@ -148,7 +148,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Verify the version file exists with the correct content.
 	versionFile := filepath.Join(geminiDir, "sequoia", ".sequoia-version")
@@ -164,14 +164,14 @@ func TestAdapter_Uninstall_RemovesSequoiaDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	// Confirm sequoia dir exists before uninstall.
 	sequoiaDir := filepath.Join(geminiDir, "sequoia")
 	_, err := os.Stat(sequoiaDir)
 	require.NoError(t, err, "sequoia dir must exist before uninstall")
 
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	// After uninstall, sequoia dir should not exist.
 	_, err = os.Stat(sequoiaDir)
@@ -185,7 +185,7 @@ func TestAdapter_VersionRoundTrip(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
 	assert.True(t, s.Installed, "should be installed after Install()")
@@ -199,13 +199,13 @@ func TestAdapter_Reinstall_OverwritesVersion(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
 	assert.Equal(t, "0.1.0", s.Version, "first install should write version 0.1.0")
 
 	// Reinstall should overwrite.
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	s = a.Status()
 	assert.Equal(t, "0.1.0", s.Version, "reinstall should still report 0.1.0")
 }
@@ -217,7 +217,7 @@ func TestAdapter_Install_ValidatesSkillFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	skillFile := filepath.Join(geminiDir, "sequoia", "skills", "SKILL.md")
 	data, err := os.ReadFile(skillFile)
@@ -232,7 +232,7 @@ func TestAdapter_Install_ValidatesGeminiMD(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
 	data, err := os.ReadFile(geminiMD)
@@ -249,7 +249,7 @@ func TestAdapter_Install_ValidatesCommands(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	commands := []string{"sequoia-init.md", "sequoia-audit.md", "sequoia-review.md", "sequoia-fix.md", "sequoia-diff.md"}
 	for _, cmd := range commands {
@@ -266,9 +266,9 @@ func TestAdapter_Uninstall_RemovesMarkers(t *testing.T) {
 	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
 
 	a := gemini.NewAdapter(tmp)
-	require.NoError(t, a.Install())
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
-	require.NoError(t, a.Uninstall())
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
 	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
 	data, err := os.ReadFile(geminiMD)
