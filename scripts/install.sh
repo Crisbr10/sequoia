@@ -156,10 +156,13 @@ resolve_version() {
 
 VERSION="$(resolve_version "$VERSION_INPUT")"
 
+# Strip "v" prefix for asset filenames (tags are v0.1.1, assets use 0.1.1)
+VERSION_NUMBER="${VERSION#v}"
+
 # -- Construct download URLs --------------------------------------------------
-TARBALL="sequoia_${VERSION}_${OS}_${ARCH}.tar.gz"
+TARBALL="sequoia_${VERSION_NUMBER}_${OS}_${ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
-CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/sequoia_${VERSION}_checksums.txt"
+CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/sequoia_${VERSION_NUMBER}_checksums.txt"
 
 # -- Idempotency check --------------------------------------------------------
 check_existing() {

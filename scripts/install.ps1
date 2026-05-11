@@ -46,46 +46,15 @@ function Write-Err   { Write-Host "[ERROR] $args" -ForegroundColor Red }
 
 # -- OS / Arch detection ------------------------------------------------------
 function Get-NormalizedArch {
-    # Prefer .NET RuntimeInformation (available in PowerShell 5.1+ on full .NET)
-    $arch = $null
-    try {
-        $archName = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-        if ($archName) {
-            $arch = $archName.ToString()
-        }
-    } catch {
-        # Ignore — fall through to fallbacks
+    # Simple, reliable detection (same approach as gentle-ai)
+    if (-not [Environment]::Is64BitOperatingSystem) {
+        Write-Err "32-bit Windows is not supported"
+        exit $EXIT_GENERAL
     }
-
-    # Fallback 1: PROCESSOR_ARCHITECTURE env var
-    if (-not $arch) {
-        $arch = $env:PROCESSOR_ARCHITECTURE
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+        return "arm64"
     }
-
-    # Fallback 2: use .NET Environment
-    if (-not $arch) {
-        try {
-            $arch = [System.Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
-        } catch { }
-    }
-
-    # Last resort default
-    if (-not $arch) {
-        $arch = "AMD64"
-    }
-
-    # Normalize to lowercase
-    $arch = $arch.ToLower()
-
-    switch -Regex ($arch) {
-        '^(x64|amd64|x86_64)$' { return "amd64" }
-        '^(arm64|aarch64)$'    { return "arm64" }
-        default {
-            Write-Err "Unsupported architecture: $arch"
-            Write-Err "Supported architectures: x86_64/amd64, arm64/aarch64"
-            exit $EXIT_GENERAL
-        }
-    }
+    return "amd64"
 }
 
 $OS   = "windows"
@@ -122,10 +91,13 @@ function Resolve-Version {
 
 $ResolvedVersion = Resolve-Version -VersionInput $Version
 
+# Strip "v" prefix for asset filenames (tags are v0.1.1, assets use 0.1.1)
+$VersionNumber = $ResolvedVersion.TrimStart("v")
+
 # -- Download URLs ------------------------------------------------------------
-$Tarball     = "sequoia_${ResolvedVersion}_${OS}_${Arch}.zip"
+$Tarball     = "sequoia_${VersionNumber}_${OS}_${Arch}.zip"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball"
-$ChecksumUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/sequoia_${ResolvedVersion}_checksums.txt"
+$ChecksumUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/sequoia_${VersionNumber}_checksums.txt"
 
 # -- Idempotency check --------------------------------------------------------
 function Test-SequoiaInstalled {
