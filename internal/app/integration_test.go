@@ -53,7 +53,7 @@ func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
 
 	// Verify initial state.
 	assert.Equal(t, model.ScreenWelcome, m.Screen)
-	assert.Contains(t, m.View(), "Sequoia")
+	assert.Contains(t, m.View(), "Menu")
 
 	// Welcome → ToolSelection.
 	m = sendKey(m, tea.KeyMsg{Type: tea.KeyEnter}, 3)

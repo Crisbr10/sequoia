@@ -29,14 +29,10 @@ var welcomeMenuLabels = [WelcomeMenuCount]string{
 	"Quit",
 }
 
-// WelcomeView renders the Welcome/Home screen: tree, logo, version, and a
+// WelcomeView renders the Welcome/Home screen: logo, version, and a
 // navigable main menu. cursor is the currently highlighted menu item index.
 func WelcomeView(version string, cursor int) string {
 	var b strings.Builder
-
-	// Pixel-art sequoia tree.
-	b.WriteString(styles.SequoiaTree())
-	b.WriteString("\n")
 
 	// ASCII logo with gradient.
 	b.WriteString(styles.Logo())

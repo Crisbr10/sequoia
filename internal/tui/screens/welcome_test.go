@@ -18,7 +18,6 @@ func TestWelcomeView_ContainsBrandingElements(t *testing.T) {
 	version := "v0.1.0"
 	view := screens.WelcomeView(version, 0)
 
-	assert.Contains(t, view, "Sequoia", "Welcome screen should contain Sequoia branding")
 	assert.Contains(t, view, version, "Welcome screen should display the version")
 	assert.Contains(t, view, "navigate", "Welcome screen should show navigation hint")
 	assert.Contains(t, view, "quit", "Welcome screen should show quit hint")

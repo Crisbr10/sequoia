@@ -210,8 +210,8 @@ func TestWelcomeView_RendersContent(t *testing.T) {
 	// Should NOT be the default placeholder — screens are wired.
 	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view,
 		"Welcome screen should render real content, not placeholder")
-	assert.Contains(t, view, "Sequoia",
-		"Welcome view should contain branding")
+	assert.Contains(t, view, "Menu",
+		"Welcome view should contain the main menu")
 }
 
 func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
