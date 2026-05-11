@@ -231,8 +231,6 @@ func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
 }
 
 func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
-	t.Parallel()
-
 	// Register mock adapters, then navigate to ToolSelection.
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
@@ -277,8 +275,6 @@ func TestToolSelection_EscNavigatesToWelcome(t *testing.T) {
 }
 
 func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
-	t.Parallel()
-
 	// Register one tool, none selected.
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
@@ -306,8 +302,6 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 }
 
 func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) {
-	t.Parallel()
-
 	// Register one tool and select it.
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
@@ -337,8 +331,6 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 }
 
 func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -359,8 +351,6 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 }
 
 func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -403,8 +393,6 @@ func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
 }
 
 func TestInstallProgressView_RendersProgressTable(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -451,8 +439,6 @@ func TestInstallProgress_QQuitsFromProgress(t *testing.T) {
 }
 
 func TestCompleteView_RendersSuccess(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -514,8 +500,6 @@ func TestComplete_QKeyQuits(t *testing.T) {
 }
 
 func TestStatusView_RendersToolTable(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -534,8 +518,6 @@ func TestStatusView_RendersToolTable(t *testing.T) {
 }
 
 func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -560,8 +542,6 @@ func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
 }
 
 func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -586,8 +566,6 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 }
 
 func TestStatus_UKeyNoOp(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -608,8 +586,6 @@ func TestStatus_UKeyNoOp(t *testing.T) {
 }
 
 func TestUninstallView_RendersCheckboxList(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -628,8 +604,6 @@ func TestUninstallView_RendersCheckboxList(t *testing.T) {
 }
 
 func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -653,8 +627,6 @@ func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
 }
 
 func TestUninstall_SpaceTogglesSelection(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -693,8 +665,6 @@ func TestUninstall_EscGoesBackToStatus(t *testing.T) {
 }
 
 func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -733,8 +703,6 @@ func TestUninstallConfirm_NCancelsConfirmation(t *testing.T) {
 }
 
 func TestErrorView_RendersFailedTools(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -764,8 +732,6 @@ func TestErrorView_RendersFailedTools(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -805,8 +771,6 @@ func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -846,8 +810,6 @@ func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -892,8 +854,6 @@ func TestUpdateScreenMsg_NonInstallProgressScreen_NoOp(t *testing.T) {
 }
 
 func TestView_DefaultPlaceholder(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -912,8 +872,6 @@ func TestView_DefaultPlaceholder(t *testing.T) {
 }
 
 func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -977,8 +935,6 @@ func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 }
 
 func TestToolSelection_SpaceToggles(t *testing.T) {
-	t.Parallel()
-
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()

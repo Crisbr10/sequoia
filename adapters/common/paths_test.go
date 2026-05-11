@@ -12,14 +12,23 @@ import (
 )
 
 // TestResolveHome_NoSymlink verifies that resolving a non-symlinked path
-// returns the path unchanged.
+// returns a real path. On some platforms (macOS /var→/private/var,
+// Windows short names) even TempDir paths resolve differently, so we
+// verify the resolved path exists and is canonical (idempotent).
 func TestResolveHome_NoSymlink(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	resolved, err := common.ResolveHome(dir)
 	require.NoError(t, err)
-	assert.Equal(t, dir, resolved)
+
+	// ResolveHome must return a real, existing directory.
+	assert.DirExists(t, resolved)
+
+	// Double-resolving should be idempotent.
+	resolved2, err := common.ResolveHome(resolved)
+	require.NoError(t, err)
+	assert.Equal(t, resolved, resolved2)
 }
 
 // TestResolveHome_Symlink verifies that resolving a symlinked path
@@ -36,7 +45,9 @@ func TestResolveHome_Symlink(t *testing.T) {
 	require.NoError(t, err)
 
 	// resolved should be the real directory, not the symlink.
-	absReal, err := filepath.Abs(realDir)
+	// Use EvalSymlinks on realDir too, since realDir itself may need
+	// canonicalisation (e.g. macOS /var → /private/var).
+	absReal, err := filepath.EvalSymlinks(realDir)
 	require.NoError(t, err)
 	assert.Equal(t, absReal, resolved)
 	assert.NotEqual(t, linkDir, resolved)

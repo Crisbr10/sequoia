@@ -74,7 +74,12 @@ func TestPaths_SymlinkResolved(t *testing.T) {
 	a := codex.NewAdapter(linkHome)
 	p := a.SkillsPath()
 
-	assert.Contains(t, p, realHome,
+	// Resolve realHome via EvalSymlinks so the comparison works on
+	// platforms where TempDir returns a path needing canonicalisation
+	// (macOS /var → /private/var, Windows short names).
+	absReal, err := filepath.EvalSymlinks(realHome)
+	require.NoError(t, err)
+	assert.Contains(t, p, absReal,
 		"SkillsPath should use resolved (real) path, got %s", p)
 	assert.NotContains(t, p, linkHome,
 		"SkillsPath should NOT use symlink path, got %s", p)

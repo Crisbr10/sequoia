@@ -39,15 +39,11 @@ func (s *stubAdapter) PromptStrategy() adapters.PromptStrategy {
 var _ adapters.ToolAdapter = (*stubAdapter)(nil)
 
 func TestHasSelectedInstalled_Empty(t *testing.T) {
-	t.Parallel()
-
 	assert.False(t, hasSelectedInstalled(nil), "empty tools should return false")
 	assert.False(t, hasSelectedInstalled([]model.ToolState{}), "empty slice should return false")
 }
 
 func TestHasSelectedInstalled_SelectedNotInstalled(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: false}, Selected: true},
 	}
@@ -55,8 +51,6 @@ func TestHasSelectedInstalled_SelectedNotInstalled(t *testing.T) {
 }
 
 func TestHasSelectedInstalled_NotSelectedButInstalled(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: true}, Selected: false},
 	}
@@ -64,8 +58,6 @@ func TestHasSelectedInstalled_NotSelectedButInstalled(t *testing.T) {
 }
 
 func TestHasSelectedInstalled_SelectedAndInstalled(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: true}, Selected: true},
 	}
@@ -73,8 +65,6 @@ func TestHasSelectedInstalled_SelectedAndInstalled(t *testing.T) {
 }
 
 func TestHasSelectedInstalled_Mixed(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: false}, Selected: true},
 		{Adapter: &stubAdapter{id: "b", name: "B", installed: true}, Selected: false},
@@ -84,8 +74,6 @@ func TestHasSelectedInstalled_Mixed(t *testing.T) {
 }
 
 func TestBuildProgressTools_SingleSelected(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "tool-1", name: "Tool 1"}, Selected: true},
 		{Adapter: &stubAdapter{id: "tool-2", name: "Tool 2"}, Selected: false},
@@ -109,8 +97,6 @@ func TestBuildProgressTools_SingleSelected(t *testing.T) {
 }
 
 func TestBuildProgressTools_NoneSelected(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "tool-1", name: "Tool 1"}, Selected: false},
 	}
@@ -120,15 +106,11 @@ func TestBuildProgressTools_NoneSelected(t *testing.T) {
 }
 
 func TestBuildProgressTools_EmptyInput(t *testing.T) {
-	t.Parallel()
-
 	result := buildProgressTools(nil)
 	assert.Empty(t, result, "nil input should produce empty result")
 }
 
 func TestBuildUninstallProgressTools_OnlySelectedAndInstalled(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: true}, Selected: true},
 		{Adapter: &stubAdapter{id: "b", name: "B", installed: true}, Selected: false},
@@ -146,8 +128,6 @@ func TestBuildUninstallProgressTools_OnlySelectedAndInstalled(t *testing.T) {
 }
 
 func TestBuildUninstallProgressTools_NoneInstalled(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A", installed: false}, Selected: true},
 	}
@@ -157,15 +137,11 @@ func TestBuildUninstallProgressTools_NoneInstalled(t *testing.T) {
 }
 
 func TestBuildUninstallProgressTools_EmptyInput(t *testing.T) {
-	t.Parallel()
-
 	result := buildUninstallProgressTools(nil)
 	assert.Empty(t, result, "nil input should produce empty result")
 }
 
 func TestRenderUninstallConfirm_ContainsPrompt(t *testing.T) {
-	t.Parallel()
-
 	result := renderUninstallConfirm()
 	assert.Contains(t, result, "Remove Sequoia", "confirmation should mention Remove Sequoia")
 	assert.Contains(t, result, "y/N", "confirmation should show y/N prompt")
@@ -173,8 +149,6 @@ func TestRenderUninstallConfirm_ContainsPrompt(t *testing.T) {
 }
 
 func TestWaitForProgress_ReceivesMessage(t *testing.T) {
-	t.Parallel()
-
 	ch := make(chan model.ProgressMsg, 1)
 	expected := model.ProgressMsg{ToolID: "test", Step: "Skills", Done: true}
 	ch <- expected
@@ -193,8 +167,6 @@ func TestWaitForProgress_ReceivesMessage(t *testing.T) {
 }
 
 func TestWaitForProgress_ClosedChannel_ReturnsNil(t *testing.T) {
-	t.Parallel()
-
 	ch := make(chan model.ProgressMsg, 1)
 	close(ch)
 
@@ -206,8 +178,6 @@ func TestWaitForProgress_ClosedChannel_ReturnsNil(t *testing.T) {
 }
 
 func TestCountSelected_AllSelected(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A"}, Selected: true},
 		{Adapter: &stubAdapter{id: "b", name: "B"}, Selected: true},
@@ -216,8 +186,6 @@ func TestCountSelected_AllSelected(t *testing.T) {
 }
 
 func TestCountSelected_NoneSelected(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "a", name: "A"}, Selected: false},
 	}
@@ -225,15 +193,11 @@ func TestCountSelected_NoneSelected(t *testing.T) {
 }
 
 func TestCountSelected_Empty(t *testing.T) {
-	t.Parallel()
-
 	assert.Equal(t, 0, countSelected(nil))
 	assert.Equal(t, 0, countSelected([]model.ToolState{}))
 }
 
 func TestBuildProgressTools_StepNamesMatchDesign(t *testing.T) {
-	t.Parallel()
-
 	tools := []model.ToolState{
 		{Adapter: &stubAdapter{id: "tool-1", name: "Tool 1"}, Selected: true},
 	}
@@ -249,8 +213,6 @@ func TestBuildProgressTools_StepNamesMatchDesign(t *testing.T) {
 }
 
 func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
-	t.Parallel()
-
 	// Create a channel, launch a goroutine that closes it after a delay,
 	// and verify waitForProgress returns nil when the channel closes.
 	ch := make(chan model.ProgressMsg, 1)
@@ -267,8 +229,6 @@ func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
 }
 
 func TestWaitForProgress_ContextCancellationIgnored(t *testing.T) {
-	t.Parallel()
-
 	// waitForProgress doesn't use context directly — it blocks on channel read.
 	// This test verifies that when a message is available, it's returned
 	// regardless of external state.

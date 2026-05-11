@@ -34,9 +34,9 @@ func TestInstallShRepoRefs(t *testing.T) {
 	t.Run("download URL uses goreleaser naming", func(t *testing.T) {
 		// The goreleaser archive name_template:
 		//   {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
-		// So the tarball should be: sequoia_${OS}_${ARCH}.tar.gz
-		assert.Contains(t, script, "sequoia_${OS}_${ARCH}.tar.gz",
-			"download URL must use goreleaser naming: sequoia_OS_ARCH.tar.gz")
+		// Script uses: sequoia_${VERSION}_${OS}_${ARCH}.tar.gz
+		assert.Regexp(t, `sequoia_.*\$\{OS\}_\$\{ARCH\}\.tar\.gz`, script,
+			"download URL must use goreleaser naming: sequoia_VERSION_OS_ARCH.tar.gz")
 		assert.Contains(t, script, "releases/download",
 			"must use GitHub releases download URL")
 	})
@@ -79,9 +79,9 @@ func TestInstallPs1RepoRefs(t *testing.T) {
 	})
 
 	t.Run("download URL uses goreleaser naming", func(t *testing.T) {
-		// Windows artifact: sequoia_windows_amd64.zip
-		assert.Contains(t, script, "sequoia_${OS}_${Arch}.zip",
-			"download URL must use goreleaser naming: sequoia_OS_Arch.zip")
+		// Windows artifact: sequoia_${ResolvedVersion}_${OS}_${Arch}.zip
+		assert.Regexp(t, `sequoia_.*\$\{OS\}_\$\{Arch\}\.zip`, script,
+			"download URL must use goreleaser naming: sequoia_VERSION_OS_Arch.zip")
 		assert.Contains(t, script, "releases/download",
 			"must use GitHub releases download URL")
 	})

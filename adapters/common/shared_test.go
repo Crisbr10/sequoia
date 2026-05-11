@@ -4,6 +4,7 @@ import (
 	"embed"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,6 +71,9 @@ func TestRenderTemplate_RendersWithData(t *testing.T) {
 
 	result, err := common.RenderTemplate(testFS, "testdata/test.tmpl", d)
 	require.NoError(t, err)
+	// Normalize CRLF → LF so the test works on Windows (git may checkout
+	// template files with CRLF line endings).
+	result = strings.ReplaceAll(result, "\r\n", "\n")
 	assert.Equal(t, "Hello World! Version: 0.1.0\n", result)
 }
 
