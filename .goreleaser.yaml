@@ -108,7 +108,7 @@ brews:
       in parallel.
     homepage: https://github.com/Crisbr10/sequoia
     license: MIT
-    skip_upload: auto
+    skip_upload: true
     repository:
       owner: Crisbr10
       name: homebrew-sequoia
@@ -129,7 +129,7 @@ scoops:
       Deploy specialized AI agents to inspect projects from every angle.
     homepage: https://github.com/Crisbr10/sequoia
     license: MIT
-    skip_upload: auto
+    skip_upload: true
     repository:
       owner: Crisbr10
       name: scoop-sequoia
