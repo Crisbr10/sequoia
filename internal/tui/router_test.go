@@ -80,14 +80,11 @@ func TestTransitionMap_InvalidPaths(t *testing.T) {
 		from model.Screen
 		to   model.Screen
 	}{
-		// Backward navigation not allowed.
-		{"tool selection to welcome", model.ScreenToolSelection, model.ScreenWelcome},
-		{"configuration to tool selection", model.ScreenConfiguration, model.ScreenToolSelection},
 		// Complete only goes to Status.
 		{"complete to welcome", model.ScreenComplete, model.ScreenWelcome},
 		{"complete to tool selection", model.ScreenComplete, model.ScreenToolSelection},
 		{"complete to install progress", model.ScreenComplete, model.ScreenInstallProgress},
-		// Welcome only goes to ToolSelection.
+		// Welcome does not go to Configuration or InstallProgress directly.
 		{"welcome to configuration", model.ScreenWelcome, model.ScreenConfiguration},
 		{"welcome to install progress", model.ScreenWelcome, model.ScreenInstallProgress},
 		// Self-transitions not valid.
@@ -112,16 +109,22 @@ func TestNextScreen_ValidTransitions(t *testing.T) {
 		action  string
 		want    model.Screen
 	}{
-		{"welcome enter → tool selection", model.ScreenWelcome, "enter", model.ScreenToolSelection},
+		{"welcome install → tool selection", model.ScreenWelcome, "install", model.ScreenToolSelection},
+		{"welcome status → status", model.ScreenWelcome, "status", model.ScreenStatus},
+		{"welcome uninstall → uninstall", model.ScreenWelcome, "uninstall", model.ScreenUninstall},
 		{"tool selection enter → configuration", model.ScreenToolSelection, "enter", model.ScreenConfiguration},
+		{"tool selection back → welcome", model.ScreenToolSelection, "back", model.ScreenWelcome},
 		{"configuration enter → install progress", model.ScreenConfiguration, "enter", model.ScreenInstallProgress},
+		{"configuration back → tool selection", model.ScreenConfiguration, "back", model.ScreenToolSelection},
 		{"install progress success → complete", model.ScreenInstallProgress, "success", model.ScreenComplete},
 		{"install progress fail → error", model.ScreenInstallProgress, "fail", model.ScreenError},
 		{"complete status → status", model.ScreenComplete, "status", model.ScreenStatus},
 		{"error retry → install progress", model.ScreenError, "retry", model.ScreenInstallProgress},
 		{"error back → tool selection", model.ScreenError, "back", model.ScreenToolSelection},
 		{"status uninstall → uninstall", model.ScreenStatus, "uninstall", model.ScreenUninstall},
+		{"status back → welcome", model.ScreenStatus, "back", model.ScreenWelcome},
 		{"uninstall enter → install progress", model.ScreenUninstall, "enter", model.ScreenInstallProgress},
+		{"uninstall back → welcome", model.ScreenUninstall, "back", model.ScreenWelcome},
 	}
 
 	for _, tc := range tests {
@@ -262,9 +265,9 @@ func TestNavigateTo_InvalidAfterSecondTransition(t *testing.T) {
 	_ = cmd()
 	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen())
 
-	// Try invalid transition from ToolSelection → Welcome.
-	cmd = r.NavigateTo(model.ScreenWelcome)
-	assert.Nil(t, cmd, "ToolSelection → Welcome should be invalid")
+	// Try invalid transition from ToolSelection → Complete (never a valid path).
+	cmd = r.NavigateTo(model.ScreenComplete)
+	assert.Nil(t, cmd, "ToolSelection → Complete should be invalid")
 	assert.Equal(t, model.ScreenToolSelection, r.CurrentScreen(),
 		"CurrentScreen should stay at ToolSelection after invalid transition")
 }

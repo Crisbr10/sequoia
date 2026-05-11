@@ -40,9 +40,13 @@ func TestRootHelp(t *testing.T) {
 	}
 }
 
-// TestRootNoArgs verifies that the root command exits cleanly without arguments.
+// TestRootNoArgs verifies that the root command exits cleanly without arguments
+// when stdin is not a terminal (prints help instead of launching TUI).
 func TestRootNoArgs(t *testing.T) {
-	t.Parallel()
+	// Modifies global isTerminalFn — must not run in parallel.
+	prev := isTerminalFn
+	isTerminalFn = func() bool { return false }
+	defer func() { isTerminalFn = prev }()
 
 	var out bytes.Buffer
 	cmd := newRootCmdWithOut(&out)

@@ -12,14 +12,14 @@ import (
 // Each key lists the screens that can be reached from the source screen.
 // Terminal screens (Complete) have empty slices.
 var TransitionMap = map[model.Screen][]model.Screen{
-	model.ScreenWelcome:         {model.ScreenToolSelection},
-	model.ScreenToolSelection:   {model.ScreenConfiguration},
-	model.ScreenConfiguration:   {model.ScreenInstallProgress},
+	model.ScreenWelcome:         {model.ScreenToolSelection, model.ScreenStatus, model.ScreenUninstall},
+	model.ScreenToolSelection:   {model.ScreenConfiguration, model.ScreenWelcome},
+	model.ScreenConfiguration:   {model.ScreenInstallProgress, model.ScreenToolSelection},
 	model.ScreenInstallProgress: {model.ScreenComplete, model.ScreenError},
 	model.ScreenComplete:        {model.ScreenStatus},
 	model.ScreenError:           {model.ScreenInstallProgress, model.ScreenToolSelection},
-	model.ScreenStatus:          {model.ScreenUninstall},
-	model.ScreenUninstall:       {model.ScreenInstallProgress},
+	model.ScreenStatus:          {model.ScreenUninstall, model.ScreenInstallProgress, model.ScreenWelcome},
+	model.ScreenUninstall:       {model.ScreenInstallProgress, model.ScreenWelcome},
 }
 
 // IsValidTransition reports whether the transition from → to is allowed
@@ -39,22 +39,33 @@ func IsValidTransition(from, to model.Screen) bool {
 
 // NextScreen resolves the next screen for the given action from the
 // current screen. The action string encodes the semantic trigger
-// (e.g., "enter", "success", "fail", "retry", "uninstall").
+// (e.g., "enter", "success", "fail", "retry", "uninstall", "status", "back").
 // If the action is unrecognized or the transition is invalid, the
 // current screen is returned unchanged.
 func NextScreen(current model.Screen, action string) model.Screen {
 	switch current {
 	case model.ScreenWelcome:
-		if action == "enter" {
+		switch action {
+		case "install":
 			return model.ScreenToolSelection
+		case "status":
+			return model.ScreenStatus
+		case "uninstall":
+			return model.ScreenUninstall
 		}
 	case model.ScreenToolSelection:
-		if action == "enter" {
+		switch action {
+		case "enter":
 			return model.ScreenConfiguration
+		case "back":
+			return model.ScreenWelcome
 		}
 	case model.ScreenConfiguration:
-		if action == "enter" {
+		switch action {
+		case "enter":
 			return model.ScreenInstallProgress
+		case "back":
+			return model.ScreenToolSelection
 		}
 	case model.ScreenInstallProgress:
 		switch action {
@@ -75,12 +86,20 @@ func NextScreen(current model.Screen, action string) model.Screen {
 			return model.ScreenToolSelection
 		}
 	case model.ScreenStatus:
-		if action == "uninstall" {
+		switch action {
+		case "uninstall":
 			return model.ScreenUninstall
+		case "reinstall":
+			return model.ScreenInstallProgress
+		case "back":
+			return model.ScreenWelcome
 		}
 	case model.ScreenUninstall:
-		if action == "enter" {
+		switch action {
+		case "enter":
 			return model.ScreenInstallProgress
+		case "back":
+			return model.ScreenWelcome
 		}
 	}
 	return current

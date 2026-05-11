@@ -199,7 +199,7 @@ func TestIntegration_FlowWithNoToolsSelected_ShowsError(t *testing.T) {
 	assert.Equal(t, model.ScreenToolSelection, m2.Screen, "should stay on ToolSelection")
 }
 
-func TestIntegration_WelcomeView_ListsTools(t *testing.T) {
+func TestIntegration_WelcomeView_ShowsMenu(t *testing.T) {
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
 	registryMu.Lock()
@@ -212,8 +212,10 @@ func TestIntegration_WelcomeView_ListsTools(t *testing.T) {
 	m := app.NewModel("")
 	view := m.View()
 
-	assert.Contains(t, view, "Tool A", "Welcome should list Tool A")
-	assert.Contains(t, view, "Tool B", "Welcome should list Tool B")
+	// Welcome screen shows the main menu, not the individual tool list.
+	assert.Contains(t, view, "Install", "Welcome should show Install menu option")
+	assert.Contains(t, view, "Status", "Welcome should show Status menu option")
+	assert.Contains(t, view, "Uninstall", "Welcome should show Uninstall menu option")
 	assert.Equal(t, model.ScreenWelcome, m.Screen)
 }
 

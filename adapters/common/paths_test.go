@@ -39,7 +39,9 @@ func TestResolveHome_Symlink(t *testing.T) {
 	realDir := t.TempDir()
 	linkDir := filepath.Join(t.TempDir(), "link")
 
-	require.NoError(t, os.Symlink(realDir, linkDir))
+	if err := os.Symlink(realDir, linkDir); err != nil {
+		t.Skipf("symlink creation not supported (Windows requires Developer Mode): %v", err)
+	}
 
 	resolved, err := common.ResolveHome(linkDir)
 	require.NoError(t, err)

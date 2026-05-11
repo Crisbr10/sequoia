@@ -6,175 +6,133 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Crisbr10/sequoia/adapters"
-	"github.com/Crisbr10/sequoia/internal/model"
-	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
-
-// dummyAdapter is a minimal ToolAdapter for screen tests.
-type dummyAdapter struct {
-	id   string
-	name string
-	inst bool
-	ver  string
-	path string
-}
-
-func (d *dummyAdapter) ID() string                     { return d.id }
-func (d *dummyAdapter) Name() string                   { return d.name }
-func (d *dummyAdapter) Detect() bool                   { return true }
-func (d *dummyAdapter) IsInstalled() bool              { return d.inst }
-func (d *dummyAdapter) Install() error                 { return nil }
-func (d *dummyAdapter) Uninstall() error               { return nil }
-func (d *dummyAdapter) Status() adapters.AdapterStatus {
-	return adapters.AdapterStatus{Installed: d.inst, Version: d.ver, Path: d.path}
-}
-func (d *dummyAdapter) SkillsPath() string       { return "" }
-func (d *dummyAdapter) CommandsPath() string     { return "" }
-func (d *dummyAdapter) SystemPromptPath() string { return "" }
-func (d *dummyAdapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyMarkdownSections
-}
-
-var _ adapters.ToolAdapter = (*dummyAdapter)(nil)
 
 func TestWelcomeView_ContainsBrandingElements(t *testing.T) {
 	t.Parallel()
 
-	tools := []model.ToolState{}
 	version := "v0.1.0"
-	view := screens.WelcomeView(tools, version)
+	view := screens.WelcomeView(version, 0)
 
-	// Must contain the ASCII logo.
 	assert.Contains(t, view, "Sequoia", "Welcome screen should contain Sequoia branding")
-
-	// Must contain the version string.
 	assert.Contains(t, view, version, "Welcome screen should display the version")
+	assert.Contains(t, view, "navigate", "Welcome screen should show navigation hint")
+	assert.Contains(t, view, "quit", "Welcome screen should show quit hint")
 
-	// Must contain the tagline.
-	assert.Contains(t, view, "Audit quality for AI coding tools",
-		"Welcome screen should contain the tagline")
-
-	// Must contain navigation hint.
-	assert.Contains(t, view, "Enter",
-		"Welcome screen should show Enter key hint")
-	assert.Contains(t, view, "quit",
-		"Welcome screen should show quit hint")
-
-	// Must be non-empty and multi-line.
 	assert.NotEmpty(t, view, "Welcome view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")
 	assert.GreaterOrEqual(t, len(lines), 5, "Welcome view should span at least 5 lines of content")
 }
 
-func TestWelcomeView_ListsToolsByName(t *testing.T) {
+func TestWelcomeView_ShowsMenuOptions(t *testing.T) {
 	t.Parallel()
 
-	tools := []model.ToolState{
-		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
-		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode"}, Selected: false},
-		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI"}, Selected: false},
-	}
-	view := screens.WelcomeView(tools, "v0.1.0")
+	view := screens.WelcomeView("v0.1.0", 0)
 
-	// Each tool name must appear in the view.
-	for _, ts := range tools {
-		assert.Contains(t, view, ts.Adapter.Name(),
-			"Welcome view should list tool %q by name", ts.Adapter.Name())
-	}
+	assert.Contains(t, view, "Install", "Welcome view should list Install option")
+	assert.Contains(t, view, "Status", "Welcome view should list Status option")
+	assert.Contains(t, view, "Uninstall", "Welcome view should list Uninstall option")
+	assert.Contains(t, view, "Quit", "Welcome view should list Quit option")
 }
 
-func TestWelcomeView_ShowsInstallStatus(t *testing.T) {
+func TestWelcomeView_HighlightsCursor(t *testing.T) {
 	t.Parallel()
 
-	// One tool installed, one not.
-	tools := []model.ToolState{
-		{
-			Adapter:  &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true},
-			Selected: false,
-		},
-		{
-			Adapter:  &dummyAdapter{id: "opencode", name: "OpenCode", inst: false},
-			Selected: false,
-		},
-	}
-	view := screens.WelcomeView(tools, "v0.1.0")
+	// Cursor on Install (0): the Install label should be preceded by the cursor marker.
+	view0 := screens.WelcomeView("v0.1.0", 0)
+	assert.Contains(t, view0, "▶", "cursor marker should appear when cursor=0")
 
-	// The view should contain tool names.
-	assert.Contains(t, view, "Claude Code",
-		"Welcome view should show tool name")
-	assert.Contains(t, view, "OpenCode",
-		"Welcome view should show tool name")
-
-	// The view should use distinct visual indicators for installed vs not-installed.
-	hasInstalled := strings.Contains(view, "✓") || strings.Contains(view, "installed")
-	hasNotInstalled := strings.Contains(view, "✗") || strings.Contains(view, "not installed")
-	assert.True(t, hasInstalled || hasNotInstalled,
-		"Welcome view should show install status indicators")
+	// Cursor on Status (1): different visual from cursor=0.
+	view1 := screens.WelcomeView("v0.1.0", 1)
+	assert.NotEqual(t, view0, view1, "view should differ based on cursor position")
 }
 
-func TestWelcomeUpdate_EnterReturnsNavigateToToolSelection(t *testing.T) {
+// --- WelcomeUpdate ---
+
+func TestWelcomeUpdate_DownKeyIncrementsCursor(t *testing.T) {
 	t.Parallel()
 
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	cmd := screens.WelcomeUpdate(msg)
-
-	require.NotNil(t, cmd, "Enter key should produce a command on Welcome screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Enter should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenToolSelection, nav.Target,
-		"Enter on Welcome should navigate to ToolSelection")
+	newCursor, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyDown}, 0)
+	assert.Equal(t, 1, newCursor, "Down key should increment cursor")
+	assert.Equal(t, "", action, "Down key should produce no action")
 }
 
-func TestWelcomeUpdate_RightArrowReturnsNavigateToToolSelection(t *testing.T) {
+func TestWelcomeUpdate_UpKeyDecrementsCursor(t *testing.T) {
 	t.Parallel()
 
-	msg := tea.KeyMsg{Type: tea.KeyRight}
-	cmd := screens.WelcomeUpdate(msg)
-
-	require.NotNil(t, cmd, "Right arrow should produce a command on Welcome screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Right arrow should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenToolSelection, nav.Target,
-		"Right arrow on Welcome should navigate to ToolSelection")
+	newCursor, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyUp}, 2)
+	assert.Equal(t, 1, newCursor, "Up key should decrement cursor")
+	assert.Equal(t, "", action, "Up key should produce no action")
 }
 
-func TestWelcomeUpdate_QReturnsQuit(t *testing.T) {
+func TestWelcomeUpdate_DownWrapsAround(t *testing.T) {
 	t.Parallel()
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
-	cmd := screens.WelcomeUpdate(msg)
-
-	require.NotNil(t, cmd, "q key should produce a command on Welcome screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "q key should produce tea.QuitMsg, got %T", result)
+	// Cursor at last item (Quit = 3) → should wrap to 0.
+	newCursor, _ := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyDown}, screens.WelcomeMenuCount-1)
+	assert.Equal(t, 0, newCursor, "Down at last item should wrap to 0")
 }
 
-func TestWelcomeUpdate_CtrlCReturnsQuit(t *testing.T) {
+func TestWelcomeUpdate_UpWrapsAround(t *testing.T) {
 	t.Parallel()
 
-	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
-	cmd := screens.WelcomeUpdate(msg)
-
-	require.NotNil(t, cmd, "ctrl+c should produce a command on Welcome screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "ctrl+c should produce tea.QuitMsg, got %T", result)
+	// Cursor at first item (0) → Up should wrap to last.
+	newCursor, _ := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyUp}, 0)
+	assert.Equal(t, screens.WelcomeMenuCount-1, newCursor, "Up at first item should wrap to last")
 }
 
-func TestWelcomeUpdate_UnknownKeyReturnsNil(t *testing.T) {
+func TestWelcomeUpdate_EnterOnInstallReturnsInstall(t *testing.T) {
 	t.Parallel()
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
-	cmd := screens.WelcomeUpdate(msg)
+	_, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyEnter}, screens.WelcomeMenuInstall)
+	assert.Equal(t, "install", action, "Enter on Install should return 'install'")
+}
 
-	assert.Nil(t, cmd, "Unknown key should produce no command on Welcome screen")
+func TestWelcomeUpdate_EnterOnStatusReturnsStatus(t *testing.T) {
+	t.Parallel()
+
+	_, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyEnter}, screens.WelcomeMenuStatus)
+	assert.Equal(t, "status", action, "Enter on Status should return 'status'")
+}
+
+func TestWelcomeUpdate_EnterOnUninstallReturnsUninstall(t *testing.T) {
+	t.Parallel()
+
+	_, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyEnter}, screens.WelcomeMenuUninstall)
+	assert.Equal(t, "uninstall", action, "Enter on Uninstall should return 'uninstall'")
+}
+
+func TestWelcomeUpdate_EnterOnQuitReturnsQuit(t *testing.T) {
+	t.Parallel()
+
+	_, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyEnter}, screens.WelcomeMenuQuit)
+	assert.Equal(t, "quit", action, "Enter on Quit should return 'quit'")
+}
+
+func TestWelcomeUpdate_JKeyIncrementsCursor(t *testing.T) {
+	t.Parallel()
+
+	newCursor, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}, 0)
+	assert.Equal(t, 1, newCursor, "j key should increment cursor")
+	assert.Equal(t, "", action, "j key should produce no action")
+}
+
+func TestWelcomeUpdate_KKeyDecrementsCursor(t *testing.T) {
+	t.Parallel()
+
+	newCursor, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}, 2)
+	assert.Equal(t, 1, newCursor, "k key should decrement cursor")
+	assert.Equal(t, "", action, "k key should produce no action")
+}
+
+func TestWelcomeUpdate_UnknownKeyReturnsNoChange(t *testing.T) {
+	t.Parallel()
+
+	newCursor, action := screens.WelcomeUpdate(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}, 1)
+	assert.Equal(t, 1, newCursor, "Unknown key should not change cursor")
+	assert.Equal(t, "", action, "Unknown key should produce no action")
 }

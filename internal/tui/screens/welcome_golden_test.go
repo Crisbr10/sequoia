@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
@@ -20,13 +19,9 @@ func goldenPath(name string) string {
 // updateGolden is true when UPDATE_GOLDEN=1 env var is set.
 var updateGolden = os.Getenv("UPDATE_GOLDEN") == "1"
 
-func TestWelcomeView_Golden_StandardTerminal(t *testing.T) {
-	tools := []model.ToolState{
-		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
-		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
-	}
+func TestWelcomeView_Golden_Standard(t *testing.T) {
 	version := "v0.1.0"
-	view := screens.WelcomeView(tools, version)
+	view := screens.WelcomeView(version, 0)
 
 	golden := goldenPath("welcome_standard.txt")
 	if updateGolden {
@@ -38,16 +33,15 @@ func TestWelcomeView_Golden_StandardTerminal(t *testing.T) {
 	}
 
 	expected, err := os.ReadFile(golden)
-	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 go test ... to generate")
+	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 go test ./internal/tui/screens/... to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
-func TestWelcomeView_Golden_EmptyTools(t *testing.T) {
-	tools := []model.ToolState{}
+func TestWelcomeView_Golden_CursorOnStatus(t *testing.T) {
 	version := "v0.1.0"
-	view := screens.WelcomeView(tools, version)
+	view := screens.WelcomeView(version, screens.WelcomeMenuStatus)
 
-	golden := goldenPath("welcome_empty_tools.txt")
+	golden := goldenPath("welcome_cursor_status.txt")
 	if updateGolden {
 		dir := filepath.Dir(golden)
 		require.NoError(t, os.MkdirAll(dir, 0755))
@@ -57,6 +51,6 @@ func TestWelcomeView_Golden_EmptyTools(t *testing.T) {
 	}
 
 	expected, err := os.ReadFile(golden)
-	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 go test ... to generate")
+	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 go test ./internal/tui/screens/... to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }

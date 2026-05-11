@@ -7,93 +7,122 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/model"
-	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// WelcomeView renders the Welcome screen showing branding, version, and
-// detected tools with their install status. tools is the adapter snapshot
-// from the root model; version is the Sequoia release string.
-func WelcomeView(tools []model.ToolState, version string) string {
+// Welcome menu item indices.
+const (
+	WelcomeMenuInstall   = 0
+	WelcomeMenuStatus    = 1
+	WelcomeMenuUninstall = 2
+	WelcomeMenuQuit      = 3
+	WelcomeMenuCount     = 4
+)
+
+// welcomeMenuLabels maps menu index → display label.
+var welcomeMenuLabels = [WelcomeMenuCount]string{
+	"Install",
+	"Status",
+	"Uninstall",
+	"Quit",
+}
+
+// WelcomeView renders the Welcome/Home screen: tree, logo, version, and a
+// navigable main menu. cursor is the currently highlighted menu item index.
+func WelcomeView(version string, cursor int) string {
 	var b strings.Builder
 
-	// Sequoia tree pixel art above the logo.
+	// Pixel-art sequoia tree.
 	b.WriteString(styles.SequoiaTree())
 	b.WriteString("\n")
 
-	// ASCII logo.
+	// ASCII logo with gradient.
 	b.WriteString(styles.Logo())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	// Version line.
 	b.WriteString(styles.Muted().Render(fmt.Sprintf("  %s", version)))
 	b.WriteString("\n\n")
 
-	// Tagline.
-	b.WriteString(styles.Body().Render("  Audit quality for AI coding tools"))
+	// Main menu.
+	b.WriteString(styles.Subtitle().Render("  Menu"))
 	b.WriteString("\n\n")
-
-	// Detected tools header.
-	b.WriteString(styles.Subtitle().Render("Detected Tools"))
-	b.WriteString("\n\n")
-
-	// Tool list with install status.
-	if len(tools) == 0 {
-		b.WriteString(styles.Muted().Render("  (no tools detected)"))
-		b.WriteString("\n")
-	} else {
-		for _, ts := range tools {
-			name := ts.Adapter.Name()
-			installed := ts.Adapter.IsInstalled()
-			statusIcon := "✗ not installed"
-			if installed {
-				statusIcon = styles.Success().Render("✓ installed")
-			}
-			b.WriteString(fmt.Sprintf("    %s  %s\n",
-				styles.Body().Render(name),
-				statusIcon,
-			))
+	for i, label := range welcomeMenuLabels {
+		if i == cursor {
+			b.WriteString(styles.Accent().Render("  ▶ " + label))
+		} else {
+			b.WriteString(styles.Body().Render("    " + label))
 		}
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-
-	// Footer hint.
-	b.WriteString(styles.Muted().Render(
-		fmt.Sprintf("  %s %s  %s",
-			styles.Accent().Render("Enter"),
-			styles.Muted().Render("to continue ―"),
-			styles.Muted().Render("q"),
-		),
-	))
-	b.WriteString(styles.Muted().Render(" to quit"))
+	b.WriteString(styles.Muted().Render("  j/k ↑/↓: navigate  Enter: select  q: quit"))
 
 	return b.String()
 }
 
-// WelcomeUpdate processes key events for the Welcome screen.
-// Enter/RightArrow navigate to ToolSelection; q/ctrl+c quit;
-// any other key is ignored (returns nil).
-func WelcomeUpdate(msg tea.KeyMsg) tea.Cmd {
+// WelcomeUpdate handles key events on the Welcome screen.
+// Returns the new cursor position and an action string:
+//   - "install"   → navigate to tool selection
+//   - "status"    → navigate to status screen
+//   - "uninstall" → navigate to uninstall screen
+//   - "quit"      → quit the application
+//   - ""          → no navigation (cursor moved or key ignored)
+func WelcomeUpdate(msg tea.KeyMsg, cursor int) (int, string) {
 	switch msg.Type {
+	case tea.KeyUp:
+		return wrapMenuDecrement(cursor), ""
+	case tea.KeyDown:
+		return wrapMenuIncrement(cursor), ""
+
 	case tea.KeyEnter, tea.KeyRight:
-		return func() tea.Msg {
-			return tui.NavigateMsg{Target: model.ScreenToolSelection}
-		}
-	case tea.KeyCtrlC:
-		return tea.Quit
-	}
+		return cursor, welcomeMenuAction(cursor)
 
-	// Handle rune-based keys.
-	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+	case tea.KeyRunes:
+		if len(msg.Runes) == 0 {
+			return cursor, ""
+		}
 		switch msg.Runes[0] {
-		case 'q':
-			return tea.Quit
+		case 'j':
+			return wrapMenuIncrement(cursor), ""
+		case 'k':
+			return wrapMenuDecrement(cursor), ""
 		}
 	}
 
-	return nil
+	return cursor, ""
+}
+
+// welcomeMenuAction maps a cursor position to its navigation action string.
+func welcomeMenuAction(cursor int) string {
+	switch cursor {
+	case WelcomeMenuInstall:
+		return "install"
+	case WelcomeMenuStatus:
+		return "status"
+	case WelcomeMenuUninstall:
+		return "uninstall"
+	case WelcomeMenuQuit:
+		return "quit"
+	}
+	return ""
+}
+
+func wrapMenuIncrement(n int) int {
+	n++
+	if n >= WelcomeMenuCount {
+		return 0
+	}
+	return n
+}
+
+func wrapMenuDecrement(n int) int {
+	n--
+	if n < 0 {
+		return WelcomeMenuCount - 1
+	}
+	return n
 }

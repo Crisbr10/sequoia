@@ -45,7 +45,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
 	case model.ScreenWelcome:
-		return m, screens.WelcomeUpdate(msg)
+		newCursor, action := screens.WelcomeUpdate(msg, m.Cursor)
+		m.Cursor = newCursor
+		switch action {
+		case "install":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenToolSelection}
+			}
+		case "status":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenStatus}
+			}
+		case "uninstall":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenUninstall}
+			}
+		case "quit":
+			m.Quitting = true
+			m.cancel()
+			return m, tea.Quit
+		}
+		return m, nil
 
 	case model.ScreenToolSelection:
 		newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))
@@ -142,6 +162,10 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenInstallProgress}
 			}
+		case "back":
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenWelcome}
+			}
 		case "update":
 			// Placeholder — update functionality not yet implemented.
 		}
@@ -189,7 +213,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "back":
 			m.UninstallConfirming = false
 			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenStatus}
+				return tui.NavigateMsg{Target: model.ScreenWelcome}
 			}
 		}
 		return m, nil

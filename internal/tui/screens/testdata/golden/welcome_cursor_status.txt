@@ -34,8 +34,8 @@
 
     Menu
 
-  ▶ Install
-    Status
+    Install
+  ▶ Status
     Uninstall
     Quit
 

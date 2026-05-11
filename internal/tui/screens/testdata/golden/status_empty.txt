@@ -2,4 +2,4 @@
 
   No adapters registered
 
-  ↑/↓ j/k navigate  u update  r reinstall  d uninstall  q quit
+  ↑/↓ j/k navigate  u update  r reinstall  d uninstall  Esc back  q quit

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 )
@@ -24,25 +23,21 @@ func TestLogo_ContainsName(t *testing.T) {
 	assert.Contains(t, logo, "Sequoia", "Logo should contain the project name")
 }
 
+// TestLogo_QDiffersFromO verifies that Q has a dedicated tail line (╚══╝)
+// below the main 6-row body. This tail is absent for every other letter,
+// making Q unmistakably different from O at a glance.
 func TestLogo_QDiffersFromO(t *testing.T) {
 	t.Parallel()
 	logo := styles.Logo()
-	lines := strings.Split(logo, "\n")
 
-	// Find the line containing the Q and O glyph tails (╚════ marks line 4).
-	var line4 string
-	for _, line := range lines {
-		if strings.Contains(line, "\u255A\u2550\u2550\u2550\u2550") {
-			line4 = line
-			break
-		}
-	}
-	require.NotEmpty(t, line4, "should find line 4 containing Q and O glyph tails")
+	// ╚══╝ appears only on Q's exclusive tail line (row 6).
+	// It is NOT a substring of the longer ╚═════╝ / ╚══════╝ sequences
+	// used in other rows, so this check is uniquely identifying.
+	assert.Contains(t, logo, "╚══╝",
+		"logo must contain Q's tail (╚══╝) on a dedicated line below the main body")
 
-	// After the fix, only Q retains the ▄▄ tail; O has spaces instead.
-	// Currently (pre-fix) both Q and O have ▄▄, so the count is 2.
-	// After fix: count == 1 (only Q).
-	qGlyph := "██║▄▄ ██║"
-	count := strings.Count(line4, qGlyph)
-	assert.Equal(t, 1, count, "only Q should have ▄▄ tail on line 4; O should use spaces")
+	// The logo must have at least 8 content lines: 6 letter rows + Q tail + tagline.
+	lines := strings.Split(strings.TrimSpace(logo), "\n")
+	assert.GreaterOrEqual(t, len(lines), 8,
+		"logo must include the Q tail row in addition to 6 main body rows and the tagline")
 }

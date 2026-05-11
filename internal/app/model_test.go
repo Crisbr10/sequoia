@@ -660,7 +660,7 @@ func TestUninstall_EscGoesBackToStatus(t *testing.T) {
 	result := cmd()
 	nav, ok := result.(tui.NavigateMsg)
 	require.True(t, ok, "Esc should produce NavigateMsg")
-	assert.Equal(t, model.ScreenStatus, nav.Target)
+	assert.Equal(t, model.ScreenWelcome, nav.Target)
 	_ = updated
 }
 

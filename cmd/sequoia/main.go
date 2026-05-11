@@ -67,13 +67,20 @@ func newRootCmd() *cobra.Command {
 		Long: `Sequoia is a comprehensive technical audit framework that integrates
 into AI-assisted coding tools (Claude Code, OpenCode, and more).
 
-Use sequoia to install, check status, or remove Sequoia from your tools.
+Running sequoia with no arguments launches the interactive TUI.
 
+  sequoia           Launch interactive TUI (install, status, uninstall)
   sequoia install   Install Sequoia into supported AI tools
   sequoia status    Show installation status for all detected tools
   sequoia uninstall Remove Sequoia from one or all tools
   sequoia version   Print the CLI version`,
 		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if isTerminalFn() {
+				return runTUI("")
+			}
+			return cmd.Help()
+		},
 	}
 
 	root.AddCommand(
