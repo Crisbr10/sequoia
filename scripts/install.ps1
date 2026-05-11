@@ -58,7 +58,9 @@ function Get-NormalizedArch {
         $arch = $env:PROCESSOR_ARCHITECTURE
     }
 
-    # Normalize to amd64/arm64
+    # Normalize to lowercase
+    $arch = $arch.ToLower()
+
     switch -Regex ($arch) {
         '^(x64|amd64|x86_64)$' { return "amd64" }
         '^(arm64|aarch64)$'    { return "arm64" }
@@ -105,9 +107,9 @@ function Resolve-Version {
 $ResolvedVersion = Resolve-Version -VersionInput $Version
 
 # -- Download URLs ------------------------------------------------------------
-$Tarball     = "sequoia_${OS}_${Arch}.zip"
+$Tarball     = "sequoia_${ResolvedVersion}_${OS}_${Arch}.zip"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball"
-$ChecksumUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/checksums.txt"
+$ChecksumUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/sequoia_${ResolvedVersion}_checksums.txt"
 
 # -- Idempotency check --------------------------------------------------------
 function Test-SequoiaInstalled {

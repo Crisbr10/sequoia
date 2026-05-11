@@ -157,9 +157,9 @@ resolve_version() {
 VERSION="$(resolve_version "$VERSION_INPUT")"
 
 # -- Construct download URLs --------------------------------------------------
-TARBALL="sequoia_${OS}_${ARCH}.tar.gz"
+TARBALL="sequoia_${VERSION}_${OS}_${ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
-CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
+CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/sequoia_${VERSION}_checksums.txt"
 
 # -- Idempotency check --------------------------------------------------------
 check_existing() {
