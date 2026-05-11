@@ -108,12 +108,12 @@ brews:
       in parallel.
     homepage: https://github.com/Crisbr10/sequoia
     license: MIT
-    skip_upload: true  # change to 'auto' after adding HOMEBREW_TAP_TOKEN to repo secrets
+    skip_upload: auto
     repository:
       owner: Crisbr10
       name: homebrew-sequoia
       branch: main
-      # token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"  # uncomment when secret is added
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     url_template: "https://github.com/Crisbr10/sequoia/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     commit_author:
       name: goreleaserbot
@@ -130,12 +130,12 @@ scoops:
       Deploy specialized AI agents to inspect projects from every angle.
     homepage: https://github.com/Crisbr10/sequoia
     license: MIT
-    skip_upload: true  # change to 'auto' after adding HOMEBREW_TAP_TOKEN to repo secrets
+    skip_upload: auto
     repository:
       owner: Crisbr10
       name: scoop-sequoia
       branch: main
-      # token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"  # uncomment when secret is added
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     url_template: "https://github.com/Crisbr10/sequoia/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     commit_author:
       name: goreleaserbot
