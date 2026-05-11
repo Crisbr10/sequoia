@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/adapters/claude"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/claude"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

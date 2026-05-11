@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"sequoia-ai/internal/tui/styles"
+	"github.com/Crisbr10/sequoia/internal/tui/styles"
 )
 
 func TestLogo_IsMultiLine(t *testing.T) {

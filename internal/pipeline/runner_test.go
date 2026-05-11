@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/pipeline"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/pipeline"
 )
 
 // testAdapter is a mock ToolAdapter for testing the pipeline runner.

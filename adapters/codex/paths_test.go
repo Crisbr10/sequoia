@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"sequoia-ai/adapters/codex"
+	"github.com/Crisbr10/sequoia/adapters/codex"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

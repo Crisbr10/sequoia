@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sequoia-ai/adapters/opencode"
+	"github.com/Crisbr10/sequoia/adapters/opencode"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sequoia-ai/adapters/common"
-	"sequoia-ai/adapters/cursor"
+	"github.com/Crisbr10/sequoia/adapters/common"
+	"github.com/Crisbr10/sequoia/adapters/cursor"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

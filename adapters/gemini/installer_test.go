@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"sequoia-ai/adapters/gemini"
+	"github.com/Crisbr10/sequoia/adapters/gemini"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -10,10 +10,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
 // dummyAdapter is a minimal ToolAdapter for screen tests.

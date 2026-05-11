@@ -11,9 +11,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
 func TestCompleteView_ShowsSuccessHeading(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui/styles"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

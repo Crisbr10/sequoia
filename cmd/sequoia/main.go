@@ -11,16 +11,16 @@ import (
 	"github.com/spf13/cobra"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/adapters/common"
-	"sequoia-ai/internal/app"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
+	"github.com/Crisbr10/sequoia/internal/app"
 
 	// Register all adapters via their init() functions (database/sql pattern).
-	_ "sequoia-ai/adapters/claude"
-	_ "sequoia-ai/adapters/codex"
-	_ "sequoia-ai/adapters/cursor"
-	_ "sequoia-ai/adapters/gemini"
-	_ "sequoia-ai/adapters/opencode"
+	_ "github.com/Crisbr10/sequoia/adapters/claude"
+	_ "github.com/Crisbr10/sequoia/adapters/codex"
+	_ "github.com/Crisbr10/sequoia/adapters/cursor"
+	_ "github.com/Crisbr10/sequoia/adapters/gemini"
+	_ "github.com/Crisbr10/sequoia/adapters/opencode"
 )
 
 // Version is the Sequoia CLI version, embedded at build time via -ldflags.

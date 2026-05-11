@@ -1,4 +1,4 @@
-module sequoia-ai
+module github.com/Crisbr10/sequoia
 
 go 1.24.2
 

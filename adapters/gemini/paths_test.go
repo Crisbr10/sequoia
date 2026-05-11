@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sequoia-ai/adapters/gemini"
+	"github.com/Crisbr10/sequoia/adapters/gemini"
 
 	"github.com/stretchr/testify/assert"
 )

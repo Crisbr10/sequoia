@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"sequoia-ai/adapters/common"
-	"sequoia-ai/adapters/opencode"
+	"github.com/Crisbr10/sequoia/adapters/common"
+	"github.com/Crisbr10/sequoia/adapters/opencode"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

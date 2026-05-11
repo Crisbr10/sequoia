@@ -135,7 +135,10 @@ function Test-SequoiaInstalled {
 }
 
 if (Test-SequoiaInstalled) {
-    exit $EXIT_OK
+    # Success — already up to date. Keep terminal open so user can see the message.
+    Write-Host ""
+    Read-Host "Press Enter to exit"
+    return  # return, not exit — preserves caller's PowerShell session
 }
 
 # -- Temp directory -----------------------------------------------------------
@@ -268,11 +271,15 @@ try {
         Write-Host "Run 'sequoia status' to verify your installation."
     }
 
-    exit $EXIT_OK
-
+    # Success — let the script end naturally, don't close the terminal.
+    # Explicit return keeps the caller's PowerShell session alive.
 } finally {
     # -- Cleanup --------------------------------------------------------------
     if (Test-Path -Path $TempDir) {
         Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+
+# -- Keep the terminal open so the user can read the output ---------------
+Write-Host ""
+Read-Host "Press Enter to exit"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"sequoia-ai/adapters"
+	"github.com/Crisbr10/sequoia/adapters"
 )
 
 // newRootCmdWithOut returns the root command with its output redirected to w

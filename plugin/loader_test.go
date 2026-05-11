@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sequoia-ai/plugin"
+	"github.com/Crisbr10/sequoia/plugin"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

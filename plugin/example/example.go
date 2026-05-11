@@ -4,7 +4,7 @@
 // Use this as a reference when building your own Sequoia plugins.
 package example
 
-import "sequoia-ai/plugin"
+import "github.com/Crisbr10/sequoia/plugin"
 
 // helloPlugin is a simple example plugin that registers a single audit agent.
 type helloPlugin struct{}

@@ -6,9 +6,9 @@ package app
 import (
 	"context"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

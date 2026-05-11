@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
 func TestToolSelectionView_ShowsCheckboxes(t *testing.T) {

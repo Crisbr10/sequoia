@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sequoia-ai/adapters/common"
+	"github.com/Crisbr10/sequoia/adapters/common"
 )
 
 // writeFile is a test helper that creates a file with given content under dir.

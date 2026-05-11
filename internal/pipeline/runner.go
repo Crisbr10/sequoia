@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"sequoia-ai/internal/model"
+	"github.com/Crisbr10/sequoia/internal/model"
 )
 
 // defaultStepNames defines the install steps in execution order.

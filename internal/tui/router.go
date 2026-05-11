@@ -3,7 +3,7 @@
 package tui
 
 import (
-	"sequoia-ai/internal/model"
+	"github.com/Crisbr10/sequoia/internal/model"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

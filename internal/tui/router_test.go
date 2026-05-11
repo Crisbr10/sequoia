@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui"
 )
 
 func TestTransitionMap_CoversAllScreens(t *testing.T) {

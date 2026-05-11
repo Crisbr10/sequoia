@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sequoia-ai/adapters/common"
+	"github.com/Crisbr10/sequoia/adapters/common"
 )
 
 //go:embed testdata/test.tmpl

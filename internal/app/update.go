@@ -1,10 +1,10 @@
 package app
 
 import (
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/pipeline"
-	"sequoia-ai/internal/tui"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/pipeline"
+	"github.com/Crisbr10/sequoia/internal/tui"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

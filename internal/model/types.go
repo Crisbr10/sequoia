@@ -3,7 +3,7 @@
 // single source of truth for screen state, tool state, and configuration.
 package model
 
-import "sequoia-ai/adapters"
+import "github.com/Crisbr10/sequoia/adapters"
 
 // Screen represents a distinct screen in the TUI state machine.
 type Screen int

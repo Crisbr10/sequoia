@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/adapters/common"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 )
 
 const sequoiaMarker = "<!-- sequoia:start -->"

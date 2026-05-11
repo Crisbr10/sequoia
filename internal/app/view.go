@@ -1,9 +1,9 @@
 package app
 
 import (
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui/screens"
-	"sequoia-ai/internal/tui/styles"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/internal/tui/styles"
 )
 
 // View renders the TUI by delegating to the active screen's render function.

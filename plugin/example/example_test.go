@@ -3,8 +3,8 @@ package example_test
 import (
 	"testing"
 
-	"sequoia-ai/plugin"
-	"sequoia-ai/plugin/example"
+	"github.com/Crisbr10/sequoia/plugin"
+	"github.com/Crisbr10/sequoia/plugin/example"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

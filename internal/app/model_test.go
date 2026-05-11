@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sequoia-ai/adapters"
-	"sequoia-ai/internal/app"
-	"sequoia-ai/internal/model"
-	"sequoia-ai/internal/tui"
-	"sequoia-ai/internal/tui/screens"
+	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/app"
+	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui"
+	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
