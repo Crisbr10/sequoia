@@ -51,11 +51,27 @@ function Get-NormalizedArch {
     try {
         $archName = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
         if ($archName) {
-            $arch = $archName.ToString().ToLower()
+            $arch = $archName.ToString()
         }
     } catch {
-        # Fallback to environment variable
+        # Ignore — fall through to fallbacks
+    }
+
+    # Fallback 1: PROCESSOR_ARCHITECTURE env var
+    if (-not $arch) {
         $arch = $env:PROCESSOR_ARCHITECTURE
+    }
+
+    # Fallback 2: use .NET Environment
+    if (-not $arch) {
+        try {
+            $arch = [System.Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
+        } catch { }
+    }
+
+    # Last resort default
+    if (-not $arch) {
+        $arch = "AMD64"
     }
 
     # Normalize to lowercase
