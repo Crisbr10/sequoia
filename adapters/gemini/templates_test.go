@@ -120,5 +120,9 @@ func TestTemplates_GoldenFile_GeminiMDSection(t *testing.T) {
 	golden, err := os.ReadFile(goldenPath)
 	require.NoError(t, err)
 
-	assert.Equal(t, string(golden), got, "rendered template must match golden file. To update, regenerate the golden file.")
+	// Normalize line endings: golden files may have \r\n on Windows after checkout,
+	// but template execution always produces \n.
+	got = strings.ReplaceAll(got, "\r\n", "\n")
+	want := strings.ReplaceAll(string(golden), "\r\n", "\n")
+	assert.Equal(t, want, got, "rendered template must match golden file. To update, regenerate the golden file.")
 }

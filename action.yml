@@ -4,6 +4,8 @@ description: >
   your codebase from multiple specialized angles: security, performance,
   architecture, quality, UX, and operations.
 author: Sequoia
+# private: true indicates this action is not intended for the GitHub Marketplace.
+private: true
 branding:
   icon: shield
   color: green

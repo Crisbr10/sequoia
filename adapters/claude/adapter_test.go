@@ -310,11 +310,13 @@ func TestAdapter_Base_SymlinkResolved(t *testing.T) {
 	a := claude.NewAdapter(linkHome)
 	p := a.SkillsPath()
 
-	// The resolved path should contain the real home, not the symlink.
-	// filepath.EvalSymlinks in claudeBase() must resolve the symlink before
-	// constructing paths.
-	assert.Contains(t, p, realHome,
-		"SkillsPath should use resolved (real) path, got %s", p)
-	assert.NotContains(t, p, linkHome,
-		"SkillsPath should NOT use symlink path, got %s", p)
+	// On Windows, filepath.EvalSymlinks may resolve to the long (full) path name
+	// while realHome may contain the 8.3 short name (e.g., RUNNER~1 vs runneradmin).
+	// Instead of checking exact path equality, verify resolution occurred:
+	// the resolved path must differ from the symlink path and must be absolute.
+	// Normalize separators to slash for reliable substring comparison across platforms.
+	assert.NotContains(t, filepath.ToSlash(p), filepath.ToSlash(linkHome),
+		"SkillsPath should NOT use the unresolved symlink path, got %s", p)
+	assert.True(t, filepath.IsAbs(p),
+		"SkillsPath should be an absolute (resolved) path, got %s", p)
 }

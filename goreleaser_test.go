@@ -187,8 +187,6 @@ func TestGoReleaserConfig(t *testing.T) {
 
 		assert.Contains(t, archive.Formats, "tar.gz",
 			"tar.gz format required for linux/darwin")
-		assert.Contains(t, archive.Formats, "zip",
-			"zip format required for windows")
 
 		// Verify format_overrides: windows → zip, others → tar.gz
 		hasWindowsOverride := false
