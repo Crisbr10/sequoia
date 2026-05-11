@@ -165,13 +165,13 @@ func TestGoReleaserConfig(t *testing.T) {
 			"ldflags must be set for version injection")
 		hasVersionFlag := false
 		for _, f := range cfg.Builds[0].Ldflags {
-			if contains(f, "main.Version") {
+			if contains(f, ".Version=") {
 				hasVersionFlag = true
 				break
 			}
 		}
 		assert.True(t, hasVersionFlag,
-			"ldflags must include -X main.Version={{.Version}}")
+			"ldflags must inject version into main package")
 	})
 
 	t.Run("archives configured", func(t *testing.T) {

@@ -24,9 +24,10 @@ import (
 	_ "github.com/Crisbr10/sequoia/adapters/opencode"
 )
 
-// Version is the Sequoia CLI version, embedded at build time via -ldflags.
-// When built with go install, it falls back to the module version from debug.ReadBuildInfo.
-// Defaults to "0.1.0-dev" when neither source is available (e.g. go build).
+// Version is the Sequoia CLI version. Set at build time via:
+//   -ldflags "-X github.com/Crisbr10/sequoia/cmd/sequoia.Version=0.1.2" (GoReleaser)
+//   go install auto-detects it via debug.ReadBuildInfo
+// Falls back to "0.1.0-dev" only for local go build.
 var Version = "0.1.0-dev"
 
 func init() {
@@ -37,8 +38,17 @@ func init() {
 	if !ok {
 		return
 	}
+	// go install @v0.1.2 embeds the module version
 	if v := info.Main.Version; v != "" && v != "(devel)" {
 		Version = v
+		return
+	}
+	// Check VCS info (go build from tagged commit)
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" {
+			Version = "unknown-" + s.Value[:8]
+			return
+		}
 	}
 }
 
