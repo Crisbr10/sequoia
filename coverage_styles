@@ -1,0 +1,11 @@
+mode: set
+github.com/Crisbr10/sequoia/internal/tui/styles/logo.go:4.20,14.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:17.29,23.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:26.32,31.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:34.28,37.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:40.30,44.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:47.29,51.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:54.31,58.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:61.29,64.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/styles.go:67.33,72.2 1 1
+github.com/Crisbr10/sequoia/internal/tui/styles/tree.go:8.27,26.2 3 1
