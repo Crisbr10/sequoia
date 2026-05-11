@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,8 +25,22 @@ import (
 )
 
 // Version is the Sequoia CLI version, embedded at build time via -ldflags.
-// It defaults to "0.1.0-dev" when not set by the build pipeline.
+// When built with go install, it falls back to the module version from debug.ReadBuildInfo.
+// Defaults to "0.1.0-dev" when neither source is available (e.g. go build).
 var Version = "0.1.0-dev"
+
+func init() {
+	if Version != "0.1.0-dev" {
+		return // ldflags already set the version (GoReleaser)
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	if v := info.Main.Version; v != "" && v != "(devel)" {
+		Version = v
+	}
+}
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
