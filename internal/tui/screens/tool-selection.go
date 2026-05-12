@@ -117,8 +117,6 @@ func ToolSelectionUpdate(msg tea.KeyMsg, cursor int, toolCount int) (newCursor i
 			return wrapIncrement(cursor, toolCount), false, ""
 		case 'k':
 			return wrapDecrement(cursor, toolCount), false, ""
-		case 'q':
-			return cursor, false, "quit"
 		}
 	}
 

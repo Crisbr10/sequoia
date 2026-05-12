@@ -11,6 +11,7 @@ import (
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/internal/app"
 	"github.com/Crisbr10/sequoia/internal/model"
+	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,7 +26,8 @@ func sendKey(m app.Model, key tea.KeyMsg, maxCmd int) app.Model {
 }
 
 // safeProcessCmd recursively executes a tea.Cmd and feeds results through
-// Update. It skips nil and returns when max iterations are reached.
+// Update. It handles tea.BatchMsg by unwrapping and processing each batched
+// command. Returns when max iterations are reached or no commands remain.
 func safeProcessCmd(m app.Model, cmd tea.Cmd, remaining int) app.Model {
 	if cmd == nil || remaining <= 0 {
 		return m
@@ -34,6 +36,25 @@ func safeProcessCmd(m app.Model, cmd tea.Cmd, remaining int) app.Model {
 	if result == nil {
 		return m
 	}
+
+	// Handle BatchMsg by processing each batched command in sequence.
+	if batch, ok := result.(tea.BatchMsg); ok {
+		for _, batchedCmd := range batch {
+			if batchedCmd == nil {
+				continue
+			}
+			batchResult := batchedCmd()
+			if batchResult != nil {
+				updated, nextCmd := m.Update(batchResult)
+				m = updated.(app.Model)
+				if nextCmd != nil {
+					m = safeProcessCmd(m, nextCmd, remaining-1)
+				}
+			}
+		}
+		return m
+	}
+
 	updated, nextCmd := m.Update(result)
 	m = updated.(app.Model)
 	return safeProcessCmd(m, nextCmd, remaining-1)
@@ -469,6 +490,38 @@ func TestIntegration_ErrorRecovery_MultipleFailuresRetryAll(t *testing.T) {
 	assert.Contains(t, completeView, "Tool B")
 }
 
+func TestIntegration_UninstallBackToStatus(t *testing.T) {
+	// Verify the full path: Status → Uninstall → Esc → back to Status
+	// (not Welcome). This confirms PreviousScreen tracking works correctly
+	// when the user entered Uninstall from the Status screen.
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool", installed: true})
+
+	m := app.NewModel("", "test")
+
+	// Step 1: Navigate to Status screen via NavigateMsg (this sets PreviousScreen).
+	msg := tui.NavigateMsg{Target: model.ScreenStatus}
+	updated, _ := m.Update(msg)
+	m = updated.(app.Model)
+	assert.Equal(t, model.ScreenStatus, m.Screen,
+		"NavigateMsg should transition to Status")
+
+	// Step 2: From Status, navigate to Uninstall via 'd'.
+	m = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}, 3)
+	assert.Equal(t, model.ScreenUninstall, m.Screen,
+		"d from Status should navigate to Uninstall")
+
+	// Step 3: Press Esc — should go BACK to Status (PreviousScreen).
+	m = sendKey(m, tea.KeyMsg{Type: tea.KeyEsc}, 3)
+	assert.Equal(t, model.ScreenStatus, m.Screen,
+		"Esc from Uninstall (entered via Status) should go back to Status, not Welcome")
+}
+
 func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
 	reg := &adapters.Registry{}
 	original := adapters.DefaultRegistry
@@ -487,4 +540,157 @@ func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
 	// Press 'd' for uninstall.
 	m = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}, 3)
 	assert.Equal(t, model.ScreenUninstall, m.Screen, "d should navigate to Uninstall")
+}
+
+func TestIntegration_UninstallConfirmation_EscCancels(t *testing.T) {
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool", installed: true})
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenUninstall
+	// Tool is installed, so select it for uninstall.
+	m.Tools[0].Selected = true
+	m.Cursor = 0
+
+	// Step 1: Press Enter to enter confirmation mode.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(app.Model)
+	assert.True(t, m.UninstallConfirming, "Enter should activate confirmation mode")
+
+	// Step 2: Press Esc to cancel confirmation.
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(app.Model)
+	assert.False(t, m.UninstallConfirming, "Esc should cancel confirmation mode")
+	assert.Equal(t, model.ScreenUninstall, m.Screen, "should remain on Uninstall screen after cancelling confirmation")
+}
+
+// --- Phase 6: Integration Tests for Pipeline Entry Points ---
+
+func TestIntegration_StatusReinstallPipeline(t *testing.T) {
+	// Verify Status 'r' key triggers the reinstall pipeline:
+	// navigates to InstallProgress, populates ProgressTools, sets OperationMode.
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool", installed: true})
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenStatus
+	m.Cursor = 0
+
+	// Press 'r' for reinstall.
+	m = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}, 5)
+
+	// Verify model transitions to InstallProgress.
+	assert.Equal(t, model.ScreenInstallProgress, m.Screen,
+		"r on Status should navigate to InstallProgress")
+
+	// Verify ProgressTools are populated (not empty).
+	require.NotEmpty(t, m.ProgressTools, "reinstall should populate ProgressTools")
+	assert.Equal(t, "install", m.OperationMode,
+		"reinstall should set OperationMode to install")
+
+	// Verify the pipeline started — the tool name matches.
+	assert.Equal(t, "Test Tool", m.ProgressTools[0].ToolName)
+}
+
+func TestIntegration_ErrorRetryPipeline(t *testing.T) {
+	// Verify Error 'r' key rebuilds ProgressTools (reset to pending) and
+	// navigates to InstallProgress for retry.
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenError
+	m.OperationMode = "install"
+	m.Tools[0].Selected = true
+
+	// Set up failed ProgressTools (pre-existing failure state).
+	m.ProgressTools = []screens.ProgressTool{
+		{
+			ToolID:   "fail-tool",
+			ToolName: "Fail Tool",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepFailed, Error: "disk full"},
+				{Name: "Commands", Status: screens.StepPending},
+				{Name: "System Prompt", Status: screens.StepPending},
+			},
+		},
+	}
+	m.InstallFailed = 1
+
+	// Press 'r' for retry.
+	m = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}, 5)
+
+	// Verify navigated to InstallProgress.
+	assert.Equal(t, model.ScreenInstallProgress, m.Screen,
+		"r on Error should navigate to InstallProgress for retry")
+
+	// Verify ProgressTools are rebuilt (no residual failure state).
+	require.NotEmpty(t, m.ProgressTools, "retry should rebuild ProgressTools")
+	// The old error message ("disk full") must not appear in the rebuilt tools.
+	for _, tool := range m.ProgressTools {
+		for _, step := range tool.Steps {
+			assert.Empty(t, step.Error,
+				"retry should clear old error on step %q, got: %q",
+				step.Name, step.Error)
+		}
+	}
+	assert.Equal(t, 0, m.InstallCompleted, "retry should reset completed count")
+	assert.Equal(t, 0, m.InstallFailed, "retry should reset failed count")
+}
+
+func TestIntegration_UninstallFlowLabels(t *testing.T) {
+	// Verify uninstall flow sets OperationMode correctly and builds
+	// ProgressTools for the uninstall pipeline with correct labels.
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool", installed: true})
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenUninstall
+	m.Tools[0].Selected = true
+	m.Cursor = 0
+
+	// Step 1: Press Enter to enter confirmation mode.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(app.Model)
+	assert.True(t, m.UninstallConfirming, "Enter should activate confirmation mode")
+
+	// Step 2: Press 'y' to confirm uninstall.
+	m = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}}, 5)
+
+	// Verify OperationMode is "uninstall".
+	assert.Equal(t, "uninstall", m.OperationMode,
+		"y should set OperationMode to uninstall")
+
+	// Verify ProgressTools are built correctly for uninstall.
+	require.NotEmpty(t, m.ProgressTools, "uninstall should build ProgressTools")
+	assert.Equal(t, "Test Tool", m.ProgressTools[0].ToolName)
+
+	// Verify screen navigated to InstallProgress.
+	assert.Equal(t, model.ScreenInstallProgress, m.Screen,
+		"uninstall confirm should navigate to InstallProgress")
+
+	// Verify InstallProgress view shows "Uninstalling" labels.
+	view := m.View()
+	assert.Contains(t, view, "Uninstalling",
+		"InstallProgress view should show Uninstalling for uninstall mode")
 }

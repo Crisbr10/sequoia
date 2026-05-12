@@ -252,14 +252,17 @@ func TestConfigurationUpdate_LeftOnLanguageFieldChangesLanguage(t *testing.T) {
 	assert.Empty(t, action, "Left on language field should change option, not navigate")
 }
 
-func TestConfigurationUpdate_QReturnsQuit(t *testing.T) {
+func TestConfigurationUpdate_QNoLongerReturnsQuit(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
 
+	// 'q' is handled globally in update.go before screen delegation.
+	// ConfigurationUpdate should NOT return "quit" for 'q' — it's dead code.
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 	_, _, action := screens.ConfigurationUpdate(msg, 0, config, true)
-	assert.Equal(t, "quit", action, "q should quit")
+
+	assert.Empty(t, action, "q should not return quit from ConfigurationUpdate (handled globally)")
 }
 
 func TestConfigurationView_Golden_Standard(t *testing.T) {

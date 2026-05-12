@@ -189,13 +189,15 @@ func TestToolSelectionUpdate_LeftArrowReturnsBack(t *testing.T) {
 	assert.Equal(t, "back", action, "Left arrow should return back to Welcome")
 }
 
-func TestToolSelectionUpdate_QReturnsQuit(t *testing.T) {
+func TestToolSelectionUpdate_QNoLongerReturnsQuit(t *testing.T) {
 	t.Parallel()
 
+	// 'q' is handled globally in update.go before screen delegation.
+	// ToolSelectionUpdate should NOT return "quit" for 'q' — it's dead code.
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 	_, _, action := screens.ToolSelectionUpdate(msg, 0, 3)
 
-	assert.Equal(t, "quit", action, "q should quit")
+	assert.Empty(t, action, "q should not return quit from ToolSelectionUpdate (handled globally)")
 }
 
 func TestToolSelectionView_ShowsCorrectTitle(t *testing.T) {

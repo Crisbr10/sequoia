@@ -149,14 +149,6 @@ func ConfigurationUpdate(msg tea.KeyMsg, activeField int, config model.TUIConfig
 		return activeField, config, "back"
 	}
 
-	// Handle rune-based keys.
-	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-		switch msg.Runes[0] {
-		case 'q':
-			return activeField, config, "quit"
-		}
-	}
-
 	return activeField, config, ""
 }
 
