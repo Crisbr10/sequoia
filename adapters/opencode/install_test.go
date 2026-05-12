@@ -104,11 +104,22 @@ func TestInstall_PreservesExistingAgentsMD(t *testing.T) {
 
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
-	// Backup should contain the original content.
-	backupPath := agentsMDPath + ".sequoia-backup"
-	raw, err := os.ReadFile(backupPath)
+	// The backup should have a timestamp suffix and contain the original content.
+	dir := filepath.Dir(agentsMDPath)
+	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-	assert.Equal(t, originalContent, string(raw))
+
+	found := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.Equal(t, originalContent, string(raw))
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "a timestamped backup should exist for existing content")
 }
 
 func TestUninstall_RemovesAllFiles(t *testing.T) {

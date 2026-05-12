@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Crisbr10/sequoia/adapters"
 )
@@ -281,7 +283,10 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 
 	skillsDir := a.skillsPathFn(base)
 	commandsDir := a.commandsPathFn(base)
-	backupDir := a.backupPathFn(base)
+	// Append a unique session suffix to the backup dir to avoid name collisions
+	// with pre-existing directories.
+	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	backupDir := a.backupPathFn(base) + "-" + sessionSuffix
 
 	// Create target directories before Prepare (Prepare probes for write access).
 	for _, dir := range []string{skillsDir, commandsDir} {

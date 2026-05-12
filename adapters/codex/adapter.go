@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -104,10 +106,13 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		}
 	}
 
+	// Generate a unique session suffix for backup dirs to avoid collisions.
+	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+
 	skillInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: skillsPath(base),
-		BackupDir: backupPath(base),
+		BackupDir: backupPath(base) + "-" + sessionSuffix,
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -117,7 +122,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	cmdInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
-		BackupDir: backupPath(base),
+		BackupDir: backupPath(base) + "-" + sessionSuffix,
 		Files:     common.CommandFiles,
 	})
 	if err := cmdInstaller.Run(); err != nil {

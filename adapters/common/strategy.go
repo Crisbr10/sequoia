@@ -3,7 +3,9 @@ package common
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -90,10 +92,12 @@ func RemoveMarkdownSection(path string) error {
 	return os.WriteFile(path, []byte(out), 0o644)
 }
 
-// ReplaceFile writes content to the file at path, creating a backup at
-// path+".sequoia-backup" if the file already exists and is not Sequoia-managed
-// (does not contain markers). If the file is already Sequoia-managed, it is
-// replaced in place without backup. Creates parent directories if needed.
+// ReplaceFile writes content to the file at path, creating a backup with a
+// timestamped name at path+".sequoia-backup-<suffix>" if the file already
+// exists and is not Sequoia-managed. A session-tracking file at
+// path+".sequoia-session" records the backup suffix so that
+// RestoreOrRemoveFile can locate the correct backup during uninstall.
+// Creates parent directories if needed.
 func ReplaceFile(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -112,7 +116,10 @@ func ReplaceFile(path, content string) error {
 		return os.WriteFile(path, []byte(content), 0o644)
 	}
 
-	backup := path + ".sequoia-backup"
+	// Generate a unique timestamp suffix to avoid name collisions.
+	suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	backup := path + ".sequoia-backup-" + suffix
+
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -120,16 +127,23 @@ func ReplaceFile(path, content string) error {
 	if err := os.WriteFile(backup, raw, 0o644); err != nil {
 		return err
 	}
+
+	// Write a session file so RestoreOrRemoveFile can find the correct backup.
+	if err := os.WriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
+		// Best-effort: if session file write fails, the backup exists but
+		// RestoreOrRemoveFile will fall back to scanning for backups.
+	}
+
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-// RestoreOrRemoveFile restores the original content from the backup at
-// path+".sequoia-backup" if it exists, or deletes the file if it is
-// Sequoia-managed. If the file doesn't exist or is not managed and has
-// no backup, returns nil.
+// RestoreOrRemoveFile restores the original content from the session-tracked
+// backup (path+".sequoia-backup-<suffix>") if a .sequoia-session file exists.
+// If no session file is found, it falls back to the legacy predictable backup
+// name (path+".sequoia-backup") for backwards compatibility.
+// If the file is Sequoia-managed and has no backup, it deletes the file.
+// If the file doesn't exist or is not managed and has no backup, returns nil.
 func RestoreOrRemoveFile(path string) error {
-	backup := path + ".sequoia-backup"
-
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -138,7 +152,10 @@ func RestoreOrRemoveFile(path string) error {
 		return err
 	}
 
-	if _, berr := os.Stat(backup); berr == nil {
+	// Determine the backup to restore from.
+	backup := findBackupPath(path)
+
+	if backup != "" {
 		raw, err := os.ReadFile(backup)
 		if err != nil {
 			return err
@@ -146,7 +163,11 @@ func RestoreOrRemoveFile(path string) error {
 		if err := os.WriteFile(path, raw, 0o644); err != nil {
 			return err
 		}
-		return os.Remove(backup)
+		// Clean up the backup file.
+		_ = os.Remove(backup)
+		// Clean up the session file if it exists.
+		_ = os.Remove(path + ".sequoia-session")
+		return nil
 	}
 
 	managed, err := isSequoiaManaged(path)
@@ -154,10 +175,36 @@ func RestoreOrRemoveFile(path string) error {
 		return err
 	}
 	if managed {
+		_ = os.Remove(path + ".sequoia-session")
 		return os.Remove(path)
 	}
 
 	return nil
+}
+
+// findBackupPath returns the path of the backup to restore for the given file.
+// It first checks for a .sequoia-session file with the backup suffix.
+// If not found, it falls back to the legacy predictable backup name.
+func findBackupPath(path string) string {
+	// Try session-tracked backup first.
+	sessionFile := path + ".sequoia-session"
+	if data, err := os.ReadFile(sessionFile); err == nil {
+		suffix := strings.TrimSpace(string(data))
+		if suffix != "" {
+			backup := path + ".sequoia-backup-" + suffix
+			if _, err := os.Stat(backup); err == nil {
+				return backup
+			}
+		}
+	}
+
+	// Fall back to legacy predictable backup name.
+	legacyBackup := path + ".sequoia-backup"
+	if _, err := os.Stat(legacyBackup); err == nil {
+		return legacyBackup
+	}
+
+	return ""
 }
 
 // isSequoiaManaged reports whether the file at path contains the

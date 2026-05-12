@@ -3,6 +3,7 @@ package codex_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Crisbr10/sequoia/adapters"
@@ -111,10 +112,25 @@ func TestMergeConfig_CreatesBackup(t *testing.T) {
 	err := codex.MergeConfig(configPath, table)
 	require.NoError(t, err)
 
-	backupPath := configPath + ".sequoia-backup"
-	backupData, err := os.ReadFile(backupPath)
+	// The backup should have a timestamp suffix.
+	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-	assert.Equal(t, original, string(backupData))
+
+	found := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.Equal(t, original, string(data))
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "a timestamped backup should exist")
+
+	// The old-style predictable backup name must NOT be used.
+	_, err = os.Stat(configPath + ".sequoia-backup")
+	assert.True(t, os.IsNotExist(err), "old-style predictable backup name must not be used")
 }
 
 func TestRemoveConfig_Present(t *testing.T) {
@@ -171,7 +187,12 @@ func TestRemoveConfig_RestoresBackup(t *testing.T) {
 	configPath := filepath.Join(dir, "config.toml")
 
 	original := "[settings]\ntheme = \"dark\"\n"
-	require.NoError(t, os.WriteFile(configPath+".sequoia-backup", []byte(original), 0o644))
+
+	// Simulate a session-tracked backup from MergeConfig.
+	// Create a timestamped backup and the session file.
+	backupPath := configPath + ".sequoia-backup-test123"
+	require.NoError(t, os.WriteFile(backupPath, []byte(original), 0o644))
+	require.NoError(t, os.WriteFile(configPath+".sequoia-session", []byte("test123"), 0o644))
 	require.NoError(t, os.WriteFile(configPath, []byte("[sequoia]\nskills_path = \"/path\"\n"), 0o644))
 
 	err := codex.RemoveConfig(configPath)
@@ -181,8 +202,11 @@ func TestRemoveConfig_RestoresBackup(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, original, string(data))
 
-	_, err = os.Stat(configPath + ".sequoia-backup")
+	// Backup and session files should be removed.
+	_, err = os.Stat(backupPath)
 	assert.True(t, os.IsNotExist(err), "backup file should be removed")
+	_, err = os.Stat(configPath + ".sequoia-session")
+	assert.True(t, os.IsNotExist(err), "session file should be removed")
 }
 
 func TestInstall_And_Uninstall_RoundTrip(t *testing.T) {
@@ -248,4 +272,128 @@ func TestInstall_Idempotent(t *testing.T) {
 	// Second install should succeed.
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	assert.True(t, a.IsInstalled())
+}
+
+// =========================================================================
+// Backup collision tests (FIX-005) for Codex installer
+// =========================================================================
+
+// TestMergeConfig_BackupHasUniqueName verifies that calling MergeConfig
+// twice produces two different backup files instead of overwriting.
+func TestMergeConfig_BackupHasUniqueName(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+
+	table := map[string]interface{}{
+		"skills_path": "/path1",
+	}
+
+	// First call with existing file.
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"dark\"\n"), 0o644))
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// Overwrite the config (simulating external restore) for second backup.
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"light\"\n"), 0o644))
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// Count backup files with the sequoia-backup prefix.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	backupCount := 0
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			backupCount++
+		}
+	}
+
+	assert.Equal(t, 2, backupCount, "two distinct backup files should exist, not one overwritten")
+}
+
+// TestMergeConfig_ExistingBackupNotOverwritten verifies that a pre-existing
+// backup file is not touched when MergeConfig creates its own backup.
+func TestMergeConfig_ExistingBackupNotOverwritten(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+
+	// Pre-create a file that mimics an old backup.
+	oldBackup := configPath + ".sequoia-backup-old"
+	require.NoError(t, os.WriteFile(oldBackup, []byte("old backup content\n"), 0o644))
+
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"dark\"\n"), 0o644))
+
+	table := map[string]interface{}{
+		"skills_path": "/path",
+	}
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// The old backup must remain untouched.
+	data, err := os.ReadFile(oldBackup)
+	require.NoError(t, err)
+	assert.Equal(t, "old backup content\n", string(data))
+
+	// A new backup with timestamp suffix must exist.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	foundNewBackup := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			foundNewBackup = true
+			break
+		}
+	}
+	assert.True(t, foundNewBackup, "a new timestamped backup should be created")
+}
+
+// TestRemoveConfig_RestoresCorrectBackup verifies the full round-trip:
+// MergeConfig creates a session-tracked backup, RemoveConfig restores from it.
+func TestRemoveConfig_RestoresCorrectBackup(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+
+	original := "[settings]\ntheme = \"dark\"\n"
+	require.NoError(t, os.WriteFile(configPath, []byte(original), 0o644))
+
+	table := map[string]interface{}{
+		"skills_path": "/path",
+	}
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// Verify a timestamped backup was created.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	foundBackup := false
+	foundSession := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			foundBackup = true
+		}
+		if e.Name() == "config.toml.sequoia-session" {
+			foundSession = true
+		}
+	}
+	assert.True(t, foundBackup, "a timestamped backup should exist")
+	assert.True(t, foundSession, "a session tracking file should exist")
+
+	// Uninstall — RemoveConfig restores from backup.
+	require.NoError(t, codex.RemoveConfig(configPath))
+
+	// Verify original is restored.
+	restored, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, original, string(restored))
+
+	// Backup and session files should be cleaned up.
+	entries, err = os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.False(t, strings.Contains(e.Name(), ".sequoia-backup-"),
+			"backup file %s should have been cleaned up", e.Name())
+		assert.False(t, strings.HasSuffix(e.Name(), ".sequoia-session"),
+			"session file should have been cleaned up")
+	}
 }

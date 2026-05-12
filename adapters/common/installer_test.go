@@ -229,3 +229,101 @@ func TestInstaller_Rollback_SafeWithoutApply(t *testing.T) {
 	// No files should have been installed.
 	assert.False(t, fileExists(filepath.Join(dstDir, "alpha.txt")))
 }
+
+// =========================================================================
+// Backup directory collision tests (FIX-005)
+// =========================================================================
+
+// TestInstaller_BackupDirHasUniqueSuffix verifies that running the
+// common.Installer with timestamped backup dirs produces unique names
+// and no collisions.
+func TestInstaller_BackupDirHasUniqueSuffix(t *testing.T) {
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	parent := t.TempDir()
+
+	writeFile(t, srcDir, "alpha.txt", "content-alpha")
+	writeFile(t, dstDir, "alpha.txt", "old-content")
+
+	// Simulate two install sessions with timestamped backup dirs.
+	// In production, base_adapter.go generates the timestamp suffix.
+	suffix1 := "abc123"
+	suffix2 := "xyz789"
+	backupDir1 := filepath.Join(parent, ".sequoia-backup-"+suffix1)
+	backupDir2 := filepath.Join(parent, ".sequoia-backup-"+suffix2)
+
+	// First "session".
+	cfg1 := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir1,
+		Files:     []string{"alpha.txt"},
+	}
+	inst1 := common.NewInstaller(cfg1)
+	require.NoError(t, inst1.Run())
+
+	// Verify first backup dir exists and has the old file.
+	assert.True(t, fileExists(filepath.Join(backupDir1, "alpha.txt")),
+		"backup dir 1 should contain the backed-up file")
+
+	// Second "session": overwrite destination with new "old" content first.
+	require.NoError(t, os.WriteFile(filepath.Join(dstDir, "alpha.txt"), []byte("older-content"), 0o644))
+
+	cfg2 := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir2,
+		Files:     []string{"alpha.txt"},
+	}
+	inst2 := common.NewInstaller(cfg2)
+	require.NoError(t, inst2.Run())
+
+	// Both backup dirs should exist and be different.
+	assert.True(t, fileExists(filepath.Join(backupDir1, "alpha.txt")),
+		"first backup dir should still exist")
+	assert.True(t, fileExists(filepath.Join(backupDir2, "alpha.txt")),
+		"second backup dir should exist")
+
+	// Verify backup dirs have different paths.
+	assert.NotEqual(t, backupDir1, backupDir2, "backup dirs should have unique names")
+}
+
+// TestInstaller_BackupDirDoesNotCollideWithPreExisting verifies that when
+// a user has pre-created a directory with the predictable backup name,
+// the timestamped backup dir does not collide.
+func TestInstaller_BackupDirDoesNotCollideWithPreExisting(t *testing.T) {
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	parent := t.TempDir()
+
+	writeFile(t, srcDir, "alpha.txt", "content-alpha")
+	writeFile(t, dstDir, "alpha.txt", "user-content")
+
+	// Pre-create a "predictable" backup dir (simulating user/attacker pre-creation).
+	predictableBackup := filepath.Join(parent, ".sequoia-backup")
+	require.NoError(t, os.MkdirAll(predictableBackup, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(predictableBackup, "malicious.txt"),
+		[]byte("this should not be touched\n"), 0o644,
+	))
+
+	// Install with a timestamped backup dir.
+	timestampedBackup := filepath.Join(parent, ".sequoia-backup-abc123")
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: timestampedBackup,
+		Files:     []string{"alpha.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+	require.NoError(t, inst.Run())
+
+	// The predictable backup dir should be untouched.
+	maliciousData, err := os.ReadFile(filepath.Join(predictableBackup, "malicious.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "this should not be touched\n", string(maliciousData))
+}

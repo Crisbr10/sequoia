@@ -240,8 +240,18 @@ func TestReplaceFile_OtherContent_BacksUp(t *testing.T) {
 	content := sequoiaBody("sequoia rules")
 	require.NoError(t, common.ReplaceFile(p, content))
 
-	_, err := os.Stat(p + ".sequoia-backup")
-	require.NoError(t, err, "backup should exist")
+	// The backup should have a timestamp suffix.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	found := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "a timestamped backup should exist")
 }
 
 func TestReplaceFile_OtherContent_BackupPreservesOriginal(t *testing.T) {
@@ -253,7 +263,20 @@ func TestReplaceFile_OtherContent_BackupPreservesOriginal(t *testing.T) {
 
 	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia rules")))
 
-	backupRaw, err := os.ReadFile(p + ".sequoia-backup")
+	// Find the timestamped backup and verify it preserves the original.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	var backupPath string
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			backupPath = filepath.Join(dir, e.Name())
+			break
+		}
+	}
+	require.NotEmpty(t, backupPath, "a timestamped backup should exist")
+
+	backupRaw, err := os.ReadFile(backupPath)
 	require.NoError(t, err)
 	assert.Equal(t, original, string(backupRaw))
 }
@@ -327,4 +350,181 @@ func TestRestoreOrRemoveFile_NoBackup_NotManaged(t *testing.T) {
 	raw, err := os.ReadFile(p)
 	require.NoError(t, err)
 	assert.Equal(t, original, string(raw))
+}
+
+// =========================================================================
+// Backup collision tests (FIX-005)
+// =========================================================================
+
+// TestReplaceFile_BackupHasUniqueName verifies that calling ReplaceFile
+// twice on the same file produces two different backup files instead of
+// overwriting the same predictable name.
+func TestReplaceFile_BackupHasUniqueName(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	// First call sets up a user-owned file.
+	require.NoError(t, os.WriteFile(p, []byte("user content v1\n"), 0o644))
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia v1")))
+
+	// Second call — file is now Sequoia-managed (has markers), so no backup
+	// is created. Instead, we simulate the case where a file is externally
+	// modified between calls to trigger a second backup.
+	// Write user content back (simulating external restore/modification).
+	require.NoError(t, os.WriteFile(p, []byte("user content v2\n"), 0o644))
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia v2")))
+
+	// Count backup files with the sequoia-backup prefix.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	backupCount := 0
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			backupCount++
+		}
+	}
+
+	assert.Equal(t, 2, backupCount, "two distinct backup files should exist, not one overwritten")
+
+	// Both backups should contain different original content.
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.True(t,
+				strings.Contains(string(data), "user content v1") || strings.Contains(string(data), "user content v2"),
+				"backup %s should contain original user content", e.Name(),
+			)
+		}
+	}
+}
+
+// TestReplaceFile_ExistingBackupNotOverwritten verifies that a pre-existing
+// backup file (with old naming or from a different session) is not touched
+// when ReplaceFile creates its own timestamped backup.
+func TestReplaceFile_ExistingBackupNotOverwritten(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	// Pre-create a file that mimics an old-style backup or a user file named
+	// like a backup.
+	oldBackup := p + ".sequoia-backup-old"
+	require.NoError(t, os.WriteFile(oldBackup, []byte("old backup content\n"), 0o644))
+
+	// User content for the target file.
+	require.NoError(t, os.WriteFile(p, []byte("user content\n"), 0o644))
+
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia")))
+
+	// The old backup must remain untouched.
+	data, err := os.ReadFile(oldBackup)
+	require.NoError(t, err)
+	assert.Equal(t, "old backup content\n", string(data))
+
+	// A new backup with timestamp suffix must exist.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	foundNewBackup := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			foundNewBackup = true
+			// The new backup should contain the user's original content.
+			data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.Equal(t, "user content\n", string(data))
+			break
+		}
+	}
+	assert.True(t, foundNewBackup, "a new timestamped backup should be created")
+}
+
+// TestRestoreOrRemoveFile_RestoresCorrectBackup verifies the full round-trip:
+// ReplaceFile creates a timestamped backup with session tracking,
+// RestoreOrRemoveFile restores from that exact backup and cleans up.
+func TestRestoreOrRemoveFile_RestoresCorrectBackup(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	original := "# My custom rules\nThese are mine.\n"
+	require.NoError(t, os.WriteFile(p, []byte(original), 0o644))
+
+	// Install — ReplaceFile backs up the original.
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia rules")))
+
+	// Verify the file now contains Sequoia content.
+	content, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "sequoia rules")
+
+	// Verify a timestamped backup was created (not the old predictable name).
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	foundTimestampedBackup := false
+	foundSessionFile := false
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			foundTimestampedBackup = true
+		}
+		if e.Name() == "AGENTS.md.sequoia-session" {
+			foundSessionFile = true
+		}
+	}
+	assert.True(t, foundTimestampedBackup, "a timestamped backup should exist")
+	assert.True(t, foundSessionFile, "a session tracking file should exist")
+	// The old-style predictable backup name should NOT exist.
+	_, err = os.Stat(p + ".sequoia-backup")
+	assert.True(t, os.IsNotExist(err), "old-style predictable backup name must not be used")
+
+	// Uninstall — RestoreOrRemoveFile restores from the correct backup.
+	require.NoError(t, common.RestoreOrRemoveFile(p))
+
+	// Verify original content is restored.
+	restored, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Equal(t, original, string(restored))
+
+	// Backup file and session file should be removed.
+	entries, err = os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.False(t, strings.Contains(e.Name(), ".sequoia-backup-"),
+			"backup file %s should have been cleaned up", e.Name())
+		assert.False(t, strings.HasSuffix(e.Name(), ".sequoia-session"),
+			"session file should have been cleaned up")
+	}
+}
+
+// TestRestoreOrRemoveFile_MultipleBackupsOnlyRestoresLatest verifies that
+// when multiple backups exist (from multiple installs), only the session-
+// tracked backup is restored.
+func TestRestoreOrRemoveFile_MultipleBackupsOnlyRestoresLatest(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	// First "session": old backup with old naming convention.
+	oldBackup := p + ".sequoia-backup"
+	require.NoError(t, os.WriteFile(oldBackup, []byte("old backup content\n"), 0o644))
+
+	// Current session: write user content and call ReplaceFile.
+	original := "current user content\n"
+	require.NoError(t, os.WriteFile(p, []byte(original), 0o644))
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia")))
+
+	// Restore — should use the session-tracked backup, not the old one.
+	require.NoError(t, common.RestoreOrRemoveFile(p))
+
+	// The restored content should be the current user content, not the old backup.
+	restored, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Equal(t, original, string(restored))
+
+	// The old backup file should still exist (wasn't from current session).
+	_, err = os.Stat(oldBackup)
+	assert.NoError(t, err, "old backup from different session should remain untouched")
 }
