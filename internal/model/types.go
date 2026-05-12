@@ -3,8 +3,6 @@
 // single source of truth for screen state, tool state, and configuration.
 package model
 
-import "github.com/Crisbr10/sequoia/adapters"
-
 // Screen represents a distinct screen in the TUI state machine.
 type Screen int
 
@@ -30,10 +28,39 @@ const (
 	ScreenCount
 )
 
-// ToolState groups a ToolAdapter with its TUI selection state and installation result.
+// ToolStatus mirrors adapters.AdapterStatus without importing the adapters package.
+// It reports the current installation state of a tool.
+type ToolStatus struct {
+	// Installed reports whether Sequoia content is present for this tool.
+	Installed bool
+	// Version is the Sequoia version string present in the installation, or "".
+	Version string
+	// Path is the absolute, OS-correct root installation path.
+	Path string
+}
+
+// ToolInfo is a local interface that ToolState.Adapter must satisfy.
+// It includes only the methods needed by TUI consumers, breaking the
+// internal/model → adapters dependency. adapters.ToolAdapter can be
+// adapted to satisfy this interface via a thin wrapper.
+type ToolInfo interface {
+	// ID returns the unique machine-readable identifier.
+	ID() string
+	// Name returns the human-readable display name.
+	Name() string
+	// IsInstalled reports whether Sequoia has already been installed for this tool.
+	IsInstalled() bool
+	// Status returns the current installation status.
+	Status() ToolStatus
+	// Detect reports whether the tool is installed on this machine.
+	Detect() bool
+}
+
+// ToolState groups a ToolInfo implementation with its TUI selection state and
+// installation result.
 type ToolState struct {
-	// Adapter is the registered tool adapter providing installation behavior.
-	Adapter adapters.ToolAdapter
+	// Adapter is the registered tool adapter providing TUI-visible behavior.
+	Adapter ToolInfo
 	// Selected indicates whether the user has toggled this tool for installation.
 	Selected bool
 	// Result holds the outcome of installation, populated after the pipeline completes.

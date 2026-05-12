@@ -13,6 +13,18 @@ import (
 	"github.com/Crisbr10/sequoia/internal/model"
 )
 
+// pipelineInstaller is a local interface that exposes the Install method
+// from the concrete adapter behind model.ToolInfo.
+type pipelineInstaller interface {
+	Install(adapters.InstallOpts) error
+}
+
+// pipelineUninstaller is a local interface that exposes the Uninstall method
+// from the concrete adapter behind model.ToolInfo.
+type pipelineUninstaller interface {
+	Uninstall(adapters.InstallOpts) error
+}
+
 // defaultStepNames defines the install steps in execution order.
 // These names MUST match the step names used by screens.ProgressTool
 // so that ApplyProgressMsg can correlate progress messages.
@@ -135,14 +147,18 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 	}
 }
 
-// runInstallSteps calls runSteps with adapter.Install.
+// runInstallSteps extracts the Install method from the concrete adapter
+// behind model.ToolInfo and calls runSteps.
 func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
-	runSteps(ctx, t, ch, lang, t.Adapter.Install)
+	a := t.Adapter.(pipelineInstaller)
+	runSteps(ctx, t, ch, lang, a.Install)
 }
 
-// runUninstallSteps calls runSteps with adapter.Uninstall.
+// runUninstallSteps extracts the Uninstall method from the concrete adapter
+// behind model.ToolInfo and calls runSteps.
 func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
-	runSteps(ctx, t, ch, lang, t.Adapter.Uninstall)
+	a := t.Adapter.(pipelineUninstaller)
+	runSteps(ctx, t, ch, lang, a.Uninstall)
 }
 
 // RunUninstall returns a tea.Cmd that removes Sequoia from every selected tool.

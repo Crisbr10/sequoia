@@ -64,8 +64,8 @@ func (a *testAdapter) Uninstall(opts adapters.InstallOpts) error {
 	return a.uninstallErr
 }
 
-func (a *testAdapter) Status() adapters.AdapterStatus {
-	return adapters.AdapterStatus{
+func (a *testAdapter) Status() model.ToolStatus {
+	return model.ToolStatus{
 		Installed: a.installed,
 		Version:   "v0.1.0",
 		Path:      "/fake/path",

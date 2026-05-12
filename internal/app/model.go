@@ -75,6 +75,23 @@ type Model struct {
 // detection completes. The boolean value indicates whether engram was found on PATH.
 type EngramDetectedMsg bool
 
+// toolInfoAdapter wraps adapters.ToolAdapter to satisfy model.ToolInfo.
+// It adapts the Status() method to return model.ToolStatus instead of
+// adapters.AdapterStatus, breaking the internal/model → adapters dependency.
+type toolInfoAdapter struct {
+	adapters.ToolAdapter
+}
+
+// Status returns the adapter's installation status as a model.ToolStatus.
+func (a toolInfoAdapter) Status() model.ToolStatus {
+	s := a.ToolAdapter.Status()
+	return model.ToolStatus{
+		Installed: s.Installed,
+		Version:   s.Version,
+		Path:      s.Path,
+	}
+}
+
 // NewModel creates the root Model populated with all registered adapters
 // and default configuration. If toolID is non-empty, only that adapter is
 // selected by default. version is the Sequoia release string (set via ldflags)
@@ -87,7 +104,7 @@ func NewModel(toolID string, version string) Model {
 	tools := make([]model.ToolState, 0, len(all))
 	for _, a := range all {
 		ts := model.ToolState{
-			Adapter:  a,
+			Adapter:  toolInfoAdapter{a},
 			Selected: toolID == "" || a.ID() == toolID,
 		}
 		tools = append(tools, ts)

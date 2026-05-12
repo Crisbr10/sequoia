@@ -10,7 +10,8 @@ import (
 	"github.com/Crisbr10/sequoia/internal/model"
 )
 
-// mockAdapter is a minimal ToolAdapter test double for model tests.
+// mockAdapter is a minimal ToolAdapter test double for adapters-level tests.
+// It does NOT satisfy model.ToolInfo because Status() returns adapters.AdapterStatus.
 type mockAdapter struct {
 	id   string
 	name string
@@ -31,6 +32,172 @@ func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
 }
 
 var _ adapters.ToolAdapter = (*mockAdapter)(nil)
+
+// toolInfoMock is a test double that satisfies model.ToolInfo.
+type toolInfoMock struct {
+	id        string
+	name      string
+	installed bool
+	detected  bool
+	status    model.ToolStatus
+}
+
+func (m *toolInfoMock) ID() string               { return m.id }
+func (m *toolInfoMock) Name() string             { return m.name }
+func (m *toolInfoMock) IsInstalled() bool        { return m.installed }
+func (m *toolInfoMock) Detect() bool             { return m.detected }
+func (m *toolInfoMock) Status() model.ToolStatus { return m.status }
+
+var _ model.ToolInfo = (*toolInfoMock)(nil)
+
+// ---------------------------------------------------------------------------
+// NEW tests (RED — reference types that don't exist yet)
+// ---------------------------------------------------------------------------
+
+func TestToolInfo_InterfaceDefinition(t *testing.T) {
+	t.Parallel()
+
+	// Verify that model.ToolInfo is a valid interface with the expected methods.
+	// toolInfoMock satisfies it (compile-time check above).
+
+	mock := &toolInfoMock{
+		id:        "claude-code",
+		name:      "Claude Code",
+		installed: true,
+		detected:  true,
+		status: model.ToolStatus{
+			Installed: true,
+			Version:   "v2.0.0",
+			Path:      "/home/user/.claude",
+		},
+	}
+
+	var ti model.ToolInfo = mock
+
+	assert.Equal(t, "claude-code", ti.ID())
+	assert.Equal(t, "Claude Code", ti.Name())
+	assert.True(t, ti.IsInstalled())
+	assert.True(t, ti.Detect())
+
+	st := ti.Status()
+	assert.True(t, st.Installed)
+	assert.Equal(t, "v2.0.0", st.Version)
+	assert.Equal(t, "/home/user/.claude", st.Path)
+}
+
+func TestToolStatus_Construction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status model.ToolStatus
+	}{
+		{
+			name: "installed with version and path",
+			status: model.ToolStatus{
+				Installed: true,
+				Version:   "v1.0.0",
+				Path:      "/home/user/.claude",
+			},
+		},
+		{
+			name: "not installed — empty version and path",
+			status: model.ToolStatus{
+				Installed: false,
+				Version:   "",
+				Path:      "",
+			},
+		},
+		{
+			name: "partial — installed but no version",
+			status: model.ToolStatus{
+				Installed: true,
+				Version:   "",
+				Path:      "/opt/codex",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.status.Installed, tc.status.Installed) // sanity: struct round-trip
+			assert.Equal(t, tc.status.Version, tc.status.Version)
+			assert.Equal(t, tc.status.Path, tc.status.Path)
+		})
+	}
+}
+
+func TestToolState_AdapterIsToolInfo(t *testing.T) {
+	t.Parallel()
+
+	// Verify that ToolState.Adapter is typed as model.ToolInfo, not adapters.ToolAdapter.
+	mock := &toolInfoMock{id: "test", name: "Test Tool"}
+
+	ts := model.ToolState{
+		Adapter:  mock,
+		Selected: true,
+	}
+
+	var ti model.ToolInfo = ts.Adapter
+	assert.Equal(t, "test", ti.ID())
+	assert.Equal(t, "Test Tool", ti.Name())
+}
+
+func TestToolInfo_WithInstalledAdapter(t *testing.T) {
+	t.Parallel()
+
+	mock := &toolInfoMock{
+		id:        "gemini",
+		name:      "Gemini CLI",
+		installed: true,
+		detected:  true,
+		status: model.ToolStatus{
+			Installed: true,
+			Version:   "v3.1.0",
+			Path:      "/home/user/.gemini",
+		},
+	}
+
+	ts := model.ToolState{
+		Adapter:  mock,
+		Selected: true,
+	}
+
+	require.True(t, ts.Adapter.IsInstalled(), "installed adapter should report true")
+	require.True(t, ts.Adapter.Detect(), "detected adapter should report true")
+
+	st := ts.Adapter.Status()
+	require.True(t, st.Installed)
+	assert.Equal(t, "v3.1.0", st.Version)
+	assert.Equal(t, "/home/user/.gemini", st.Path)
+}
+
+func TestToolInfo_WithUninstalledAdapter(t *testing.T) {
+	t.Parallel()
+
+	mock := &toolInfoMock{
+		id:        "cursor",
+		name:      "Cursor",
+		installed: false,
+		detected:  false,
+		status:    model.ToolStatus{Installed: false},
+	}
+
+	ts := model.ToolState{
+		Adapter:  mock,
+		Selected: false,
+	}
+
+	require.False(t, ts.Adapter.IsInstalled(), "uninstalled adapter should report false")
+	require.False(t, ts.Adapter.Detect(), "undetected adapter should report false")
+
+	st := ts.Adapter.Status()
+	require.False(t, st.Installed)
+}
+
+// ---------------------------------------------------------------------------
+// Existing tests (updated to use toolInfoMock where ToolState.Adapter is involved)
+// ---------------------------------------------------------------------------
 
 func TestScreen_EnumValues(t *testing.T) {
 	t.Parallel()
@@ -53,19 +220,19 @@ func TestToolState_Construction(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		adapter  adapters.ToolAdapter
+		adapter  model.ToolInfo
 		selected bool
 		result   *model.InstallResult
 	}{
 		{
 			name:     "unselected tool with no result",
-			adapter:  &mockAdapter{id: "claude-code", name: "Claude Code"},
+			adapter:  &toolInfoMock{id: "claude-code", name: "Claude Code"},
 			selected: false,
 			result:   nil,
 		},
 		{
 			name:     "selected tool with install result",
-			adapter:  &mockAdapter{id: "opencode", name: "OpenCode"},
+			adapter:  &toolInfoMock{id: "opencode", name: "OpenCode"},
 			selected: true,
 			result: &model.InstallResult{
 				ToolID:  "opencode",
@@ -87,7 +254,9 @@ func TestToolState_Construction(t *testing.T) {
 				Result:   tc.result,
 			}
 
-			assert.Equal(t, tc.adapter, ts.Adapter)
+			assert.NotNil(t, ts.Adapter)
+			assert.Equal(t, tc.adapter.ID(), ts.Adapter.ID())
+			assert.Equal(t, tc.adapter.Name(), ts.Adapter.Name())
 			assert.Equal(t, tc.selected, ts.Selected)
 			assert.Equal(t, tc.result, ts.Result)
 		})

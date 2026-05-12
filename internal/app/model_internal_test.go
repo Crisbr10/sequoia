@@ -28,15 +28,10 @@ func (s *stubAdapter) Detect() bool                              { return s.inst
 func (s *stubAdapter) IsInstalled() bool                         { return s.installed }
 func (s *stubAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
 func (s *stubAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
-func (s *stubAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
-func (s *stubAdapter) SkillsPath() string                        { return "" }
-func (s *stubAdapter) CommandsPath() string                      { return "" }
-func (s *stubAdapter) SystemPromptPath() string                  { return "" }
-func (s *stubAdapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyMarkdownSections
-}
+func (s *stubAdapter) Status() model.ToolStatus                   { return model.ToolStatus{} }
 
-var _ adapters.ToolAdapter = (*stubAdapter)(nil)
+// Compile-time check: stubAdapter satisfies model.ToolInfo.
+var _ model.ToolInfo = (*stubAdapter)(nil)
 
 func TestHasSelectedInstalled_Empty(t *testing.T) {
 	assert.False(t, hasSelectedInstalled(nil), "empty tools should return false")
