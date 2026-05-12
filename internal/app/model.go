@@ -71,10 +71,17 @@ type Model struct {
 	cancel context.CancelFunc
 }
 
+// EngramDetectedMsg is a Bubbletea message sent when the asynchronous engram
+// detection completes. The boolean value indicates whether engram was found on PATH.
+type EngramDetectedMsg bool
+
 // NewModel creates the root Model populated with all registered adapters
 // and default configuration. If toolID is non-empty, only that adapter is
 // selected by default. version is the Sequoia release string (set via ldflags)
 // displayed on the Welcome screen.
+//
+// Engram detection is deferred to Init() via detectEngram() to avoid
+// blocking the first TUI render on exec.LookPath.
 func NewModel(toolID string, version string) Model {
 	all := adapters.DefaultRegistry.All()
 	tools := make([]model.ToolState, 0, len(all))
@@ -88,23 +95,30 @@ func NewModel(toolID string, version string) Model {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	_, engramErr := exec.LookPath("engram")
-
 	return Model{
 		Version:         version,
 		Screen:          model.ScreenWelcome,
 		Tools:           tools,
 		Config:          model.TUIConfig{Language: "en", Persistence: "engram"},
 		Progress:        make(chan model.ProgressMsg, 64),
-		EngramAvailable: engramErr == nil,
+		EngramAvailable: false,
 		ctx:             ctx,
 		cancel:          cancel,
 	}
 }
 
-// Init is the Bubbletea init command. It returns the initial command to run
-// when the program starts. Currently returns nil — screens that need startup
-// commands (e.g., polling Progress) will produce them via their own Update.
+// detectEngram is an async Bubbletea command that checks whether the engram
+// binary is available on the system PATH. It returns EngramDetectedMsg so
+// the Model can update EngramAvailable without blocking the initial render.
+func detectEngram() tea.Msg {
+	_, err := exec.LookPath("engram")
+	return EngramDetectedMsg(err == nil)
+}
+
+// Init is the Bubbletea init command. It returns the batched initial commands:
+// detectEngram runs asynchronously to avoid blocking the first TUI render.
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		detectEngram,
+	)
 }

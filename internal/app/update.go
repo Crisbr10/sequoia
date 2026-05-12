@@ -14,6 +14,10 @@ import (
 // handled at the top before screen-specific delegation.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case EngramDetectedMsg:
+		m.EngramAvailable = bool(msg)
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height

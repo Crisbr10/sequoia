@@ -1,9 +1,9 @@
 package app_test
 
 import (
-	"os/exec"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,15 +52,14 @@ func TestNewModel_StoresVersion(t *testing.T) {
 	assert.Equal(t, "v9.9.9-test", m.Version, "NewModel should store the version string")
 }
 
-func TestNewModel_EngramDetection(t *testing.T) {
+// TestNewModel_EngramAvailableDefaultsFalse verifies that after construction,
+// EngramAvailable is false — detection happens asynchronously via detectEngram().
+func TestNewModel_EngramAvailableDefaultsFalse(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
 	m := app.NewModel("", "test")
-	// EngramAvailable should match whether engram is on the system PATH.
-	_, err := exec.LookPath("engram")
-	expected := err == nil
-	assert.Equal(t, expected, m.EngramAvailable,
-		"EngramAvailable should match whether engram is on PATH (expected=%v, got=%v)", expected, m.EngramAvailable)
+	assert.False(t, m.EngramAvailable,
+		"EngramAvailable should default to false; detection happens asynchronously via Init()")
 }
 
 func TestNewModel_DefaultScreen(t *testing.T) {
@@ -104,9 +103,8 @@ func TestNewModel_InitReturnsCmd(t *testing.T) {
 
 	m := app.NewModel("", "test")
 	cmd := m.Init()
-	// Init may return nil (a valid tea.Cmd meaning "no initial command").
-	// We just verify it compiles and doesn't panic.
-	assert.Nil(t, cmd, "Init returns nil by default (no startup command)")
+	// Init now returns a tea.Batch wrapping detectEngram (async engram detection).
+	assert.NotNil(t, cmd, "Init should return detecEngram batch command for async detection")
 }
 
 func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
@@ -962,6 +960,22 @@ func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 	result := cmd()
 	_, ok := result.(tea.QuitMsg)
 	assert.True(t, ok, "q on Complete should produce tea.QuitMsg")
+}
+
+// TestNewModel_NoExecLookPath verifies that NewModel does not block on exec.LookPath.
+// The call was moved to an async Bubbletea command (detectEngram) so the TUI
+// renders immediately without blocking.
+func TestNewModel_NoExecLookPath(t *testing.T) {
+	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
+
+	start := time.Now()
+	_ = app.NewModel("", "test")
+	elapsed := time.Since(start)
+
+	// NewModel should return in well under 100ms when no exec.LookPath blocks.
+	// Even on slow CI, 50ms provides generous margin for adapter registration.
+	assert.Less(t, elapsed, 50*time.Millisecond,
+		"NewModel should not block on exec.LookPath; took %v", elapsed)
 }
 
 func TestToolSelection_SpaceToggles(t *testing.T) {
