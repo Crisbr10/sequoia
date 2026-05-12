@@ -61,8 +61,10 @@ func TestConfigurationView_ShowsNavigationHints(t *testing.T) {
 	view := screens.ConfigurationView(config, 0, true)
 
 	// Should show navigation hints.
-	assert.Contains(t, view, "↑/↓", "Should show up/down field hint")
-	assert.Contains(t, view, "←/→", "Should show left/right change hint")
+	assert.Contains(t, view, "Tab", "Should show Tab hint")
+	assert.Contains(t, view, "switch field", "Should show switch field hint")
+	assert.Contains(t, view, "↑/↓/←/→", "Should show arrow keys for cycling options")
+	assert.Contains(t, view, "change option", "Should show change option hint")
 	assert.Contains(t, view, "Enter", "Should show Enter hint")
 	assert.Contains(t, view, "Esc", "Should show Esc hint")
 }
@@ -157,22 +159,85 @@ func TestConfigurationUpdate_EscNavigatesBack(t *testing.T) {
 	assert.Equal(t, "back", action, "Esc should go back to ToolSelection")
 }
 
-func TestConfigurationUpdate_UpDownSwitchesField(t *testing.T) {
+func TestConfigurationUpdate_UpDownCyclesLanguageField(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
 
-	// KeyDown from field 0 (language) → should switch to field 1 (persistence).
+	// KeyDown on language field (0) → cycles en→es without changing active field.
 	msgDown := tea.KeyMsg{Type: tea.KeyDown}
-	newField, _, action := screens.ConfigurationUpdate(msgDown, 0, config, true)
-	assert.Equal(t, 1, newField, "KeyDown should switch from language(0) to persistence(1)")
+	newField, newConfig, action := screens.ConfigurationUpdate(msgDown, 0, config, true)
+	assert.Equal(t, 0, newField, "active field should stay on language(0)")
+	assert.Equal(t, "es", string(newConfig.Language), "Down should cycle EN → ES")
 	assert.Empty(t, action)
 
-	// KeyUp from field 1 (persistence) → should switch to field 0 (language).
+	// KeyDown again → wraps back to en.
+	newField, newConfig, action = screens.ConfigurationUpdate(msgDown, 0, newConfig, true)
+	assert.Equal(t, 0, newField)
+	assert.Equal(t, "en", string(newConfig.Language), "Down should cycle ES → EN")
+
+	// KeyUp on language field → cycles en→es (only two options, same endpoint).
 	msgUp := tea.KeyMsg{Type: tea.KeyUp}
-	newField, _, action = screens.ConfigurationUpdate(msgUp, 1, config, true)
-	assert.Equal(t, 0, newField, "KeyUp should switch from persistence(1) to language(0)")
+	newField, newConfig, action = screens.ConfigurationUpdate(msgUp, 0, config, true)
+	assert.Equal(t, 0, newField)
+	assert.Equal(t, "es", string(newConfig.Language), "Up should cycle EN → ES")
 	assert.Empty(t, action)
+}
+
+func TestConfigurationUpdate_UpDownCyclesOptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("language field up/down wrapping", func(t *testing.T) {
+		t.Parallel()
+
+		config := model.TUIConfig{Language: "en", Persistence: "engram"}
+
+		// Down: en → es → en
+		msgDown := tea.KeyMsg{Type: tea.KeyDown}
+		_, nc, _ := screens.ConfigurationUpdate(msgDown, 0, config, true)
+		assert.Equal(t, "es", string(nc.Language))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgDown, 0, nc, true)
+		assert.Equal(t, "en", string(nc.Language))
+
+		// Up: en → es → en
+		msgUp := tea.KeyMsg{Type: tea.KeyUp}
+		_, nc, _ = screens.ConfigurationUpdate(msgUp, 0, config, true)
+		assert.Equal(t, "es", string(nc.Language))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgUp, 0, nc, true)
+		assert.Equal(t, "en", string(nc.Language))
+	})
+
+	t.Run("persistence field up/down wrapping", func(t *testing.T) {
+		t.Parallel()
+
+		config := model.TUIConfig{Language: "en", Persistence: "engram"}
+
+		// Down: engram → files → both → engram
+		msgDown := tea.KeyMsg{Type: tea.KeyDown}
+		newField, nc, _ := screens.ConfigurationUpdate(msgDown, 1, config, true)
+		assert.Equal(t, 1, newField, "active field should stay on persistence")
+		assert.Equal(t, "files", string(nc.Persistence))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgDown, 1, nc, true)
+		assert.Equal(t, "both", string(nc.Persistence))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgDown, 1, nc, true)
+		assert.Equal(t, "engram", string(nc.Persistence), "should wrap back to engram")
+
+		// Up: engram → both → files → engram
+		msgUp := tea.KeyMsg{Type: tea.KeyUp}
+		newField, nc, _ = screens.ConfigurationUpdate(msgUp, 1, config, true)
+		assert.Equal(t, 1, newField)
+		assert.Equal(t, "both", string(nc.Persistence))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgUp, 1, nc, true)
+		assert.Equal(t, "files", string(nc.Persistence))
+
+		_, nc, _ = screens.ConfigurationUpdate(msgUp, 1, nc, true)
+		assert.Equal(t, "engram", string(nc.Persistence))
+	})
 }
 
 func TestConfigurationUpdate_LeftOnLanguageFieldChangesLanguage(t *testing.T) {
