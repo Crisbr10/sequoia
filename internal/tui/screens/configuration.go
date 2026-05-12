@@ -58,7 +58,7 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 		} else if highlighted {
 			label = styles.Success().Render(label)
 		}
-		b.WriteString(fmt.Sprintf("  %s%s\n", cursorMark, label))
+		fmt.Fprintf(&b, "  %s%s\n", cursorMark, label)
 	}
 	b.WriteString("\n")
 
@@ -92,7 +92,7 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 			}
 		}
 
-		b.WriteString(fmt.Sprintf("  %s%s%s\n", cursorMark, label, extra))
+		fmt.Fprintf(&b, "  %s%s%s\n", cursorMark, label, extra)
 	}
 	b.WriteString("\n")
 
@@ -123,9 +123,6 @@ func renderFieldLabel(name string, active bool) string {
 // activeField is 0 (language) or 1 (persistence). config holds current selections.
 // Returns new active field, updated config, and action ("confirm", "back", "quit", or "").
 func ConfigurationUpdate(msg tea.KeyMsg, activeField int, config model.TUIConfig, engramAvailable bool) (newActiveField int, newConfig model.TUIConfig, action string) {
-	newConfig = config
-	newActiveField = activeField
-
 	switch msg.Type {
 	case tea.KeyTab:
 		return toggleField(activeField), config, ""

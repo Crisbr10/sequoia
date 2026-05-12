@@ -1,5 +1,7 @@
 package gemini
 
+import "github.com/Crisbr10/sequoia/adapters/common"
+
 // StrategyConfigMerge implements section injection for Gemini's GEMINI.md.
 // It uses marker-based delimiters (<!-- sequoia:start -->) to inject and
 // remove Sequoia content without modifying content outside the markers.
@@ -14,10 +16,10 @@ func NewStrategy(path string) *StrategyConfigMerge {
 
 // Inject writes the Sequoia content into the target file using marker injection.
 func (s *StrategyConfigMerge) Inject(content string) error {
-	return InjectSection(s.path, content)
+	return common.InjectMarkdownSection(s.path, content)
 }
 
 // Remove deletes the Sequoia section from the target file.
 func (s *StrategyConfigMerge) Remove() error {
-	return RemoveSection(s.path)
+	return common.RemoveMarkdownSection(s.path)
 }

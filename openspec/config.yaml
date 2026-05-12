@@ -7,7 +7,7 @@ language: go
 modules:
   - name: sequoia-ai
     path: sequoia/
-    go_version: "1.24.2"
+    go_version: "1.24.0"
   - name: github.com/gentleman-programming/gentle-ai
     path: gentle-ai/
     go_version: "1.24.2"

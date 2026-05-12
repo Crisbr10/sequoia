@@ -13,7 +13,7 @@ func TestMergeSection_EmptyContent(t *testing.T) {
 	t.Parallel()
 
 	section := map[string]interface{}{
-		"skills_path":  "/home/user/.codex/sequoia/skills/",
+		"skills_path":   "/home/user/.codex/sequoia/skills/",
 		"commands_path": "/home/user/.codex/sequoia/commands/",
 	}
 
@@ -62,7 +62,7 @@ version = "0.0.1"
 `
 
 	section := map[string]interface{}{
-		"skills_path":  "/new/path",
+		"skills_path":   "/new/path",
 		"commands_path": "/new/commands",
 	}
 

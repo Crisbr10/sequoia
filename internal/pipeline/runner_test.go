@@ -27,15 +27,15 @@ type testAdapter struct {
 	uninstallErr error
 	delay        time.Duration
 
-	mu          sync.Mutex
-	installCalls  int
+	mu             sync.Mutex
+	installCalls   int
 	uninstallCalls int
 }
 
-func (a *testAdapter) ID() string                      { return a.id }
-func (a *testAdapter) Name() string                    { return a.name }
-func (a *testAdapter) Detect() bool                    { return true }
-func (a *testAdapter) IsInstalled() bool               { return a.installed }
+func (a *testAdapter) ID() string        { return a.id }
+func (a *testAdapter) Name() string      { return a.name }
+func (a *testAdapter) Detect() bool      { return true }
+func (a *testAdapter) IsInstalled() bool { return a.installed }
 
 func (a *testAdapter) Install(opts adapters.InstallOpts) error {
 	_ = opts.Language
@@ -66,10 +66,12 @@ func (a *testAdapter) Status() adapters.AdapterStatus {
 		Path:      "/fake/path",
 	}
 }
-func (a *testAdapter) SkillsPath() string              { return "/fake/skills" }
-func (a *testAdapter) CommandsPath() string            { return "/fake/commands" }
-func (a *testAdapter) SystemPromptPath() string        { return "/fake/prompt" }
-func (a *testAdapter) PromptStrategy() adapters.PromptStrategy { return adapters.StrategyMarkdownSections }
+func (a *testAdapter) SkillsPath() string       { return "/fake/skills" }
+func (a *testAdapter) CommandsPath() string     { return "/fake/commands" }
+func (a *testAdapter) SystemPromptPath() string { return "/fake/prompt" }
+func (a *testAdapter) PromptStrategy() adapters.PromptStrategy {
+	return adapters.StrategyMarkdownSections
+}
 
 func (a *testAdapter) installCallCount() int {
 	a.mu.Lock()

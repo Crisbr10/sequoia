@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testStart = "<!-- sequoia:start -->"
+	testEnd   = "<!-- sequoia:end -->"
+)
+
 func TestStrategyConfigMerge_Inject_FileNotExist(t *testing.T) {
 	t.Parallel()
 	p := filepath.Join(t.TempDir(), "subdir", "GEMINI.md")

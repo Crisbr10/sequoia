@@ -11,10 +11,10 @@ import (
 
 // pluginManifest is the on-disk YAML structure for .sequoia-plugin.yaml files.
 type pluginManifest struct {
-	ID      string       `yaml:"id"`
-	Name    string       `yaml:"name"`
-	Version string       `yaml:"version"`
-	Agents  []agentDef   `yaml:"agents"`
+	ID      string     `yaml:"id"`
+	Name    string     `yaml:"name"`
+	Version string     `yaml:"version"`
+	Agents  []agentDef `yaml:"agents"`
 }
 
 type agentDef struct {
@@ -43,12 +43,7 @@ func (p *pluginImpl) Init() error {
 func (p *pluginImpl) Agents() []Agent {
 	result := make([]Agent, len(p.manifest.Agents))
 	for i, def := range p.manifest.Agents {
-		result[i] = Agent{
-			ID:           def.ID,
-			Name:         def.Name,
-			Description:  def.Description,
-			SystemPrompt: def.SystemPrompt,
-		}
+		result[i] = Agent(def)
 	}
 	return result
 }

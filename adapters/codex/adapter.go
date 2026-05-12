@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/BurntSushi/toml"
 
@@ -14,119 +13,57 @@ import (
 )
 
 // Adapter implements adapters.ToolAdapter for OpenAI Codex.
-// homeDir overrides os.UserHomeDir() for testing. Leave empty for production use.
+// It embeds common.BaseAdapter for Status and path methods.
+// Install and Uninstall are custom because Codex uses TOML merging
+// instead of the standard markdown/file-replace strategies.
 type Adapter struct {
-	homeDir string
+	common.BaseAdapter
 }
 
 func init() {
-	adapters.DefaultRegistry.Register(&Adapter{})
+	adapters.DefaultRegistry.Register(newAdapter(""))
 }
 
 // NewAdapter creates an Adapter with an overridden home directory.
-// Pass an empty string to use the real home directory (production use).
-// Pass a temp directory in tests to avoid touching ~/.codex/.
 func NewAdapter(homeDir string) *Adapter {
-	return &Adapter{homeDir: homeDir}
+	return newAdapter(homeDir)
 }
 
-func (a *Adapter) base() (string, error) {
-	return codexBase(a.homeDir)
-}
-
-// ID returns the unique machine-readable identifier for this adapter.
-func (a *Adapter) ID() string { return "codex" }
-
-// Name returns the human-readable display name.
-func (a *Adapter) Name() string { return "OpenAI Codex" }
-
-// Detect reports whether OpenAI Codex appears to be present on this machine.
-// It returns true if ~/.codex/ directory exists.
-func (a *Adapter) Detect() bool {
-	base, err := a.base()
-	if err != nil {
-		return false
-	}
-	_, err = os.Stat(base)
-	return err == nil
-}
-
-// IsInstalled reports whether Sequoia has already been installed for Codex.
-// It checks if ~/.codex/sequoia/ directory exists AND [sequoia] table is in config.toml.
-func (a *Adapter) IsInstalled() bool {
-	base, err := a.base()
-	if err != nil {
-		return false
-	}
-	if _, err := os.Stat(filepath.Join(base, "sequoia")); os.IsNotExist(err) {
-		return false
-	}
-	// Check for [sequoia] in config.toml.
-	data, err := os.ReadFile(configPath(base))
-	if err != nil {
-		return false
-	}
-	return containsSequoiaSection(string(data))
-}
-
-// PromptStrategy returns the injection strategy used by this adapter.
-func (a *Adapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyTOMLMerge
-}
-
-// SkillsPath returns the absolute path to the skills directory for this adapter.
-func (a *Adapter) SkillsPath() string {
-	base, err := a.base()
-	if err != nil {
-		return ""
-	}
-	return skillsPath(base)
-}
-
-// CommandsPath returns the absolute path to the commands directory for this adapter.
-func (a *Adapter) CommandsPath() string {
-	base, err := a.base()
-	if err != nil {
-		return ""
-	}
-	return commandsPath(base)
-}
-
-// SystemPromptPath returns the absolute path to the config.toml file.
-func (a *Adapter) SystemPromptPath() string {
-	base, err := a.base()
-	if err != nil {
-		return ""
-	}
-	return systemPromptPath(base)
-}
-
-// Status returns the current installation status of this adapter.
-// It populates Version from the .sequoia-version file when present.
-func (a *Adapter) Status() adapters.AdapterStatus {
-	installed := a.IsInstalled()
-	version := ""
-	if installed {
-		base, err := a.base()
-		if err == nil {
-			data, err := os.ReadFile(versionFilePath(base))
-			if err == nil {
-				version = strings.TrimSpace(string(data))
-			}
+func newAdapter(homeDir string) *Adapter {
+	a := &Adapter{}
+	a.SetIDName("codex", "OpenAI Codex")
+	a.SetHomeDir(homeDir)
+	a.ResolveBase(codexBase)
+	a.SetPathFns(skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath)
+	a.SetStrategy(adapters.StrategyTOMLMerge, nil, nil) // TOML strategy — custom Install/Uninstall
+	a.SetDetectFn(func() bool {
+		base, err := codexBase(homeDir)
+		if err != nil {
+			return false
 		}
-	}
-	return adapters.AdapterStatus{
-		Installed: installed,
-		Version:   version,
-		Path:      a.SkillsPath(),
-	}
+		_, err = os.Stat(base)
+		return err == nil
+	})
+	a.SetIsInstalledFn(func(base string) bool {
+		if _, err := os.Stat(filepath.Join(base, "sequoia")); os.IsNotExist(err) {
+			return false
+		}
+		data, err := os.ReadFile(configPath(base))
+		if err != nil {
+			return false
+		}
+		return containsSequoiaSection(string(data))
+	})
+	return a
 }
 
-// Install installs Sequoia files for OpenAI Codex.
+// Install installs Sequoia files for OpenAI Codex using TOML merging.
+// Overrides BaseAdapter.Install because Codex uses a custom TOML merge strategy
+// and its template data includes runtime paths.
 func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	_ = opts.Language
 
-	base, err := a.base()
+	base, err := codexBase(a.HomeDir())
 	if err != nil {
 		return fmt.Errorf("install: resolve home: %w", err)
 	}
@@ -137,14 +74,12 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		CommandsPath: commandsPath(base),
 	}
 
-	// Render templates into a temp staging dir for common.Installer.
 	staging, err := os.MkdirTemp("", "sequoia-codex-*")
 	if err != nil {
 		return fmt.Errorf("install: create staging dir: %w", err)
 	}
-	defer os.RemoveAll(staging)
+	defer func() { _ = os.RemoveAll(staging) }()
 
-	// Render and stage the skill file.
 	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
@@ -153,9 +88,8 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: stage skill: %w", err)
 	}
 
-	// Stage command files (static — no rendering needed).
 	for _, cmd := range common.CommandFiles {
-		content, err := templateFS.ReadFile("templates/commands/" + cmd)
+		content, err := common.CommandFS.ReadFile("templates/commands/" + cmd)
 		if err != nil {
 			return fmt.Errorf("install: read command %q: %w", cmd, err)
 		}
@@ -164,14 +98,12 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		}
 	}
 
-	// Create target directories before Prepare (Prepare probes for write access).
 	for _, dir := range []string{skillsPath(base), commandsPath(base)} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("install: create dir %q: %w", dir, err)
 		}
 	}
 
-	// Install skill file via the common framework.
 	skillInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: skillsPath(base),
@@ -182,7 +114,6 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: skill: %w", err)
 	}
 
-	// Install command files via the common framework.
 	cmdInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
@@ -194,9 +125,8 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: commands: %w", err)
 	}
 
-	// Merge the [sequoia] table into config.toml.
 	sequoiaTable := map[string]interface{}{
-		"skills_path":  skillsPath(base),
+		"skills_path":   skillsPath(base),
 		"commands_path": commandsPath(base),
 	}
 	if err := MergeConfig(configPath(base), sequoiaTable); err != nil {
@@ -205,7 +135,6 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: merge config: %w", err)
 	}
 
-	// Write the version marker file.
 	if err := os.WriteFile(versionFilePath(base), []byte(common.Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
@@ -214,27 +143,26 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 }
 
 // Uninstall removes Sequoia files for OpenAI Codex.
+// Overrides BaseAdapter.Uninstall because Codex uses TOML config merging
+// and removes a sequoia/ subdirectory tree.
 func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
 	_ = opts.Language
 
-	base, err := a.base()
+	base, err := codexBase(a.HomeDir())
 	if err != nil {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}
 
-	// Remove skill file, version marker, and command files (best-effort — missing files are not errors).
 	_ = os.Remove(filepath.Join(skillsPath(base), "SKILL.md"))
 	_ = os.Remove(versionFilePath(base))
 	for _, cmd := range common.CommandFiles {
 		_ = os.Remove(filepath.Join(commandsPath(base), cmd))
 	}
 
-	// Remove the [sequoia] table from config.toml.
 	if err := RemoveConfig(configPath(base)); err != nil {
 		return fmt.Errorf("uninstall: remove config: %w", err)
 	}
 
-	// Remove the sequoia directory tree.
 	if err := os.RemoveAll(filepath.Join(base, "sequoia")); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("uninstall: remove sequoia dir: %w", err)
 	}

@@ -3,7 +3,6 @@ package example_test
 import (
 	"testing"
 
-	"github.com/Crisbr10/sequoia/plugin"
 	"github.com/Crisbr10/sequoia/plugin/example"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,7 @@ import (
 func TestExamplePlugin_ImplementsPlugin(t *testing.T) {
 	t.Parallel()
 
-	var p plugin.Plugin = example.NewHelloPlugin()
+	p := example.NewHelloPlugin()
 	assert.NotNil(t, p)
 }
 

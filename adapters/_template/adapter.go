@@ -1,11 +1,13 @@
+//go:build ignore
+
 // Package template is a copy-paste boilerplate for creating new tool adapters.
 // Replace every "TODO" comment with your tool-specific logic.
 //
 // Steps to use this template:
-//   1. Copy this entire directory to adapters/{tool}/
-//   2. Replace "template" with your tool ID in all files
-//   3. Follow the TODO comments in order
-//   4. Register in cmd/sequoia/main.go with a blank import
+//  1. Copy this entire directory to adapters/{tool}/
+//  2. Replace "template" with your tool ID in all files
+//  3. Follow the TODO comments in order
+//  4. Register in cmd/sequoia/main.go with a blank import
 //
 // See CONTRIBUTING.md for the full step-by-step guide.
 package template
@@ -92,6 +94,7 @@ func (a *Adapter) IsInstalled() bool {
 //   - StrategyFileReplace: dedicated file, full replace with backup
 //   - StrategyConfigMerge: config file with markers (non-Markdown format)
 //   - StrategyTOMLMerge: TOML config merge
+//
 // See CONTRIBUTING.md for guidance on each strategy.
 func (a *Adapter) PromptStrategy() adapters.PromptStrategy {
 	// TODO: Replace with the correct strategy.

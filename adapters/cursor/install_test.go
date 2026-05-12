@@ -3,6 +3,7 @@ package cursor_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Crisbr10/sequoia/adapters"
@@ -79,7 +80,7 @@ func TestInstall_WritesVersionFile(t *testing.T) {
 	versionFile := filepath.Join(a.SkillsPath(), ".sequoia-version")
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
-	assert.Equal(t, common.Version, string(data))
+	assert.Equal(t, common.Version, strings.TrimSpace(string(data)))
 }
 
 func TestUninstall_RemovesVersionFile(t *testing.T) {

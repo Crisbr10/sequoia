@@ -16,8 +16,8 @@ import (
 // releaseWorkflowSchema mirrors the GitHub Actions workflow structure
 // relevant to the Sequoia release CI pipeline.
 type releaseWorkflowSchema struct {
-	Name string            `yaml:"name"`
-	On   releaseWorkflowOn `yaml:"on"`
+	Name string                `yaml:"name"`
+	On   releaseWorkflowOn     `yaml:"on"`
 	Jobs map[string]releaseJob `yaml:"jobs"`
 }
 
@@ -30,18 +30,18 @@ type releaseWorkflowPush struct {
 }
 
 type releaseJob struct {
-	Name       string          `yaml:"name"`
-	RunsOn     string          `yaml:"runs-on"`
-	If         string          `yaml:"if,omitempty"`
-	Steps      []releaseJobStep `yaml:"steps"`
+	Name   string           `yaml:"name"`
+	RunsOn string           `yaml:"runs-on"`
+	If     string           `yaml:"if,omitempty"`
+	Steps  []releaseJobStep `yaml:"steps"`
 }
 
 type releaseJobStep struct {
-	Name string            `yaml:"name,omitempty"`
-	Uses string            `yaml:"uses,omitempty"`
+	Name string                 `yaml:"name,omitempty"`
+	Uses string                 `yaml:"uses,omitempty"`
 	With map[string]interface{} `yaml:"with,omitempty"`
-	Run  string            `yaml:"run,omitempty"`
-	Env  map[string]string `yaml:"env,omitempty"`
+	Run  string                 `yaml:"run,omitempty"`
+	Env  map[string]string      `yaml:"env,omitempty"`
 }
 
 // TestReleaseWorkflow validates .github/workflows/release.yml

@@ -83,9 +83,9 @@ func filterInstalled(tools []model.ToolState) []model.ToolState {
 }
 
 // renderUninstallRow renders a single uninstall checkbox row.
-func renderUninstallRow(ts model.ToolState, index int, highlighted bool) string {
+func renderUninstallRow(ts model.ToolState, _ int, highlighted bool) string {
 	// Checkbox.
-	checkbox := "[ ]"
+	var checkbox string
 	if ts.Selected {
 		checkbox = styles.Success().Render("[x]")
 	} else {

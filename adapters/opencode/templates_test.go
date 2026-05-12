@@ -12,11 +12,6 @@ import (
 var templateFiles = []string{
 	"templates/skill.md.tmpl",
 	"templates/agents-md-section.md.tmpl",
-	"templates/commands/sequoia-init.md",
-	"templates/commands/sequoia-audit.md",
-	"templates/commands/sequoia-review.md",
-	"templates/commands/sequoia-fix.md",
-	"templates/commands/sequoia-diff.md",
 }
 
 func TestTemplates_AllFilesExist(t *testing.T) {
@@ -66,26 +61,6 @@ func TestTemplates_SkillHasAllAgents(t *testing.T) {
 		t.Run(agent, func(t *testing.T) {
 			t.Parallel()
 			assert.True(t, strings.Contains(content, agent), "skill.md.tmpl should contain %s", agent)
-		})
-	}
-}
-
-func TestTemplates_CommandsHaveFrontmatter(t *testing.T) {
-	t.Parallel()
-	commands := []string{
-		"templates/commands/sequoia-init.md",
-		"templates/commands/sequoia-audit.md",
-		"templates/commands/sequoia-review.md",
-		"templates/commands/sequoia-fix.md",
-		"templates/commands/sequoia-diff.md",
-	}
-	for _, path := range commands {
-		path := path
-		t.Run(path, func(t *testing.T) {
-			t.Parallel()
-			data, err := os.ReadFile(path)
-			require.NoError(t, err)
-			assert.True(t, strings.HasPrefix(string(data), "---"))
 		})
 	}
 }

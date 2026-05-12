@@ -2,15 +2,16 @@ version: "2"
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - revive
+formatters:
+  enable:
+    - gofmt
+    - goimports
 linters-settings:
   revive:
     rules:
@@ -22,5 +23,8 @@ issues:
   max-same-issues: 5
   exclude-rules:
     - path: _test\.go
+      linters:
+        - errcheck
+    - path: cmd/sequoia/main\.go
       linters:
         - errcheck

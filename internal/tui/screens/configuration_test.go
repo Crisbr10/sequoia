@@ -172,7 +172,7 @@ func TestConfigurationUpdate_UpDownCyclesLanguageField(t *testing.T) {
 	assert.Empty(t, action)
 
 	// KeyDown again → wraps back to en.
-	newField, newConfig, action = screens.ConfigurationUpdate(msgDown, 0, newConfig, true)
+	newField, newConfig, _ = screens.ConfigurationUpdate(msgDown, 0, newConfig, true)
 	assert.Equal(t, 0, newField)
 	assert.Equal(t, "en", string(newConfig.Language), "Down should cycle ES → EN")
 

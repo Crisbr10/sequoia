@@ -43,15 +43,14 @@ func ErrorView(progressTools []ProgressTool, mode string) string {
 			marker = styles.Muted().Render("⚠️")
 		}
 
-		b.WriteString(fmt.Sprintf("  %s %s\n", marker, styles.Body().Render(tool.ToolName)))
+		fmt.Fprintf(&b, "  %s %s\n", marker, styles.Body().Render(tool.ToolName))
 
 		// Show failed steps with error messages.
 		for _, step := range tool.Steps {
 			if step.Status == StepFailed {
-				b.WriteString(fmt.Sprintf("      %s: %s\n",
+				fmt.Fprintf(&b, "      %s: %s\n",
 					styles.Error().Render(step.Name),
-					styles.Error().Render(step.Error),
-				))
+					styles.Error().Render(step.Error))
 			}
 		}
 	}

@@ -9,8 +9,8 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/spf13/cobra"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
@@ -25,8 +25,10 @@ import (
 )
 
 // Version is the Sequoia CLI version. Set at build time via:
-//   -ldflags "-X github.com/Crisbr10/sequoia/cmd/sequoia.Version=0.1.2" (GoReleaser)
-//   go install auto-detects it via debug.ReadBuildInfo
+//
+//	-ldflags "-X github.com/Crisbr10/sequoia/cmd/sequoia.Version=0.1.2" (GoReleaser)
+//	go install auto-detects it via debug.ReadBuildInfo
+//
 // Falls back to "0.1.0-dev" only for local go build.
 var Version = "0.1.0-dev"
 
@@ -75,7 +77,7 @@ Running sequoia with no arguments launches the interactive TUI.
   sequoia uninstall Remove Sequoia from one or all tools
   sequoia version   Print the CLI version`,
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if isTerminalFn() {
 				return runTUI("")
 			}
@@ -114,7 +116,7 @@ Examples:
   sequoia install                    # Interactive TUI
   sequoia install --no-tui           # Install into all detected tools
   sequoia install --tool=claude-code # Install only into Claude Code`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// TUI mode: if stdin is a terminal and --no-tui is not set,
 			// launch the Bubbletea app.
 			if !noTUI && isTerminal() {
@@ -141,7 +143,7 @@ Sequoia is installed for each one.
 
 The output includes the adapter ID, display name, detected status,
 and installation path.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runStatus(cmd.OutOrStdout())
 		},
 	}
@@ -171,7 +173,7 @@ Examples:
   sequoia uninstall --tool=claude-code  # Remove from Claude Code
   sequoia uninstall --all               # Remove from all tools
   sequoia uninstall --all --yes         # Remove from all tools without prompt`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runUninstall(toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
@@ -189,8 +191,8 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the CLI version",
 		Long:  "Print the Sequoia CLI version number.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), Version)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), Version)
 			return nil
 		},
 	}
@@ -212,20 +214,20 @@ func runInstall(toolID string, out io.Writer) error {
 		if toolID != "" {
 			return fmt.Errorf("unknown adapter %q — use 'sequoia status' to list available adapters", toolID)
 		}
-		fmt.Fprintln(out, "No supported AI tools detected on this machine.")
-		fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
+		_, _ = fmt.Fprintln(out, "No supported AI tools detected on this machine.")
+		_, _ = fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
 		return nil
 	}
 
 	for _, a := range targets {
-		fmt.Fprintf(out, "Installing Sequoia for %s ...\n", a.Name())
+		_, _ = fmt.Fprintf(out, "Installing Sequoia for %s ...\n", a.Name())
 		if a.IsInstalled() {
-			fmt.Fprintf(out, "  Sequoia is already installed. Reinstalling ...\n")
+			_, _ = fmt.Fprintf(out, "  Sequoia is already installed. Reinstalling ...\n")
 		}
 		if err := a.Install(adapters.InstallOpts{}); err != nil {
 			return fmt.Errorf("install %s: %w", a.ID(), err)
 		}
-		fmt.Fprintf(out, "  Done! Use /sequoia-init inside %s to get started.\n", a.Name())
+		_, _ = fmt.Fprintf(out, "  Done! Use /sequoia-init inside %s to get started.\n", a.Name())
 	}
 
 	return nil
@@ -238,14 +240,14 @@ func runInstall(toolID string, out io.Writer) error {
 func runStatus(out io.Writer) error {
 	all := adapters.DefaultRegistry.All()
 	if len(all) == 0 {
-		fmt.Fprintln(out, "No adapters registered.")
+		_, _ = fmt.Fprintln(out, "No adapters registered.")
 		return nil
 	}
 
 	// Header with column widths: ID(14) NAME(14) DETECTED(9) INSTALLED(10) VERSION(10) PATH(55).
-	fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
+	_, _ = fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
 		"ID", "NAME", "DETECTED", "INSTALLED", "VERSION", "PATH")
-	fmt.Fprintln(out, strings.Repeat("-", 117))
+	_, _ = fmt.Fprintln(out, strings.Repeat("-", 117))
 
 	for _, a := range all {
 		s := a.Status()
@@ -257,7 +259,7 @@ func runStatus(out io.Writer) error {
 		if s.Installed {
 			installed = "yes"
 		}
-		fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
+		_, _ = fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
 			a.ID(), a.Name(), detected, installed, s.Version, s.Path)
 	}
 
@@ -266,7 +268,7 @@ func runStatus(out io.Writer) error {
 		if common.IsSymlink(home) {
 			resolved, err := common.ResolveHome(home)
 			if err == nil {
-				fmt.Fprintf(out, "\nHome directory is a symlink: %s → %s\n", home, resolved)
+				_, _ = fmt.Fprintf(out, "\nHome directory is a symlink: %s → %s\n", home, resolved)
 			}
 		}
 	}
@@ -301,7 +303,7 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 		if toolID != "" {
 			return fmt.Errorf("unknown adapter %q — use 'sequoia status' to list available adapters", toolID)
 		}
-		fmt.Fprintln(out, "No adapters to uninstall from.")
+		_, _ = fmt.Fprintln(out, "No adapters to uninstall from.")
 		return nil
 	}
 
@@ -313,33 +315,33 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 
 		// Build the confirmation prompt.
 		if len(targets) == 1 {
-			fmt.Fprintf(out, "Remove Sequoia from %s? [y/N]: ", targets[0].Name())
+			_, _ = fmt.Fprintf(out, "Remove Sequoia from %s? [y/N]: ", targets[0].Name())
 		} else {
-			fmt.Fprintln(out, "This will remove Sequoia from:")
+			_, _ = fmt.Fprintln(out, "This will remove Sequoia from:")
 			for _, a := range targets {
-				fmt.Fprintf(out, "  %s\n", a.Name())
+				_, _ = fmt.Fprintf(out, "  %s\n", a.Name())
 			}
-			fmt.Fprint(out, "Continue? [y/N]: ")
+			_, _ = fmt.Fprint(out, "Continue? [y/N]: ")
 		}
 
 		var response string
 		_, _ = fmt.Fscanln(in, &response)
 		if response != "y" && response != "Y" {
-			fmt.Fprintln(out, "Uninstall aborted.")
+			_, _ = fmt.Fprintln(out, "Uninstall aborted.")
 			return nil
 		}
 	}
 
 	for _, a := range targets {
 		if !a.IsInstalled() {
-			fmt.Fprintf(out, "Sequoia is not installed for %s — skipping.\n", a.Name())
+			_, _ = fmt.Fprintf(out, "Sequoia is not installed for %s — skipping.\n", a.Name())
 			continue
 		}
-		fmt.Fprintf(out, "Removing Sequoia from %s ...\n", a.Name())
+		_, _ = fmt.Fprintf(out, "Removing Sequoia from %s ...\n", a.Name())
 		if err := a.Uninstall(adapters.InstallOpts{}); err != nil {
 			return fmt.Errorf("uninstall %s: %w", a.ID(), err)
 		}
-		fmt.Fprintf(out, "  Done.\n")
+		_, _ = fmt.Fprintf(out, "  Done.\n")
 	}
 
 	return nil

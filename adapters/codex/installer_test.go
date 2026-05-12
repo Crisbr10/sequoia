@@ -18,7 +18,7 @@ func TestMergeConfig_FreshFile(t *testing.T) {
 	configPath := filepath.Join(dir, "config.toml")
 
 	table := map[string]interface{}{
-		"skills_path":  "/home/user/.codex/sequoia/skills/",
+		"skills_path":   "/home/user/.codex/sequoia/skills/",
 		"commands_path": "/home/user/.codex/sequoia/commands/",
 	}
 
@@ -48,7 +48,7 @@ version = "0.0.1"
 	require.NoError(t, os.WriteFile(configPath, []byte(existing), 0o644))
 
 	table := map[string]interface{}{
-		"skills_path":  "/new/path",
+		"skills_path":   "/new/path",
 		"commands_path": "/new/commands",
 	}
 

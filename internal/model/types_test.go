@@ -16,16 +16,16 @@ type mockAdapter struct {
 	name string
 }
 
-func (m *mockAdapter) ID() string                     { return m.id }
-func (m *mockAdapter) Name() string                   { return m.name }
-func (m *mockAdapter) Detect() bool                   { return false }
-func (m *mockAdapter) IsInstalled() bool              { return false }
+func (m *mockAdapter) ID() string                                { return m.id }
+func (m *mockAdapter) Name() string                              { return m.name }
+func (m *mockAdapter) Detect() bool                              { return false }
+func (m *mockAdapter) IsInstalled() bool                         { return false }
 func (m *mockAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
 func (m *mockAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
-func (m *mockAdapter) Status() adapters.AdapterStatus { return adapters.AdapterStatus{} }
-func (m *mockAdapter) SkillsPath() string             { return "" }
-func (m *mockAdapter) CommandsPath() string           { return "" }
-func (m *mockAdapter) SystemPromptPath() string       { return "" }
+func (m *mockAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
+func (m *mockAdapter) SkillsPath() string                        { return "" }
+func (m *mockAdapter) CommandsPath() string                      { return "" }
+func (m *mockAdapter) SystemPromptPath() string                  { return "" }
 func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
 	return adapters.StrategyMarkdownSections
 }
@@ -98,9 +98,9 @@ func TestInstallResult_Construction(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		result  model.InstallResult
-		wantOK  bool
+		name   string
+		result model.InstallResult
+		wantOK bool
 	}{
 		{
 			name: "successful installation with steps",
@@ -206,8 +206,8 @@ func TestStepResult_Construction(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		step   model.StepResult
+		name string
+		step model.StepResult
 	}{
 		{
 			name: "completed step",

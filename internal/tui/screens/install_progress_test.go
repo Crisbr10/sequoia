@@ -382,4 +382,3 @@ func TestInstallProgressView_NonEmptyView(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(view), "\n")
 	assert.GreaterOrEqual(t, len(lines), 3, "Progress view should span at least 3 lines")
 }
-

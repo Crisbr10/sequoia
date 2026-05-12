@@ -29,16 +29,16 @@ type mockAdapter struct {
 	installed bool
 }
 
-func (m *mockAdapter) ID() string                     { return m.id }
-func (m *mockAdapter) Name() string                   { return m.name }
-func (m *mockAdapter) Detect() bool                   { return m.installed }
-func (m *mockAdapter) IsInstalled() bool              { return m.installed }
+func (m *mockAdapter) ID() string                                { return m.id }
+func (m *mockAdapter) Name() string                              { return m.name }
+func (m *mockAdapter) Detect() bool                              { return m.installed }
+func (m *mockAdapter) IsInstalled() bool                         { return m.installed }
 func (m *mockAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
 func (m *mockAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
-func (m *mockAdapter) Status() adapters.AdapterStatus { return adapters.AdapterStatus{} }
-func (m *mockAdapter) SkillsPath() string             { return "" }
-func (m *mockAdapter) CommandsPath() string           { return "" }
-func (m *mockAdapter) SystemPromptPath() string       { return "" }
+func (m *mockAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
+func (m *mockAdapter) SkillsPath() string                        { return "" }
+func (m *mockAdapter) CommandsPath() string                      { return "" }
+func (m *mockAdapter) SystemPromptPath() string                  { return "" }
 func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
 	return adapters.StrategyMarkdownSections
 }
@@ -109,7 +109,7 @@ func TestNewModel_InitReturnsCmd(t *testing.T) {
 	assert.Nil(t, cmd, "Init returns nil by default (no startup command)")
 }
 
-func TestModel_ImplementsBubbleteaModel(t *testing.T) {
+func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
 	m := app.NewModel("", "test")

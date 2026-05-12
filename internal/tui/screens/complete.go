@@ -31,14 +31,14 @@ func CompleteView(progressTools []ProgressTool, mode string) string {
 	// Tools with their install status.
 	for _, tool := range progressTools {
 		allDone := allStepsDone(tool.Steps)
-		marker := "✅"
+		var marker string
 		if !allDone {
 			marker = styles.Muted().Render("⚠️")
 		} else {
 			marker = styles.Success().Render("✅")
 		}
 
-		b.WriteString(fmt.Sprintf("  %s %s\n", marker, styles.Body().Render(tool.ToolName)))
+		fmt.Fprintf(&b, "  %s %s\n", marker, styles.Body().Render(tool.ToolName))
 	}
 
 	b.WriteString("\n")

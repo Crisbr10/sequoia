@@ -22,20 +22,33 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: true
 
       - name: Vet
         run: go vet ./...
 
+      - name: Lint
+        if: runner.os == 'Linux'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2
+
       - name: Test
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            go test ./... -count=1 -timeout 120s
+            go test -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s
           else
-            go test ./... -count=1 -timeout 120s -race
+            go test -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s -race
           fi
         shell: bash
+
+      - name: Upload coverage
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.out
 
       - name: Build
         run: go build -o sequoia${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/sequoia/

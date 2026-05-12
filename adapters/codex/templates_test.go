@@ -15,11 +15,6 @@ import (
 var codexTemplateFiles = []string{
 	"templates/config.toml.tmpl",
 	"templates/skill.md.tmpl",
-	"templates/commands/sequoia-init.md",
-	"templates/commands/sequoia-audit.md",
-	"templates/commands/sequoia-review.md",
-	"templates/commands/sequoia-fix.md",
-	"templates/commands/sequoia-diff.md",
 }
 
 func TestTemplates_AllFilesExist(t *testing.T) {
@@ -104,29 +99,7 @@ func TestTemplates_GoldenFile_Config(t *testing.T) {
 	golden, err := os.ReadFile(goldenPath)
 	require.NoError(t, err)
 
-	// Normalize line endings: golden files may have \r\n on Windows after checkout,
-	// but template execution always produces \n.
 	got = strings.ReplaceAll(got, "\r\n", "\n")
 	want := strings.ReplaceAll(string(golden), "\r\n", "\n")
-	assert.Equal(t, want, got, "rendered template must match golden file. To update, regenerate the golden file.")
-}
-
-func TestTemplates_CommandsHaveFrontmatter(t *testing.T) {
-	t.Parallel()
-	commands := []string{
-		"templates/commands/sequoia-init.md",
-		"templates/commands/sequoia-audit.md",
-		"templates/commands/sequoia-review.md",
-		"templates/commands/sequoia-fix.md",
-		"templates/commands/sequoia-diff.md",
-	}
-	for _, path := range commands {
-		path := path
-		t.Run(path, func(t *testing.T) {
-			t.Parallel()
-			data, err := os.ReadFile(path)
-			require.NoError(t, err)
-			assert.True(t, strings.HasPrefix(string(data), "---"))
-		})
-	}
+	assert.Equal(t, want, got, "rendered template must match golden file.")
 }

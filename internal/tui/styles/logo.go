@@ -3,8 +3,8 @@ package styles
 import (
 	"strings"
 
-	figure "github.com/common-nighthawk/go-figure"
 	"github.com/charmbracelet/lipgloss"
+	figure "github.com/common-nighthawk/go-figure"
 )
 
 // Logo returns "Sequoia" rendered as ASCII art in forest green.

@@ -12,8 +12,8 @@ import (
 
 func init() {
 	// Force lipgloss color output in non-TTY test environments.
-	os.Setenv("FORCE_COLOR", "1")
-	os.Setenv("CLICOLOR_FORCE", "1")
+	_ = os.Setenv("FORCE_COLOR", "1")
+	_ = os.Setenv("CLICOLOR_FORCE", "1")
 }
 
 func TestTitle_RendersNonEmpty(t *testing.T) {

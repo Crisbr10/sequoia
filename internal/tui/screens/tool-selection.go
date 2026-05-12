@@ -40,11 +40,10 @@ func ToolSelectionView(tools []model.ToolState, cursor int, errorMsg string) str
 				cursorMark = styles.Accent().Render("▶ ")
 			}
 
-			b.WriteString(fmt.Sprintf("%s%s %s\n",
+			fmt.Fprintf(&b, "%s%s %s\n",
 				cursorMark,
 				checkbox,
-				styles.Body().Render(ts.Adapter.Name()),
-			))
+				styles.Body().Render(ts.Adapter.Name()))
 		}
 	}
 
@@ -123,25 +122,25 @@ func ToolSelectionUpdate(msg tea.KeyMsg, cursor int, toolCount int) (newCursor i
 	return cursor, false, ""
 }
 
-// wrapDecrement decrements n, wrapping to max-1 if n <= 0.
-func wrapDecrement(n, max int) int {
-	if max <= 1 {
+// wrapDecrement decrements n, wrapping to limit-1 if n <= 0.
+func wrapDecrement(n, limit int) int {
+	if limit <= 1 {
 		return 0
 	}
 	n--
 	if n < 0 {
-		return max - 1
+		return limit - 1
 	}
 	return n
 }
 
-// wrapIncrement increments n, wrapping to 0 if n >= max-1.
-func wrapIncrement(n, max int) int {
-	if max <= 1 {
+// wrapIncrement increments n, wrapping to 0 if n >= limit-1.
+func wrapIncrement(n, limit int) int {
+	if limit <= 1 {
 		return 0
 	}
 	n++
-	if n >= max {
+	if n >= limit {
 		return 0
 	}
 	return n

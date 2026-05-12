@@ -63,19 +63,20 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 	}
 }
 
-// runInstallSteps executes the standard install steps (Skills, Commands,
+// runSteps executes the standard install/uninstall steps (Skills, Commands,
 // System Prompt) for a single tool, sending progress messages through ch.
 //
 // Steps:
 //  1. Send "running" ProgressMsg for each step.
-//  2. Call adapter.Install() — the adapter performs all steps internally.
+//  2. Call fn() — the adapter performs all steps internally.
 //  3. On success: send "done" ProgressMsg for each step.
 //  4. On failure: send error ProgressMsg for the step where the failure was
 //     detected (the first step in the sequence), then stop.
-func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
+//
+// fn is either adapter.Install or adapter.Uninstall (both have the same signature).
+func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string, fn func(adapters.InstallOpts) error) {
 	adapter := t.Adapter
 	toolID := adapter.ID()
-	opts := adapters.InstallOpts{Language: lang}
 
 	// Signal that each step is starting.
 	for _, step := range defaultStepNames {
@@ -88,8 +89,8 @@ func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.Pro
 		}
 	}
 
-	// Perform the actual installation.
-	err := adapter.Install(opts)
+	// Perform the actual operation (Install or Uninstall).
+	err := fn(adapters.InstallOpts{Language: lang})
 
 	// Report the result.
 	if err != nil {
@@ -115,6 +116,16 @@ func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.Pro
 			return // context cancelled
 		}
 	}
+}
+
+// runInstallSteps calls runSteps with adapter.Install.
+func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
+	runSteps(ctx, t, ch, lang, t.Adapter.Install)
+}
+
+// runUninstallSteps calls runSteps with adapter.Uninstall.
+func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
+	runSteps(ctx, t, ch, lang, t.Adapter.Uninstall)
 }
 
 // RunUninstall returns a tea.Cmd that removes Sequoia from every selected tool.
@@ -154,47 +165,6 @@ func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.
 		wg.Wait()
 		close(ch)
 		return nil
-	}
-}
-
-// runUninstallSteps mirrors runInstallSteps but calls adapter.Uninstall().
-func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
-	adapter := t.Adapter
-	toolID := adapter.ID()
-	opts := adapters.InstallOpts{Language: lang}
-
-	for _, step := range defaultStepNames {
-		if !sendProgress(ctx, ch, model.ProgressMsg{
-			ToolID: toolID,
-			Step:   step,
-			Done:   false,
-		}) {
-			return
-		}
-	}
-
-	err := adapter.Uninstall(opts)
-
-	if err != nil {
-		if len(defaultStepNames) > 0 {
-			sendProgress(ctx, ch, model.ProgressMsg{
-				ToolID: toolID,
-				Step:   defaultStepNames[0],
-				Done:   true,
-				Error:  err.Error(),
-			})
-		}
-		return
-	}
-
-	for _, step := range defaultStepNames {
-		if !sendProgress(ctx, ch, model.ProgressMsg{
-			ToolID: toolID,
-			Step:   step,
-			Done:   true,
-		}) {
-			return
-		}
 	}
 }
 

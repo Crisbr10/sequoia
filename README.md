@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/go-1.22+-00ADD8?style=flat&logo=go" alt="Go">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version">
-  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=flat&logo=githubactions" alt="CI"></a>
+  <a href="https://github.com/Crisbr10/sequoia/actions/workflows/ci.yml"><img src="https://github.com/Crisbr10/sequoia/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 ---

@@ -1,8 +1,9 @@
 // Package sequoia validates the GoReleaser configuration (T-033).
 //
 // This file follows the Strict TDD cycle:
-//   RED → test written first (goreleaser.yaml does not exist yet → will fail)
-//   GREEN → goreleaser.yaml created to pass all assertions
+//
+//	RED → test written first (goreleaser.yaml does not exist yet → will fail)
+//	GREEN → goreleaser.yaml created to pass all assertions
 //
 // Because .goreleaser.yaml is purely structural (YAML config, no branching logic),
 // triangulation is skipped per strict-tdd.md rules.
@@ -19,36 +20,36 @@ import (
 
 // goreleaserSchema mirrors the subset of GoReleaser v2 config that T-033 requires.
 type goreleaserSchema struct {
-	Version  int `yaml:"version"`
-	Builds   []goreleaserBuild
-	Archives []goreleaserArchive
-	Checksum goreleaserChecksum
-	Release  goreleaserRelease
+	Version   int `yaml:"version"`
+	Builds    []goreleaserBuild
+	Archives  []goreleaserArchive
+	Checksum  goreleaserChecksum
+	Release   goreleaserRelease
 	Changelog goreleaserChangelog
-	Brews    []goreleaserBrew   `yaml:"brews"`
-	Scoops   []goreleaserScoop  `yaml:"scoops"`
+	Brews     []goreleaserBrew  `yaml:"brews"`
+	Scoops    []goreleaserScoop `yaml:"scoops"`
 }
 
 type goreleaserBuild struct {
-	ID     string   `yaml:"id"`
-	Main   string   `yaml:"main"`
-	Binary string   `yaml:"binary"`
-	Goos   []string `yaml:"goos"`
-	Goarch []string `yaml:"goarch"`
+	ID      string   `yaml:"id"`
+	Main    string   `yaml:"main"`
+	Binary  string   `yaml:"binary"`
+	Goos    []string `yaml:"goos"`
+	Goarch  []string `yaml:"goarch"`
 	Ldflags []string `yaml:"ldflags"`
-	Env    []string `yaml:"env"`
+	Env     []string `yaml:"env"`
 }
 
 type goreleaserArchive struct {
-	ID           string           `yaml:"id"`
-	NameTemplate string           `yaml:"name_template"`
-	Formats      []string         `yaml:"formats"`
+	ID              string                     `yaml:"id"`
+	NameTemplate    string                     `yaml:"name_template"`
+	Formats         []string                   `yaml:"formats"`
 	FormatOverrides []goreleaserFormatOverride `yaml:"format_overrides"`
 }
 
 type goreleaserFormatOverride struct {
-	Goos   string   `yaml:"goos"`
-	Goarch string   `yaml:"goarch,omitempty"`
+	Goos    string   `yaml:"goos"`
+	Goarch  string   `yaml:"goarch,omitempty"`
 	Formats []string `yaml:"formats"`
 }
 
@@ -57,7 +58,7 @@ type goreleaserChecksum struct {
 }
 
 type goreleaserRelease struct {
-	Draft      bool   `yaml:"draft"`
+	Draft      bool                 `yaml:"draft"`
 	Discussion goreleaserDiscussion `yaml:"discussion"`
 }
 
@@ -66,9 +67,9 @@ type goreleaserDiscussion struct {
 }
 
 type goreleaserChangelog struct {
-	Use   string            `yaml:"use"`
-	Groups []goreleaserChangelogGroup `yaml:"groups"`
-	Sort  string            `yaml:"sort"`
+	Use     string                     `yaml:"use"`
+	Groups  []goreleaserChangelogGroup `yaml:"groups"`
+	Sort    string                     `yaml:"sort"`
 	Filters goreleaserChangelogFilters `yaml:"filters"`
 }
 
@@ -83,24 +84,24 @@ type goreleaserChangelogFilters struct {
 }
 
 type goreleaserBrew struct {
-	ID           string `yaml:"id"`
-	Name         string `yaml:"name"`
-	Description  string `yaml:"description"`
-	Homepage     string `yaml:"homepage"`
-	License      string `yaml:"license"`
-	Repository   goreleaserRepo `yaml:"repository"`
-	URLTemplate  string `yaml:"url_template"`
-	Install      string `yaml:"install"`
+	ID          string         `yaml:"id"`
+	Name        string         `yaml:"name"`
+	Description string         `yaml:"description"`
+	Homepage    string         `yaml:"homepage"`
+	License     string         `yaml:"license"`
+	Repository  goreleaserRepo `yaml:"repository"`
+	URLTemplate string         `yaml:"url_template"`
+	Install     string         `yaml:"install"`
 }
 
 type goreleaserScoop struct {
-	ID           string `yaml:"id"`
-	Name         string `yaml:"name"`
-	Description  string `yaml:"description"`
-	Homepage     string `yaml:"homepage"`
-	License      string `yaml:"license"`
-	Repository   goreleaserRepo `yaml:"repository"`
-	URLTemplate  string `yaml:"url_template"`
+	ID          string         `yaml:"id"`
+	Name        string         `yaml:"name"`
+	Description string         `yaml:"description"`
+	Homepage    string         `yaml:"homepage"`
+	License     string         `yaml:"license"`
+	Repository  goreleaserRepo `yaml:"repository"`
+	URLTemplate string         `yaml:"url_template"`
 }
 
 type goreleaserRepo struct {

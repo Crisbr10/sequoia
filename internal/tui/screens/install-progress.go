@@ -44,14 +44,6 @@ type ProgressTool struct {
 	Steps []ProgressStep
 }
 
-// spinnerFrames contains the braille spinner animation characters.
-var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-// defaultSteps returns the standard install step names in expected order.
-func defaultSteps() []string {
-	return []string{"Skills", "Commands", "System Prompt"}
-}
-
 // InstallProgressView renders the Install Progress screen showing per-tool
 // step-by-step progress. completedCount is the number of fully-finished tools;
 // totalCount is the total number of tools being installed.

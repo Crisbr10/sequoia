@@ -1,3 +1,5 @@
+//go:build ignore
+
 package template
 
 // templateData holds variables available to text/template rendering

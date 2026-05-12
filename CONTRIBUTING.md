@@ -500,4 +500,5 @@ convention enforced in code review.
 - Look at `adapters/interface.go` for the full contract
 - Read `adapters/common/installer.go` for the shared install framework
 - The `adapters/_template/` directory has copy-paste boilerplate to get
-  started quickly
+  started quickly (note: includes `//go:build ignore` — remove it from
+  each file after copying to your new adapter)

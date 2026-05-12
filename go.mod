@@ -1,6 +1,6 @@
 module github.com/Crisbr10/sequoia
 
-go 1.24.2
+go 1.24.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0

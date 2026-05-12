@@ -65,7 +65,7 @@ func (i *Installer) Prepare() error {
 	if err != nil {
 		return fmt.Errorf("prepare: target directory not writable: %w", err)
 	}
-	f.Close()
+	_ = f.Close()
 	if err := os.Remove(probe); err != nil {
 		return fmt.Errorf("prepare: could not remove write-probe file: %w", err)
 	}
@@ -192,7 +192,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("open source %q: %w", src, err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {

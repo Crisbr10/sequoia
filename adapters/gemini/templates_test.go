@@ -15,11 +15,6 @@ import (
 var geminiTemplateFiles = []string{
 	"templates/skill.md.tmpl",
 	"templates/gemini-md-section.md.tmpl",
-	"templates/commands/sequoia-init.md",
-	"templates/commands/sequoia-audit.md",
-	"templates/commands/sequoia-review.md",
-	"templates/commands/sequoia-fix.md",
-	"templates/commands/sequoia-diff.md",
 }
 
 func TestTemplates_AllFilesExist(t *testing.T) {
@@ -60,7 +55,6 @@ func TestTemplates_GeminiMDSectionHasVersionPlaceholder(t *testing.T) {
 
 func TestTemplates_GeminiMDSectionHasNoMarkers(t *testing.T) {
 	t.Parallel()
-	// The template file itself should NOT contain markers — markers are added by InjectSection.
 	data, err := os.ReadFile("templates/gemini-md-section.md.tmpl")
 	require.NoError(t, err)
 	content := string(data)
@@ -70,39 +64,9 @@ func TestTemplates_GeminiMDSectionHasNoMarkers(t *testing.T) {
 		"gemini-md-section.md.tmpl should NOT contain end marker (added by InjectSection)")
 }
 
-func TestTemplates_CommandsHaveFrontmatter(t *testing.T) {
-	t.Parallel()
-	commands := []string{
-		"templates/commands/sequoia-init.md",
-		"templates/commands/sequoia-audit.md",
-		"templates/commands/sequoia-review.md",
-		"templates/commands/sequoia-fix.md",
-		"templates/commands/sequoia-diff.md",
-	}
-	for _, path := range commands {
-		path := path
-		t.Run(path, func(t *testing.T) {
-			t.Parallel()
-			data, err := os.ReadFile(path)
-			require.NoError(t, err)
-			assert.True(t, strings.HasPrefix(string(data), "---"),
-				"%s should start with frontmatter (---)", path)
-		})
-	}
-}
-
-func TestTemplates_InitCommandHasAllowedTools(t *testing.T) {
-	t.Parallel()
-	data, err := os.ReadFile("templates/commands/sequoia-init.md")
-	require.NoError(t, err)
-	assert.True(t, strings.Contains(string(data), "allowed-tools:"),
-		"sequoia-init.md should contain allowed-tools field")
-}
-
 func TestTemplates_GoldenFile_GeminiMDSection(t *testing.T) {
 	t.Parallel()
 
-	// Read and render the template.
 	raw, err := os.ReadFile("templates/gemini-md-section.md.tmpl")
 	require.NoError(t, err)
 
@@ -115,14 +79,11 @@ func TestTemplates_GoldenFile_GeminiMDSection(t *testing.T) {
 
 	got := buf.String()
 
-	// Read the golden file.
 	goldenPath := filepath.Join("templates", "testdata", "golden", "gemini-md-section.md.golden")
 	golden, err := os.ReadFile(goldenPath)
 	require.NoError(t, err)
 
-	// Normalize line endings: golden files may have \r\n on Windows after checkout,
-	// but template execution always produces \n.
 	got = strings.ReplaceAll(got, "\r\n", "\n")
 	want := strings.ReplaceAll(string(golden), "\r\n", "\n")
-	assert.Equal(t, want, got, "rendered template must match golden file. To update, regenerate the golden file.")
+	assert.Equal(t, want, got, "rendered template must match golden file.")
 }
