@@ -17,11 +17,11 @@ func (m Model) View() string {
 	case model.ScreenConfiguration:
 		return screens.ConfigurationView(m.Config, m.Cursor, m.EngramAvailable)
 	case model.ScreenInstallProgress:
-		return screens.InstallProgressView(m.ProgressTools, m.InstallCompleted, len(m.ProgressTools))
+		return screens.InstallProgressView(m.ProgressTools, m.InstallCompleted, len(m.ProgressTools), m.OperationMode)
 	case model.ScreenComplete:
-		return screens.CompleteView(m.ProgressTools)
+		return screens.CompleteView(m.ProgressTools, m.OperationMode)
 	case model.ScreenError:
-		return screens.ErrorView(m.ProgressTools)
+		return screens.ErrorView(m.ProgressTools, m.OperationMode)
 	case model.ScreenStatus:
 		return screens.StatusView(m.Tools, m.Cursor)
 	case model.ScreenUninstall:

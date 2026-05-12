@@ -14,11 +14,18 @@ import (
 // ErrorView renders the post-installation error summary screen.
 // It lists each tool with its success/failure status and shows
 // error messages for failed tools.
-func ErrorView(progressTools []ProgressTool) string {
+// mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
+func ErrorView(progressTools []ProgressTool, mode string) string {
 	var b strings.Builder
 
+	// Resolve heading based on mode.
+	heading := "❌  Installation Failed"
+	if mode == "uninstall" {
+		heading = "❌  Uninstallation Failed"
+	}
+
 	// Failure heading.
-	b.WriteString(styles.Error().Render("❌  Installation Failed"))
+	b.WriteString(styles.Error().Render(heading))
 	b.WriteString("\n\n")
 
 	// Per-tool status list.

@@ -55,15 +55,24 @@ func defaultSteps() []string {
 // InstallProgressView renders the Install Progress screen showing per-tool
 // step-by-step progress. completedCount is the number of fully-finished tools;
 // totalCount is the total number of tools being installed.
-func InstallProgressView(tools []ProgressTool, completedCount, totalCount int) string {
+// mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
+func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, mode string) string {
 	var b strings.Builder
 
+	// Resolve labels based on mode.
+	titleLabel := "Installing"
+	progressLabel := "Installing"
+	if mode == "uninstall" {
+		titleLabel = "Uninstalling"
+		progressLabel = "Uninstalling"
+	}
+
 	// Title.
-	b.WriteString(styles.Title().Render("Installing"))
+	b.WriteString(styles.Title().Render(titleLabel))
 	b.WriteString("\n\n")
 
 	// Overall progress summary.
-	summary := fmt.Sprintf("  Installing %d of %d tools...", completedCount, totalCount)
+	summary := fmt.Sprintf("  %s %d of %d tools...", progressLabel, completedCount, totalCount)
 	b.WriteString(styles.Body().Render(summary))
 	b.WriteString("\n\n")
 

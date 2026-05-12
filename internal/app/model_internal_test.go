@@ -247,3 +247,24 @@ func TestWaitForProgress_ContextCancellationIgnored(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "ctx-test", msg.ToolID)
 }
+
+func TestOperationModeTracking_DefaultEmpty(t *testing.T) {
+	m := Model{}
+	assert.Empty(t, m.OperationMode, "OperationMode should default to empty string")
+}
+
+func TestOperationModeTracking_InstallMode(t *testing.T) {
+	m := Model{OperationMode: "install"}
+	assert.Equal(t, "install", m.OperationMode)
+}
+
+func TestOperationModeTracking_UninstallMode(t *testing.T) {
+	m := Model{OperationMode: "uninstall"}
+	assert.Equal(t, "uninstall", m.OperationMode)
+}
+
+func TestOperationModeTracking_ZeroValueSafeFallback(t *testing.T) {
+	// Zero-value (empty string) is safe — views should fall back to install labels.
+	m := Model{}
+	assert.Empty(t, m.OperationMode, "zero-value OperationMode should be empty, not nil/undefined")
+}

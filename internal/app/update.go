@@ -105,6 +105,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch action {
 		case "confirm":
 			// Build initial progress state from selected tools.
+			m.OperationMode = "install"
 			m.ProgressTools = buildProgressTools(m.Tools)
 			m.InstallCompleted = 0
 			m.InstallFailed = 0
@@ -178,6 +179,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				switch msg.Runes[0] {
 				case 'y':
 					m.UninstallConfirming = false
+					m.OperationMode = "uninstall"
 					// Build progress state for selected+installed tools.
 					m.ProgressTools = buildUninstallProgressTools(m.Tools)
 					m.InstallCompleted = 0

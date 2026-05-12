@@ -14,11 +14,18 @@ import (
 // CompleteView renders the post-installation success summary screen.
 // It lists each tool that was installed with its completion status and
 // shows a hint for the first command to try.
-func CompleteView(progressTools []ProgressTool) string {
+// mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
+func CompleteView(progressTools []ProgressTool, mode string) string {
 	var b strings.Builder
 
+	// Resolve heading based on mode.
+	heading := "✅  Installation Complete!"
+	if mode == "uninstall" {
+		heading = "✅  Uninstallation Complete!"
+	}
+
 	// Success heading.
-	b.WriteString(styles.Success().Render("✅  Installation Complete!"))
+	b.WriteString(styles.Success().Render(heading))
 	b.WriteString("\n\n")
 
 	// Tools with their install status.

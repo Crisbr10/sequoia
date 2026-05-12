@@ -37,6 +37,9 @@ type Model struct {
 	Cursor int
 	// ErrorMsg holds a transient validation or error message for the current screen.
 	ErrorMsg string
+	// OperationMode tracks the current operation: "install" or "uninstall".
+	// Empty string defaults to install-variant labels in views.
+	OperationMode string
 	// Progress is a buffered channel receiving ProgressMsg from install goroutines.
 	// Capacity is 64 to prevent pipeline blocking during bursty progress updates.
 	Progress chan model.ProgressMsg

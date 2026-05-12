@@ -30,7 +30,7 @@ func TestErrorView_ShowsFailureHeading(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 	assert.Contains(t, view, "Installation Failed", "Error screen should show failure heading")
 	assert.Contains(t, view, "❌", "Error screen should show failure indicator")
 }
@@ -57,7 +57,7 @@ func TestErrorView_ListsSucceededAndFailedTools(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 
 	// Both tool names should appear.
 	assert.Contains(t, view, "Claude Code", "Error screen should list Claude Code")
@@ -82,7 +82,7 @@ func TestErrorView_ShowsErrorMessagesForFailedTools(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 
 	// The error message from the failed step should be visible.
 	assert.Contains(t, view, "permission denied", "Error screen should show the error message")
@@ -103,11 +103,59 @@ func TestErrorView_ShowsRetryOption(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 
 	assert.Contains(t, view, "r", "Error screen should show 'r' key hint")
 	assert.Contains(t, view, "Retry", "Error screen should hint that r retries")
 	assert.Contains(t, view, "q", "Error screen should show 'q' key hint")
+}
+
+func TestErrorView_InstallModeShowsInstallationFailed(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepFailed, Error: "network error"},
+			},
+		},
+	}
+
+	view := screens.ErrorView(tools, "install")
+	assert.Contains(t, view, "Installation Failed", "install mode should show 'Installation Failed'")
+}
+
+func TestErrorView_UninstallModeShowsUninstallationFailed(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolName: "OpenCode",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepFailed, Error: "perm denied"},
+			},
+		},
+	}
+
+	view := screens.ErrorView(tools, "uninstall")
+	assert.Contains(t, view, "Uninstallation Failed", "uninstall mode should show 'Uninstallation Failed'")
+}
+
+func TestErrorView_EmptyModeDefaultsToInstallationFailed(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepFailed, Error: "test"},
+			},
+		},
+	}
+
+	view := screens.ErrorView(tools, "")
+	assert.Contains(t, view, "Installation Failed", "empty mode should default to 'Installation Failed'")
 }
 
 func TestErrorUpdate_RReturnsNavigateToInstallProgress(t *testing.T) {
@@ -204,7 +252,7 @@ func TestErrorView_Golden_MixedResults(t *testing.T) {
 			},
 		},
 	}
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 
 	golden := goldenPath("error_mixed.txt")
 	if updateGolden {
@@ -232,9 +280,10 @@ func TestErrorView_NonEmptyView(t *testing.T) {
 			},
 		},
 	}
-	view := screens.ErrorView(tools)
+	view := screens.ErrorView(tools, "")
 
 	assert.NotEmpty(t, view, "Error view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")
 	assert.GreaterOrEqual(t, len(lines), 3, "Error view should span at least 3 lines")
 }
+
