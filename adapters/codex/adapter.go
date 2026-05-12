@@ -2,6 +2,7 @@
 package codex
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,7 +63,14 @@ func newAdapter(homeDir string) *Adapter {
 // Install installs Sequoia files for OpenAI Codex using TOML merging.
 // Overrides BaseAdapter.Install because Codex uses a custom TOML merge strategy
 // and its template data includes runtime paths.
-func (a *Adapter) Install(opts adapters.InstallOpts) error {
+//
+// On failure, the returned error wraps adapters.ErrInstallFailed.
+func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", adapters.ErrInstallFailed, err)
+		}
+	}()
 	_ = opts.Language
 
 	base, err := codexBase(a.HomeDir())
@@ -150,7 +158,16 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 // Uninstall removes Sequoia files for OpenAI Codex.
 // Overrides BaseAdapter.Uninstall because Codex uses TOML config merging
 // and removes a sequoia/ subdirectory tree.
-func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
+//
+// Errors from individual file removals are collected via errors.Join.
+// On failure, the returned error wraps adapters.ErrUninstallFailed.
+func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", adapters.ErrUninstallFailed, err)
+		}
+	}()
+
 	_ = opts.Language
 
 	base, err := codexBase(a.HomeDir())
@@ -158,20 +175,29 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}
 
-	_ = os.Remove(filepath.Join(skillsPath(base), "SKILL.md"))
-	_ = os.Remove(versionFilePath(base))
+	var errs []error
+
+	if err := os.Remove(filepath.Join(skillsPath(base), "SKILL.md")); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove skill file: %w", err))
+	}
+	if err := os.Remove(versionFilePath(base)); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove version file: %w", err))
+	}
 	for _, cmd := range common.CommandFiles {
-		_ = os.Remove(filepath.Join(commandsPath(base), cmd))
+		if err := os.Remove(filepath.Join(commandsPath(base), cmd)); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
+		}
 	}
 
 	if err := RemoveConfig(configPath(base)); err != nil {
-		return fmt.Errorf("uninstall: remove config: %w", err)
+		errs = append(errs, fmt.Errorf("remove config: %w", err))
 	}
 
 	if err := os.RemoveAll(filepath.Join(base, "sequoia")); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("uninstall: remove sequoia dir: %w", err)
+		errs = append(errs, fmt.Errorf("remove sequoia dir: %w", err))
 	}
-	return nil
+
+	return errors.Join(errs...)
 }
 
 // containsSequoiaSection checks whether the TOML content contains a [sequoia] table header.

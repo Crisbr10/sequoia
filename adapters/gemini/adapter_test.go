@@ -1,6 +1,7 @@
 package gemini_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -289,4 +290,81 @@ func TestAdapter_EvalSymlinks_Fallback(t *testing.T) {
 	assert.NotEmpty(t, p, "SkillsPath should not be empty when EvalSymlinks fails")
 	assert.Contains(t, filepath.ToSlash(p), ".gemini/sequoia/skills",
 		"SkillsPath should contain expected suffix even with fallback path")
+}
+
+// setupGeminiInstalled creates a Gemini adapter with a full Sequoia
+// installation for uninstall testing. Returns the adapter and the
+// sequoia directory path.
+func setupGeminiInstalled(t *testing.T) (*gemini.Adapter, string) {
+	t.Helper()
+
+	tmp := t.TempDir()
+	geminiDir := filepath.Join(tmp, ".gemini")
+	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
+
+	// Create GEMINI.md with full sequoia marker pair so RemoveMarkdownSection
+	// finds and attempts to remove the section (triggering a write).
+	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
+	require.NoError(t, os.WriteFile(geminiMD, []byte("<!-- sequoia:start -->\ncontent\n<!-- sequoia:end -->\n"), 0o644))
+
+	// Create sequoia dir with subdirectories.
+	sequoiaDir := filepath.Join(geminiDir, "sequoia")
+	skillsDir := filepath.Join(sequoiaDir, "skills")
+	cmdsDir := filepath.Join(sequoiaDir, "commands")
+	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
+	require.NoError(t, os.MkdirAll(cmdsDir, 0o755))
+
+	// Create files.
+	require.NoError(t, os.WriteFile(filepath.Join(skillsDir, "SKILL.md"), []byte("skill"), 0o644))
+	for _, cmd := range []string{"sequoia-init.md", "sequoia-audit.md"} {
+		require.NoError(t, os.WriteFile(filepath.Join(cmdsDir, cmd), []byte("cmd"), 0o644))
+	}
+
+	a := gemini.NewAdapter(tmp)
+	return a, sequoiaDir
+}
+
+// TestAdapter_Uninstall_ReturnsSentinelError verifies that Gemini's
+// Uninstall wraps adapters.ErrUninstallFailed when removal fails.
+func TestAdapter_Uninstall_ReturnsSentinelError(t *testing.T) {
+	t.Parallel()
+
+	a, sequoiaDir := setupGeminiInstalled(t)
+
+	// Make GEMINI.md read-only so that RemoveMarkdownSection's
+	// os.WriteFile fails with a permission error.
+	geminiDir := filepath.Dir(sequoiaDir)
+	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
+	require.NoError(t, os.Chmod(geminiMD, 0o444))
+
+	err := a.Uninstall(adapters.InstallOpts{})
+
+	// Restore permissions for cleanup.
+	_ = os.Chmod(geminiMD, 0o644)
+
+	require.Error(t, err, "Uninstall should return an error when system prompt restore fails")
+	t.Logf("Uninstall error: %v", err)
+	assert.True(t, errors.Is(err, adapters.ErrUninstallFailed),
+		"error should wrap ErrUninstallFailed, got: %v", err)
+}
+
+// TestAdapter_Install_ReturnsSentinelError verifies that Gemini's
+// Install wraps adapters.ErrInstallFailed on failure.
+func TestAdapter_Install_ReturnsSentinelError(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	geminiDir := filepath.Join(tmp, ".gemini")
+	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
+
+	// Make skills dir a file instead of directory so MkdirAll fails.
+	skillsPath := filepath.Join(geminiDir, "sequoia", "skills")
+	require.NoError(t, os.MkdirAll(filepath.Dir(skillsPath), 0o755))
+	require.NoError(t, os.WriteFile(skillsPath, []byte("not a dir"), 0o644))
+
+	a := gemini.NewAdapter(tmp)
+	err := a.Install(adapters.InstallOpts{})
+	require.Error(t, err, "Install should fail when skills dir is a file")
+	assert.True(t, errors.Is(err, adapters.ErrInstallFailed),
+		"error should wrap ErrInstallFailed, got: %v", err)
 }

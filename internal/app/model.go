@@ -53,6 +53,9 @@ type Model struct {
 	InstallCompleted int
 	// InstallFailed counts tools that encountered a critical installation failure.
 	InstallFailed int
+	// InstallWarned counts tools that completed with non-fatal warnings
+	// (e.g., partial uninstall where some files could not be removed).
+	InstallWarned int
 	// EngramAvailable indicates whether the Engram MCP backend was detected at startup.
 	// When false, the Engram option on the Configuration screen is greyed out.
 	EngramAvailable bool

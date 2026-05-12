@@ -2,6 +2,7 @@
 package gemini
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,7 +64,16 @@ func newAdapter(homeDir string) *Adapter {
 // Uninstall removes Sequoia files for Gemini CLI.
 // Overrides BaseAdapter.Uninstall because Gemini stores skills and commands
 // under a sequoia/ subdirectory that is removed as a whole tree.
-func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
+//
+// Errors from removal operations are collected via errors.Join.
+// On failure, the returned error wraps adapters.ErrUninstallFailed.
+func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", adapters.ErrUninstallFailed, err)
+		}
+	}()
+
 	_ = opts.Language
 
 	base, err := geminiBase(a.HomeDir())
@@ -71,10 +81,18 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}
 
+	var errs []error
+
 	// Remove the sequoia subdirectory.
 	sequoiaDir := filepath.Join(base, "sequoia")
-	_ = os.RemoveAll(sequoiaDir)
+	if err := os.RemoveAll(sequoiaDir); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove sequoia dir: %w", err))
+	}
 
 	// Remove the Sequoia section from GEMINI.md.
-	return common.RemoveMarkdownSection(systemPromptPath(base))
+	if err := common.RemoveMarkdownSection(systemPromptPath(base)); err != nil {
+		errs = append(errs, fmt.Errorf("restore system prompt: %w", err))
+	}
+
+	return errors.Join(errs...)
 }

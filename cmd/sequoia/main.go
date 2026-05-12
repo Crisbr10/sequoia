@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -63,8 +64,37 @@ func main() {
 	root := newRootCmd()
 	root.SetContext(ctx)
 	if err := root.Execute(); err != nil {
+		printError(err)
+		os.Exit(exitCode(err))
+	}
+}
+
+// printError displays an error message to stderr. Sentinel errors receive
+// user-friendly messages; others show the raw error.
+func printError(err error) {
+	switch {
+	case errors.Is(err, adapters.ErrNotDetected):
+		fmt.Fprintln(os.Stderr, "Tool not detected on this system")
+	case errors.Is(err, adapters.ErrInstallFailed):
+		fmt.Fprintf(os.Stderr, "Installation failed: %v\n", err)
+	case errors.Is(err, adapters.ErrUninstallFailed):
+		fmt.Fprintf(os.Stderr, "Uninstall completed with warnings: %v\n", err)
+	default:
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+	}
+}
+
+// exitCode returns an appropriate exit code based on the error type.
+func exitCode(err error) int {
+	switch {
+	case errors.Is(err, adapters.ErrNotDetected):
+		return 2
+	case errors.Is(err, adapters.ErrInstallFailed):
+		return 3
+	case errors.Is(err, adapters.ErrUninstallFailed):
+		return 4
+	default:
+		return 1
 	}
 }
 
@@ -220,7 +250,7 @@ func runInstall(ctx context.Context, toolID string, out io.Writer) error {
 	targets := targetAdapters(toolID)
 	if len(targets) == 0 {
 		if toolID != "" {
-			return fmt.Errorf("unknown adapter %q — use 'sequoia status' to list available adapters", toolID)
+			return fmt.Errorf("%w: unknown adapter %q — use 'sequoia status' to list available adapters", adapters.ErrUnknownAdapter, toolID)
 		}
 		_, _ = fmt.Fprintln(out, "No supported AI tools detected on this machine.")
 		_, _ = fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
@@ -228,6 +258,11 @@ func runInstall(ctx context.Context, toolID string, out io.Writer) error {
 	}
 
 	for _, a := range targets {
+		// When a specific tool is requested but not detected, report it.
+		if toolID != "" && !a.Detect() {
+			return fmt.Errorf("%w: %s is not detected on this system", adapters.ErrNotDetected, a.Name())
+		}
+
 		_, _ = fmt.Fprintf(out, "Installing Sequoia for %s ...\n", a.Name())
 		if a.IsInstalled() {
 			_, _ = fmt.Fprintf(out, "  Sequoia is already installed. Reinstalling ...\n")
@@ -341,6 +376,7 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 		}
 	}
 
+	var partialErrors int
 	for _, a := range targets {
 		if !a.IsInstalled() {
 			_, _ = fmt.Fprintf(out, "Sequoia is not installed for %s — skipping.\n", a.Name())
@@ -348,9 +384,20 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 		}
 		_, _ = fmt.Fprintf(out, "Removing Sequoia from %s ...\n", a.Name())
 		if err := a.Uninstall(adapters.InstallOpts{Context: ctx}); err != nil {
+			// Partial failures (e.g., some files locked) should be warnings,
+			// not hard stops. Collect them and continue with other tools.
+			if errors.Is(err, adapters.ErrUninstallFailed) {
+				partialErrors++
+				_, _ = fmt.Fprintf(out, "  Warning: uninstall completed with errors: %v\n", err)
+				continue
+			}
 			return fmt.Errorf("uninstall %s: %w", a.ID(), err)
 		}
 		_, _ = fmt.Fprintf(out, "  Done.\n")
+	}
+
+	if partialErrors > 0 {
+		return fmt.Errorf("%w: %d tool(s) had warnings during uninstall", adapters.ErrUninstallFailed, partialErrors)
 	}
 
 	return nil

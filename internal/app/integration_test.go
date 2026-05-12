@@ -125,7 +125,7 @@ func TestIntegration_ProgressToComplete_Transition(t *testing.T) {
 	// Mark all steps as done using ApplyProgressMsg directly.
 	steps := []string{"Skills", "Commands", "System Prompt"}
 	for _, step := range steps {
-		newTools, completed, hasNewFailure := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
+		newTools, completed, hasNewFailure, _ := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
 			ToolID: "test-tool", Step: step, Done: true, Error: "",
 		})
 		m.ProgressTools = newTools
@@ -171,7 +171,7 @@ func TestIntegration_ProgressWithError_Transition(t *testing.T) {
 	m.InstallFailed = 0
 
 	// Apply an error progress message.
-	newTools, completed, hasNewFailure := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
+	newTools, completed, hasNewFailure, _ := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
 		ToolID: "fail-tool", Step: "Commands", Done: true,
 		Error: "permission denied",
 	})
@@ -370,7 +370,7 @@ func TestIntegration_ErrorRecovery_FullFlow(t *testing.T) {
 	// Apply progress messages for all steps as successful.
 	steps := []string{"Skills", "Commands", "System Prompt"}
 	for _, step := range steps {
-		newTools, completed, hasNewFailure := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
+		newTools, completed, hasNewFailure, _ := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
 			ToolID: "fail-tool", Step: step, Done: true, Error: "",
 		})
 		m.ProgressTools = newTools
@@ -469,7 +469,7 @@ func TestIntegration_ErrorRecovery_MultipleFailuresRetryAll(t *testing.T) {
 	// Apply success for both tools.
 	for _, toolID := range []string{"tool-a", "tool-b"} {
 		for _, step := range []string{"Skills", "Commands", "System Prompt"} {
-			newTools, completed, hasNewFailure := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
+			newTools, completed, hasNewFailure, _ := screens.ApplyProgressMsg(m.ProgressTools, model.ProgressMsg{
 				ToolID: toolID, Step: step, Done: true, Error: "",
 			})
 			m.ProgressTools = newTools

@@ -19,7 +19,7 @@ func (m Model) View() string {
 	case model.ScreenInstallProgress:
 		return screens.InstallProgressView(m.ProgressTools, m.InstallCompleted, len(m.ProgressTools), m.OperationMode)
 	case model.ScreenComplete:
-		return screens.CompleteView(m.ProgressTools, m.OperationMode)
+		return screens.CompleteView(m.ProgressTools, m.OperationMode, m.InstallWarned)
 	case model.ScreenError:
 		return screens.ErrorView(m.ProgressTools, m.OperationMode)
 	case model.ScreenStatus:

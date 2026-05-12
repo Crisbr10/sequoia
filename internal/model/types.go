@@ -73,6 +73,12 @@ type ProgressMsg struct {
 	Done bool
 	// Error contains the error message if the step failed.
 	Error string
+	// Warning is true when the step completed but with non-fatal warnings
+	// (e.g., partial uninstall where some files could not be removed).
+	Warning bool
+	// FailedCount reports how many individual sub-operations failed during
+	// a partial failure (used for warning messages like "3 files could not be removed").
+	FailedCount int
 }
 
 // Language represents a supported UI language.

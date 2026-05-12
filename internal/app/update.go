@@ -244,11 +244,14 @@ func (m Model) updateScreenMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
 	case model.ScreenInstallProgress:
 		if progressMsg, ok := msg.(model.ProgressMsg); ok {
-			newTools, completed, hasNewFailure := screens.ApplyProgressMsg(m.ProgressTools, progressMsg)
+			newTools, completed, hasNewFailure, hasNewWarning := screens.ApplyProgressMsg(m.ProgressTools, progressMsg)
 			m.ProgressTools = newTools
 			m.InstallCompleted = completed
 			if hasNewFailure {
 				m.InstallFailed++
+			}
+			if hasNewWarning {
+				m.InstallWarned++
 			}
 
 			// Check for auto-transition after applying progress.
@@ -360,6 +363,7 @@ func (m *Model) startPipeline(mode string) tea.Cmd {
 	}
 	m.InstallCompleted = 0
 	m.InstallFailed = 0
+	m.InstallWarned = 0
 
 	navigateCmd := func() tea.Msg {
 		return tui.NavigateMsg{Target: model.ScreenInstallProgress}

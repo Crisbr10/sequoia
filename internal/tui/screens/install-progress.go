@@ -119,6 +119,15 @@ func renderStepRow(step ProgressStep) string {
 			styles.Body().Render(step.Name))
 
 	case StepDone:
+		// Warning: step completed but with non-fatal errors.
+		if step.Error != "" {
+			return fmt.Sprintf("%s%s %s\n%s      %s",
+				prefix,
+				styles.Accent().Render("[!]"),
+				styles.Body().Render(step.Name),
+				prefix,
+				styles.Muted().Render(step.Error))
+		}
 		return fmt.Sprintf("%s%s %s",
 			prefix,
 			styles.Success().Render("[✓]"),
@@ -180,10 +189,11 @@ func InstallProgressUpdate(msg tea.Msg, completedCount, failedCount, totalCount 
 }
 
 // ApplyProgressMsg updates a ProgressTool's step based on a ProgressMsg.
-// Returns the updated tools slice, the new completedCount, and whether
-// this message introduced a new failure.
-func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTool, int, bool) {
+// Returns the updated tools slice, the new completedCount, whether
+// this message introduced a new failure, and whether it introduced a warning.
+func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTool, int, bool, bool) {
 	newFailed := false
+	newWarning := false
 	completedCount := 0
 
 	for i := range tools {
@@ -195,7 +205,12 @@ func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTo
 		// Find the matching step.
 		for j := range tools[i].Steps {
 			if tools[i].Steps[j].Name == msg.Step {
-				if msg.Error != "" {
+				if msg.Warning {
+					// Warning: step completed with non-fatal errors.
+					tools[i].Steps[j].Status = StepDone
+					tools[i].Steps[j].Error = msg.Error
+					newWarning = true
+				} else if msg.Error != "" {
 					tools[i].Steps[j].Status = StepFailed
 					tools[i].Steps[j].Error = msg.Error
 					newFailed = true
@@ -209,14 +224,14 @@ func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTo
 		}
 	}
 
-	// Count completed tools (all steps done).
+	// Count completed tools (all steps done, including warned steps).
 	for _, tool := range tools {
 		if allStepsDone(tool.Steps) {
 			completedCount++
 		}
 	}
 
-	return tools, completedCount, newFailed
+	return tools, completedCount, newFailed, newWarning
 }
 
 // toolNameMatches checks if a ProgressTool's name matches a tool ID.

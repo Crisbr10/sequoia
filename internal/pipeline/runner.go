@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -94,7 +95,23 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 
 	// Report the result.
 	if err != nil {
-		// Failure — report the first step as errored with the message.
+		// Partial failure (uninstall with warnings): some files removed,
+		// some not. Treat as "done with warnings" rather than hard error.
+		if errors.Is(err, adapters.ErrUninstallFailed) {
+			// Mark all steps as done but include a warning note.
+			for _, step := range defaultStepNames {
+				sendProgress(ctx, ch, model.ProgressMsg{
+					ToolID:  toolID,
+					Step:    step,
+					Done:    true,
+					Warning: true,
+					Error:   err.Error(),
+				})
+			}
+			return
+		}
+
+		// Hard failure — report the first step as errored with the message.
 		if len(defaultStepNames) > 0 {
 			sendProgress(ctx, ch, model.ProgressMsg{
 				ToolID: toolID,

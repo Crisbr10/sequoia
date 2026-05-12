@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -234,7 +235,15 @@ func checkContext(ctx context.Context) error {
 //
 // When opts.Context is set and cancelled, Install aborts early and rolls
 // back any partial work before returning the context error.
-func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
+//
+// On failure, the returned error wraps adapters.ErrInstallFailed so callers
+// can detect install failures with errors.Is(err, adapters.ErrInstallFailed).
+func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", adapters.ErrInstallFailed, err)
+		}
+	}()
 	// Check for early cancellation before doing any work.
 	if err := checkContext(opts.Context); err != nil {
 		return fmt.Errorf("install: %w", err)
@@ -364,7 +373,18 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 //
 // When opts.Context is set and cancelled, Uninstall returns early without
 // modifying any files.
-func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) error {
+//
+// Errors from individual file removals are collected via errors.Join.
+// Missing files are not treated as errors (os.IsNotExist is checked).
+// On failure, the returned error wraps adapters.ErrUninstallFailed so
+// callers can detect uninstall failures with errors.Is.
+func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", adapters.ErrUninstallFailed, err)
+		}
+	}()
+
 	// Check for early cancellation before doing any work.
 	if err := checkContext(opts.Context); err != nil {
 		return fmt.Errorf("uninstall: %w", err)
@@ -377,13 +397,25 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) error {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}
 
-	// Remove skill file, version marker, and command files (best-effort).
-	_ = os.Remove(filepath.Join(a.skillsPathFn(base), "SKILL.md"))
-	_ = os.Remove(a.versionFilePathFn(base))
+	// Collect errors from individual file removals instead of discarding them.
+	var errs []error
+
+	if err := os.Remove(filepath.Join(a.skillsPathFn(base), "SKILL.md")); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove skill file: %w", err))
+	}
+	if err := os.Remove(a.versionFilePathFn(base)); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove version file: %w", err))
+	}
 	for _, cmd := range CommandFiles {
-		_ = os.Remove(filepath.Join(a.commandsPathFn(base), cmd))
+		if err := os.Remove(filepath.Join(a.commandsPathFn(base), cmd)); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
+		}
 	}
 
 	// Remove or restore the system prompt.
-	return a.removeSystemPrompt(base)
+	if err := a.removeSystemPrompt(base); err != nil {
+		errs = append(errs, fmt.Errorf("restore system prompt: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
