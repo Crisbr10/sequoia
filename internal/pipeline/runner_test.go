@@ -118,7 +118,7 @@ func collectProgressWithTimeout(ch <-chan model.ProgressMsg, timeout time.Durati
 	}
 }
 
-func TestRunInstall_HappyPath_SendsProgressForAllSteps(t *testing.T) {
+func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	t.Parallel()
 
 	adapter := &testAdapter{id: "test-tool", name: "Test Tool"}
@@ -138,30 +138,21 @@ func TestRunInstall_HappyPath_SendsProgressForAllSteps(t *testing.T) {
 
 	msgs := collectProgress(ch)
 
-	// Verify we received progress messages for the 3 expected steps:
-	// Each step should have a "running" (Done=false) and "done" (Done=true) msg.
-	// That gives 6 messages total: Skills running, Skills done, Commands running, etc.
-	require.NotEmpty(t, msgs, "Should receive at least one progress message")
+	// After simplification, the pipeline sends exactly 2 messages per adapter:
+	// 1 "running" (Done=false) + 1 "done" (Done=true) for the single "Installing" step.
+	require.Len(t, msgs, 2, "Should receive exactly 2 progress messages (1 running + 1 done)")
 
-	// Verify the steps include Skills, Commands, System Prompt (the default step names).
-	stepNames := map[string]bool{}
-	doneSteps := map[string]bool{}
-	for _, msg := range msgs {
-		assert.Equal(t, "test-tool", msg.ToolID, "All messages should be for the test tool")
-		if msg.Done {
-			doneSteps[msg.Step] = true
-			assert.Empty(t, msg.Error, "Done message should have no error")
-		}
-		stepNames[msg.Step] = true
-	}
+	// First message: "Installing" running (Done=false).
+	assert.Equal(t, "test-tool", msgs[0].ToolID)
+	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.False(t, msgs[0].Done, "First message should be 'running' (Done=false)")
+	assert.Empty(t, msgs[0].Error, "Running message should have no error")
 
-	assert.True(t, stepNames["Skills"], "Should have Skills step")
-	assert.True(t, stepNames["Commands"], "Should have Commands step")
-	assert.True(t, stepNames["System Prompt"], "Should have System Prompt step")
-
-	assert.True(t, doneSteps["Skills"], "Skills should be done")
-	assert.True(t, doneSteps["Commands"], "Commands should be done")
-	assert.True(t, doneSteps["System Prompt"], "System Prompt should be done")
+	// Second message: "Installing" done (Done=true).
+	assert.Equal(t, "test-tool", msgs[1].ToolID)
+	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.True(t, msgs[1].Done, "Second message should be 'done' (Done=true)")
+	assert.Empty(t, msgs[1].Error, "Done message should have no error")
 
 	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called exactly once")
 }
@@ -185,18 +176,20 @@ func TestRunInstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	cmd()
 	msgs := collectProgress(ch)
 
-	// Should have at least one error message.
-	hasError := false
-	stepWithError := ""
-	for _, msg := range msgs {
-		if msg.Error != "" {
-			hasError = true
-			stepWithError = msg.Step
-			break
-		}
-	}
-	assert.True(t, hasError, "Should have at least one error progress message")
-	assert.NotEmpty(t, stepWithError, "Error should be associated with a step")
+	// After simplification: 1 running message + error sent.
+	// The "running" message should be sent before execution, then the error.
+	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 error")
+
+	// First message: "Installing" running.
+	assert.Equal(t, "fail-tool", msgs[0].ToolID)
+	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.False(t, msgs[0].Done, "First message should be 'running'")
+
+	// Second message: error on "Installing".
+	assert.Equal(t, "fail-tool", msgs[1].ToolID)
+	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.True(t, msgs[1].Done, "Error message should have Done=true")
+	assert.Contains(t, msgs[1].Error, "disk full", "Error message should contain the error text")
 
 	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called once")
 }
@@ -347,7 +340,7 @@ func TestRunInstall_ChannelClosedAfterAllGoroutinesComplete(t *testing.T) {
 	assert.False(t, ok, "Channel should be closed after all goroutines complete")
 }
 
-func TestRunUninstall_HappyPath_SendsProgressForAllSteps(t *testing.T) {
+func TestRunUninstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	t.Parallel()
 
 	adapter := &testAdapter{id: "uninstall-tool", name: "Uninstall Tool", installed: true}
@@ -365,20 +358,18 @@ func TestRunUninstall_HappyPath_SendsProgressForAllSteps(t *testing.T) {
 	cmd()
 	msgs := collectProgress(ch)
 
-	require.NotEmpty(t, msgs, "Should receive uninstall progress messages")
+	// After simplification: 2 messages (1 running + 1 done) for the single "Installing" step.
+	require.Len(t, msgs, 2, "Should receive exactly 2 messages: 1 running + 1 done")
 
-	doneSteps := map[string]bool{}
-	for _, msg := range msgs {
-		assert.Equal(t, "uninstall-tool", msg.ToolID)
-		if msg.Done {
-			doneSteps[msg.Step] = true
-		}
-	}
+	assert.Equal(t, "uninstall-tool", msgs[0].ToolID)
+	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.False(t, msgs[0].Done, "First should be 'running'")
 
-	// All uninstall steps should complete.
-	assert.True(t, doneSteps["Skills"], "Uninstall Skills should be done")
-	assert.True(t, doneSteps["Commands"], "Uninstall Commands should be done")
-	assert.True(t, doneSteps["System Prompt"], "Uninstall System Prompt should be done")
+	assert.Equal(t, "uninstall-tool", msgs[1].ToolID)
+	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.True(t, msgs[1].Done, "Second should be 'done'")
+	assert.Empty(t, msgs[1].Error, "Done message should have no error")
+
 	assert.Equal(t, 1, adapter.uninstallCallCount(), "Adapter.Uninstall should be called once")
 }
 
@@ -401,14 +392,18 @@ func TestRunUninstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	cmd()
 	msgs := collectProgress(ch)
 
-	hasError := false
-	for _, msg := range msgs {
-		if msg.Error != "" {
-			hasError = true
-			break
-		}
-	}
-	assert.True(t, hasError, "Uninstall error should produce error progress message")
+	// After simplification: 1 running + 1 error.
+	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 error")
+
+	assert.Equal(t, "fail-uninstall", msgs[0].ToolID)
+	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.False(t, msgs[0].Done, "First message should be 'running'")
+
+	assert.Equal(t, "fail-uninstall", msgs[1].ToolID)
+	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.True(t, msgs[1].Done, "Error message should have Done=true")
+	assert.Contains(t, msgs[1].Error, "permission denied")
+
 	assert.Equal(t, 1, adapter.uninstallCallCount())
 }
 
@@ -571,4 +566,53 @@ func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, adapter.uninstallCallCount())
+}
+
+// TestDefaultStepNames_SingleStep verifies that the exported InstallSteps
+// contains exactly one element: "Installing". This replaces the old 3-step
+// cosmetic breakdown that didn't reflect the monolithic adapter.Install() call.
+func TestDefaultStepNames_SingleStep(t *testing.T) {
+	t.Parallel()
+
+	steps := pipeline.InstallSteps
+	require.Len(t, steps, 1, "InstallSteps should have exactly 1 element after simplification")
+	assert.Equal(t, "Installing", steps[0], "The single step should be 'Installing'")
+}
+
+// TestRunInstall_MultiTool_SendsTwoMessagesEach verifies that with 2 tools,
+// each tool sends exactly 2 messages (1 running + 1 done).
+func TestRunInstall_MultiTool_SendsTwoMessagesEach(t *testing.T) {
+	t.Parallel()
+
+	adapter1 := &testAdapter{id: "tool-a", name: "Tool A"}
+	adapter2 := &testAdapter{id: "tool-b", name: "Tool B"}
+	tools := []model.ToolState{
+		{Adapter: adapter1, Selected: true},
+		{Adapter: adapter2, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// 2 tools × 2 messages each = 4 total.
+	assert.Len(t, msgs, 4, "2 tools × 2 messages = 4 total")
+
+	// Both tools should appear with "Installing" as the step.
+	toolMsgs := map[string]int{}
+	for _, msg := range msgs {
+		toolMsgs[msg.ToolID]++
+		assert.Equal(t, "Installing", msg.Step, "All messages should use the 'Installing' step")
+	}
+	assert.Equal(t, 2, toolMsgs["tool-a"], "Tool A should have 2 messages")
+	assert.Equal(t, 2, toolMsgs["tool-b"], "Tool B should have 2 messages")
+
+	assert.Equal(t, 1, adapter1.installCallCount())
+	assert.Equal(t, 1, adapter2.installCallCount())
 }

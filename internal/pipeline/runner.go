@@ -25,18 +25,20 @@ type pipelineUninstaller interface {
 	Uninstall(adapters.InstallOpts) error
 }
 
-// defaultStepNames defines the install steps in execution order.
-// These names MUST match the step names used by screens.ProgressTool
-// so that ApplyProgressMsg can correlate progress messages.
-var defaultStepNames = []string{"Skills", "Commands", "System Prompt"}
+// InstallSteps defines the install steps in execution order.
+// Since adapter.Install() is a single monolithic call, there is exactly
+// one honest step: "Installing". This variable is exported so that
+// callers (e.g., update.go's buildProgressTools) reference a single
+// source of truth for step names.
+var InstallSteps = []string{"Installing"}
 
 // RunInstall returns a tea.Cmd that installs Sequoia into every selected tool.
 // Each tool runs in its own goroutine calling adapter.Install().
 //
 // Progress is reported through a buffered channel:
-//   - A "running" ProgressMsg (Done=false) is sent before each step.
-//   - A "done" ProgressMsg (Done=true) is sent after each step succeeds.
-//   - An error ProgressMsg (Error != "") is sent when a step fails.
+//   - A "running" ProgressMsg (Done=false) is sent before the call.
+//   - A "done" ProgressMsg (Done=true) is sent after a successful call.
+//   - An error ProgressMsg (Error != "") is sent when the call fails.
 //
 // The channel is closed when all goroutines complete. Context cancellation
 // stops goroutines gracefully while preserving partial progress.
@@ -76,30 +78,28 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 	}
 }
 
-// runSteps executes the standard install/uninstall steps (Skills, Commands,
-// System Prompt) for a single tool, sending progress messages through ch.
+// runSteps executes the install/uninstall operation for a single tool,
+// sending progress messages through ch.
 //
 // Steps:
-//  1. Send "running" ProgressMsg for each step.
-//  2. Call fn() — the adapter performs all steps internally.
-//  3. On success: send "done" ProgressMsg for each step.
-//  4. On failure: send error ProgressMsg for the step where the failure was
-//     detected (the first step in the sequence), then stop.
+//  1. Send a "running" ProgressMsg (Done=false, Step="Installing").
+//  2. Call fn(t, opts) — the adapter performs all work internally.
+//  3. On success: send a "done" ProgressMsg (Done=true).
+//  4. On failure: send an error ProgressMsg (Done=true, Error set).
 //
 // fn is either adapter.Install or adapter.Uninstall (both have the same signature).
 func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string, fn func(adapters.InstallOpts) error) {
 	adapter := t.Adapter
 	toolID := adapter.ID()
+	step := InstallSteps[0] // "Installing"
 
-	// Signal that each step is starting.
-	for _, step := range defaultStepNames {
-		if !sendProgress(ctx, ch, model.ProgressMsg{
-			ToolID: toolID,
-			Step:   step,
-			Done:   false,
-		}) {
-			return // context cancelled
-		}
+	// Signal that work is starting.
+	if !sendProgress(ctx, ch, model.ProgressMsg{
+		ToolID: toolID,
+		Step:   step,
+		Done:   false,
+	}) {
+		return // context cancelled
 	}
 
 	// Perform the actual operation (Install or Uninstall).
@@ -107,44 +107,34 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 
 	// Report the result.
 	if err != nil {
-		// Partial failure (uninstall with warnings): some files removed,
-		// some not. Treat as "done with warnings" rather than hard error.
+		// Partial failure (uninstall with warnings): mark as done with warning.
 		if errors.Is(err, adapters.ErrUninstallFailed) {
-			// Mark all steps as done but include a warning note.
-			for _, step := range defaultStepNames {
-				sendProgress(ctx, ch, model.ProgressMsg{
-					ToolID:  toolID,
-					Step:    step,
-					Done:    true,
-					Warning: true,
-					Error:   err.Error(),
-				})
-			}
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID:  toolID,
+				Step:    step,
+				Done:    true,
+				Warning: true,
+				Error:   err.Error(),
+			})
 			return
 		}
 
-		// Hard failure — report the first step as errored with the message.
-		if len(defaultStepNames) > 0 {
-			sendProgress(ctx, ch, model.ProgressMsg{
-				ToolID: toolID,
-				Step:   defaultStepNames[0],
-				Done:   true,
-				Error:  err.Error(),
-			})
-		}
-		return
-	}
-
-	// Success — mark all steps as done.
-	for _, step := range defaultStepNames {
-		if !sendProgress(ctx, ch, model.ProgressMsg{
+		// Hard failure — report the error.
+		sendProgress(ctx, ch, model.ProgressMsg{
 			ToolID: toolID,
 			Step:   step,
 			Done:   true,
-		}) {
-			return // context cancelled
-		}
+			Error:  err.Error(),
+		})
+		return
 	}
+
+	// Success.
+	sendProgress(ctx, ch, model.ProgressMsg{
+		ToolID: toolID,
+		Step:   step,
+		Done:   true,
+	})
 }
 
 // runInstallSteps extracts the Install method from the concrete adapter
@@ -166,8 +156,8 @@ func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.P
 // adapter.Uninstall() instead of Install().
 //
 // Progress reporting follows the same convention:
-//   - "running" before each step,
-//   - "done" after each successful step,
+//   - "running" before the call,
+//   - "done" after a successful call,
 //   - error on failure.
 //
 // The channel is closed when all goroutines complete.

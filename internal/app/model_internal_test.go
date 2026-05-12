@@ -78,17 +78,11 @@ func TestBuildProgressTools_SingleSelected(t *testing.T) {
 	require.Len(t, result, 1, "only selected tools should be included")
 	assert.Equal(t, "tool-1", result[0].ToolID)
 	assert.Equal(t, "Tool 1", result[0].ToolName)
-	assert.Len(t, result[0].Steps, 3, "should have 3 steps: Skills, Commands, System Prompt")
+	assert.Len(t, result[0].Steps, 1, "should have 1 step: Installing (simplified pipeline)")
 
-	// All steps should be in pending state.
-	for _, step := range result[0].Steps {
-		assert.Equal(t, screens.StepPending, step.Status, "all steps should start pending")
-	}
-
-	expectedSteps := []string{"Skills", "Commands", "System Prompt"}
-	for i, step := range result[0].Steps {
-		assert.Equal(t, expectedSteps[i], step.Name, "step names must match expected order")
-	}
+	// The single step should be in pending state.
+	assert.Equal(t, screens.StepPending, result[0].Steps[0].Status, "step should start pending")
+	assert.Equal(t, "Installing", result[0].Steps[0].Name, "step name must be 'Installing'")
 }
 
 func TestBuildProgressTools_NoneSelected(t *testing.T) {
@@ -199,12 +193,10 @@ func TestBuildProgressTools_StepNamesMatchDesign(t *testing.T) {
 
 	result := buildProgressTools(tools)
 	require.Len(t, result, 1)
-	require.Len(t, result[0].Steps, 3)
+	require.Len(t, result[0].Steps, 1)
 
-	// Verify the exact step names from the design.
-	assert.Equal(t, "Skills", result[0].Steps[0].Name)
-	assert.Equal(t, "Commands", result[0].Steps[1].Name)
-	assert.Equal(t, "System Prompt", result[0].Steps[2].Name)
+	// After simplification, there is exactly one step: "Installing".
+	assert.Equal(t, "Installing", result[0].Steps[0].Name)
 }
 
 func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
@@ -297,7 +289,7 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 
 	// Verify all steps start pending.
 	for _, pt := range m.ProgressTools {
-		require.Len(t, pt.Steps, 3)
+		require.Len(t, pt.Steps, 1, "each tool should have 1 step: Installing")
 		for _, step := range pt.Steps {
 			assert.Equal(t, screens.StepPending, step.Status)
 		}

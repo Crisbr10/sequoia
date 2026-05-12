@@ -303,10 +303,10 @@ func countSelected(tools []model.ToolState) int {
 }
 
 // buildProgressTools creates the initial progress state for selected tools.
-// Each tool gets the standard install steps (Skills, Commands, System Prompt)
-// all in pending state.
+// Each tool gets a single "Installing" step in pending state, matching the
+// single-step pipeline (pipeline.InstallSteps).
 func buildProgressTools(tools []model.ToolState) []screens.ProgressTool {
-	stepNames := []string{"Skills", "Commands", "System Prompt"}
+	stepNames := pipeline.InstallSteps
 	var result []screens.ProgressTool
 	for _, ts := range tools {
 		if !ts.Selected {
@@ -331,7 +331,7 @@ func buildProgressTools(tools []model.ToolState) []screens.ProgressTool {
 // buildUninstallProgressTools creates progress state for uninstall.
 // Only tools that are BOTH selected and installed are included.
 func buildUninstallProgressTools(tools []model.ToolState) []screens.ProgressTool {
-	stepNames := []string{"Skills", "Commands", "System Prompt"}
+	stepNames := pipeline.InstallSteps
 	var result []screens.ProgressTool
 	for _, ts := range tools {
 		if !ts.Selected || !ts.Adapter.IsInstalled() {
