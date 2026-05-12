@@ -198,6 +198,31 @@ func TestToolSelectionUpdate_QReturnsQuit(t *testing.T) {
 	assert.Equal(t, "quit", action, "q should quit")
 }
 
+func TestToolSelectionView_ShowsCorrectTitle(t *testing.T) {
+	t.Parallel()
+
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
+	}
+	view := screens.ToolSelectionView(tools, 0, "")
+
+	assert.Contains(t, view, "Select AI Tools", "Title should read 'Select AI Tools'")
+	assert.Contains(t, view, "install Sequoia into", "Instruction should say 'install Sequoia into'")
+}
+
+func TestToolSelectionUpdate_SpaceRuneToggles(t *testing.T) {
+	t.Parallel()
+
+	// Some terminals send space as a rune (' ') instead of tea.KeySpace.
+	// The rune handler must also toggle selection.
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, 0, 3)
+
+	assert.Equal(t, 0, newCursor, "Cursor should not change on space rune")
+	assert.True(t, shouldToggle, "Space rune should trigger toggle")
+	assert.Empty(t, action, "Space rune should not trigger navigation action")
+}
+
 func TestToolSelectionView_NonEmptyView(t *testing.T) {
 	t.Parallel()
 

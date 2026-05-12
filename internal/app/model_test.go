@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"os/exec"
 	"sync"
 	"testing"
 
@@ -44,10 +45,28 @@ func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
 
 var _ adapters.ToolAdapter = (*mockAdapter)(nil)
 
+func TestNewModel_StoresVersion(t *testing.T) {
+	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
+
+	m := app.NewModel("", "v9.9.9-test")
+	assert.Equal(t, "v9.9.9-test", m.Version, "NewModel should store the version string")
+}
+
+func TestNewModel_EngramDetection(t *testing.T) {
+	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
+
+	m := app.NewModel("", "test")
+	// EngramAvailable should match whether engram is on the system PATH.
+	_, err := exec.LookPath("engram")
+	expected := err == nil
+	assert.Equal(t, expected, m.EngramAvailable,
+		"EngramAvailable should match whether engram is on PATH (expected=%v, got=%v)", expected, m.EngramAvailable)
+}
+
 func TestNewModel_DefaultScreen(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "new model should default to ScreenWelcome")
 }
 
@@ -64,7 +83,7 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 	reg.Register(&mockAdapter{id: "opencode", name: "OpenCode"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	require.Len(t, m.Tools, 2, "Tools should be populated from DefaultRegistry")
 
 	// Verify ToolState wraps the adapter.
@@ -75,7 +94,7 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 func TestNewModel_ProgressChannel(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	require.NotNil(t, m.Progress, "Progress channel should be allocated")
 	assert.Equal(t, 64, cap(m.Progress), "Progress channel buffer capacity should be 64")
 }
@@ -83,7 +102,7 @@ func TestNewModel_ProgressChannel(t *testing.T) {
 func TestNewModel_InitReturnsCmd(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	cmd := m.Init()
 	// Init may return nil (a valid tea.Cmd meaning "no initial command").
 	// We just verify it compiles and doesn't panic.
@@ -93,7 +112,7 @@ func TestNewModel_InitReturnsCmd(t *testing.T) {
 func TestModel_ImplementsBubbleteaModel(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	var _ tea.Model = m // compile-time check
 	_ = m.Init()
 	_, _ = m.Update(nil)
@@ -103,7 +122,7 @@ func TestModel_ImplementsBubbleteaModel(t *testing.T) {
 func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, cmd := m.Update(msg)
@@ -117,7 +136,7 @@ func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
 func TestKeyMsg_Q_Quits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	updated, cmd := m.Update(msg)
@@ -132,7 +151,7 @@ func TestKeyMsg_Q_Quits(t *testing.T) {
 func TestKeyMsg_CtrlC_Quits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -146,7 +165,7 @@ func TestKeyMsg_CtrlC_Quits(t *testing.T) {
 func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 
 	// These should not panic.
 	require.NotPanics(t, func() {
@@ -165,7 +184,7 @@ func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
 func TestNavigateMsg_TransitionsScreen(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "initial screen should be Welcome")
 
 	// Send NavigateMsg targeting ToolSelection.
@@ -179,7 +198,7 @@ func TestNavigateMsg_TransitionsScreen(t *testing.T) {
 func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	// Manually set to InstallProgress to simulate post-install.
 	m.Screen = model.ScreenInstallProgress
 
@@ -193,7 +212,7 @@ func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
 func TestUnknownMsg_DoesNotPanic(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 
 	type unknownMsg struct{}
 	require.NotPanics(t, func() {
@@ -204,7 +223,7 @@ func TestUnknownMsg_DoesNotPanic(t *testing.T) {
 func TestWelcomeView_RendersContent(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	view := m.View()
 
 	// Should NOT be the default placeholder — screens are wired.
@@ -217,7 +236,7 @@ func TestWelcomeView_RendersContent(t *testing.T) {
 func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 
 	updated, cmd := m.Update(msg)
@@ -241,7 +260,7 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 	reg.Register(&mockAdapter{id: "opencode", name: "OpenCode"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
 	// NewModel("") selects all tools — deselect first to test [ ] rendering.
 	m.Tools[0].Selected = false
@@ -260,7 +279,7 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 func TestToolSelection_EscNavigatesToWelcome(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
 
@@ -284,7 +303,7 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
 	// Ensure no tool is selected.
 	for i := range m.Tools {
@@ -311,7 +330,7 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
 	// Select the first tool.
 	if len(m.Tools) > 0 {
@@ -339,7 +358,7 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
 	m.EngramAvailable = true
 	m.Config = model.TUIConfig{Language: "en", Persistence: "engram"}
@@ -359,7 +378,7 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
 	// Select the tool so that confirm builds progress.
 	m.Tools[0].Selected = true
@@ -378,7 +397,7 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -401,7 +420,7 @@ func TestInstallProgressView_RendersProgressTable(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -425,7 +444,7 @@ func TestInstallProgressView_RendersProgressTable(t *testing.T) {
 func TestInstallProgress_QQuitsFromProgress(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -447,7 +466,7 @@ func TestCompleteView_RendersSuccess(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -469,7 +488,7 @@ func TestCompleteView_RendersSuccess(t *testing.T) {
 func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
@@ -486,7 +505,7 @@ func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
 func TestComplete_QKeyQuits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -508,7 +527,7 @@ func TestStatusView_RendersToolTable(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 
 	view := m.View()
@@ -526,7 +545,7 @@ func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -550,7 +569,7 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -574,7 +593,7 @@ func TestStatus_UKeyNoOp(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -594,7 +613,7 @@ func TestUninstallView_RendersCheckboxList(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = false
 
@@ -613,7 +632,7 @@ func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
 	// Tool must be installed for confirmation to work.
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = true
 	m.UninstallConfirming = false
@@ -635,7 +654,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = false
 
@@ -650,7 +669,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 func TestUninstall_EscGoesBackToStatus(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -673,7 +692,7 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 	m.Tools[0].Selected = true
@@ -690,7 +709,7 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 func TestUninstallConfirm_NCancelsConfirmation(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 
@@ -711,7 +730,7 @@ func TestErrorView_RendersFailedTools(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenError
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -740,7 +759,7 @@ func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -779,7 +798,7 @@ func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -818,7 +837,7 @@ func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -843,7 +862,7 @@ func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
 func TestUpdateScreenMsg_NonInstallProgressScreen_NoOp(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenWelcome
 
 	msg := model.ProgressMsg{ToolID: "test", Step: "Skills", Done: true}
@@ -862,7 +881,7 @@ func TestView_DefaultPlaceholder(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	// Set screen to an invalid value.
 	m.Screen = model.Screen(999)
 
@@ -880,7 +899,7 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 
@@ -892,7 +911,7 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -907,7 +926,7 @@ func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -922,7 +941,7 @@ func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -943,7 +962,7 @@ func TestToolSelection_SpaceToggles(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
 	// Initially not selected.
 	m.Tools[0].Selected = false

@@ -49,7 +49,7 @@ func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 
 	// Verify initial state.
 	assert.Equal(t, model.ScreenWelcome, m.Screen)
@@ -83,7 +83,7 @@ func TestIntegration_ProgressToComplete_Transition(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 
 	// Populate ProgressTools with 3 pending steps.
@@ -133,7 +133,7 @@ func TestIntegration_ProgressWithError_Transition(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -183,7 +183,7 @@ func TestIntegration_FlowWithNoToolsSelected_ShowsError(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m = sendKey(m, tea.KeyMsg{Type: tea.KeyEnter}, 3)
 	require.Equal(t, model.ScreenToolSelection, m.Screen)
 
@@ -209,7 +209,7 @@ func TestIntegration_WelcomeView_ShowsMenu(t *testing.T) {
 	reg.Register(&mockAdapter{id: "tool-a", name: "Tool A"})
 	reg.Register(&mockAdapter{id: "tool-b", name: "Tool B"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	view := m.View()
 
 	// Welcome screen shows the main menu, not the individual tool list.
@@ -228,7 +228,7 @@ func TestIntegration_CompleteView_ShowsNextSteps(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
 
 	view := m.View()
@@ -245,7 +245,7 @@ func TestIntegration_QuitFromAnyScreen_ReturnsQuitMsg(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 
 	// Test quit from Welcome.
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -272,7 +272,7 @@ func TestIntegration_ErrorScreen_RetryReturnsToProgress(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenError
 
 	// Press 'r' for retry.
@@ -296,7 +296,7 @@ func TestIntegration_ErrorRecovery_FullFlow(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 
 	// === PHASE 1: Simulate a partial installation with a failure ===
@@ -383,7 +383,7 @@ func TestIntegration_ErrorRecovery_MultipleFailuresRetryAll(t *testing.T) {
 	reg.Register(&mockAdapter{id: "tool-a", name: "Tool A"})
 	reg.Register(&mockAdapter{id: "tool-b", name: "Tool B"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
 
 	m.ProgressTools = []screens.ProgressTool{
@@ -478,7 +478,7 @@ func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
 
 	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
 
-	m := app.NewModel("")
+	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
 
 	view := m.View()

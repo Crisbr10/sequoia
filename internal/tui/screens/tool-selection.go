@@ -17,11 +17,11 @@ func ToolSelectionView(tools []model.ToolState, cursor int, errorMsg string) str
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(styles.Title().Render("Select Audit Skills"))
+	b.WriteString(styles.Title().Render("Select AI Tools"))
 	b.WriteString("\n\n")
 
 	// Instruction.
-	b.WriteString(styles.Body().Render("  Choose which AI coding tools to audit:"))
+	b.WriteString(styles.Body().Render("  Choose which AI coding tools to install Sequoia into:"))
 	b.WriteString("\n\n")
 
 	// Tool list with checkboxes and cursor.
@@ -111,6 +111,8 @@ func ToolSelectionUpdate(msg tea.KeyMsg, cursor int, toolCount int) (newCursor i
 	// Handle rune-based keys.
 	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
 		switch msg.Runes[0] {
+		case ' ':
+			return cursor, true, ""
 		case 'j':
 			return wrapIncrement(cursor, toolCount), false, ""
 		case 'k':

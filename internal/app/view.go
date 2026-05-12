@@ -11,7 +11,7 @@ import (
 func (m Model) View() string {
 	switch m.Screen {
 	case model.ScreenWelcome:
-		return screens.WelcomeView(Version, m.Cursor)
+		return screens.WelcomeView(m.Version, m.Cursor)
 	case model.ScreenToolSelection:
 		return screens.ToolSelectionView(m.Tools, m.Cursor, m.ErrorMsg)
 	case model.ScreenConfiguration:

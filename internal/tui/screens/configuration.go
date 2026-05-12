@@ -98,10 +98,10 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 
 	// Footer hints.
 	b.WriteString(styles.Muted().Render("  "))
+	b.WriteString(styles.Accent().Render("↑/↓"))
+	b.WriteString(styles.Muted().Render(" field  "))
 	b.WriteString(styles.Accent().Render("←/→"))
 	b.WriteString(styles.Muted().Render(" change  "))
-	b.WriteString(styles.Accent().Render("Tab"))
-	b.WriteString(styles.Muted().Render(" field  "))
 	b.WriteString(styles.Accent().Render("Enter"))
 	b.WriteString(styles.Muted().Render(" confirm  "))
 	b.WriteString(styles.Accent().Render("Esc"))
@@ -128,6 +128,9 @@ func ConfigurationUpdate(msg tea.KeyMsg, activeField int, config model.TUIConfig
 
 	switch msg.Type {
 	case tea.KeyTab:
+		return toggleField(activeField), config, ""
+
+	case tea.KeyUp, tea.KeyDown:
 		return toggleField(activeField), config, ""
 
 	case tea.KeyLeft:

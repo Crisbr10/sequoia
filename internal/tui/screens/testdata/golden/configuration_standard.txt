@@ -9,4 +9,4 @@
     Files
     Both
 
-  ←/→ change  Tab field  Enter confirm  Esc back
+  ↑/↓ field  ←/→ change  Enter confirm  Esc back

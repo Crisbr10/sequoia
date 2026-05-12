@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"os/exec"
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/internal/model"
@@ -13,14 +14,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Version is the Sequoia release string displayed on the Welcome screen.
-// Set at build time via ldflags.
-var Version = "v0.1.0"
-
 // Model is the root Bubbletea model for the Sequoia TUI installer.
 // It owns the screen state machine, tool registry snapshot, user preferences,
 // and the buffered channel for progress messages from the install pipeline.
 type Model struct {
+	// Version is the Sequoia release string displayed on the Welcome screen.
+	// Set at build time via ldflags, passed from cmd/sequoia/main.go.
+	Version string
 	// Screen tracks which screen is currently displayed.
 	Screen model.Screen
 	// Tools is a snapshot of registered adapters with their UI state.
@@ -63,8 +63,9 @@ type Model struct {
 
 // NewModel creates the root Model populated with all registered adapters
 // and default configuration. If toolID is non-empty, only that adapter is
-// selected by default.
-func NewModel(toolID string) Model {
+// selected by default. version is the Sequoia release string (set via ldflags)
+// displayed on the Welcome screen.
+func NewModel(toolID string, version string) Model {
 	all := adapters.DefaultRegistry.All()
 	tools := make([]model.ToolState, 0, len(all))
 	for _, a := range all {
@@ -77,13 +78,17 @@ func NewModel(toolID string) Model {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	_, engramErr := exec.LookPath("engram")
+
 	return Model{
-		Screen:   model.ScreenWelcome,
-		Tools:    tools,
-		Config:   model.TUIConfig{Language: "en", Persistence: "engram"},
-		Progress: make(chan model.ProgressMsg, 64),
-		ctx:      ctx,
-		cancel:   cancel,
+		Version:         version,
+		Screen:          model.ScreenWelcome,
+		Tools:           tools,
+		Config:          model.TUIConfig{Language: "en", Persistence: "engram"},
+		Progress:        make(chan model.ProgressMsg, 64),
+		EngramAvailable: engramErr == nil,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 

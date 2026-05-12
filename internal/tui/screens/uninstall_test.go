@@ -199,6 +199,18 @@ func TestUninstallUpdate_LeftArrowReturnsBack(t *testing.T) {
 	assert.Equal(t, "back", action, "Left arrow should return back to Status")
 }
 
+func TestUninstallUpdate_SpaceRuneToggles(t *testing.T) {
+	t.Parallel()
+
+	// Some terminals send space as a rune (' ') instead of tea.KeySpace.
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, 1)
+
+	assert.Equal(t, 0, newCursor, "Cursor should not change on space rune")
+	assert.True(t, shouldToggle, "Space rune should trigger toggle")
+	assert.Empty(t, action, "Space rune should not trigger action")
+}
+
 func TestUninstallUpdate_UnknownKeyReturnsEmptyAction(t *testing.T) {
 	t.Parallel()
 

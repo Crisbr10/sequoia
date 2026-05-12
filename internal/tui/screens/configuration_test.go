@@ -61,8 +61,8 @@ func TestConfigurationView_ShowsNavigationHints(t *testing.T) {
 	view := screens.ConfigurationView(config, 0, true)
 
 	// Should show navigation hints.
-	assert.Contains(t, view, "←/→", "Should show left/right hint")
-	assert.Contains(t, view, "Tab", "Should show Tab hint")
+	assert.Contains(t, view, "↑/↓", "Should show up/down field hint")
+	assert.Contains(t, view, "←/→", "Should show left/right change hint")
 	assert.Contains(t, view, "Enter", "Should show Enter hint")
 	assert.Contains(t, view, "Esc", "Should show Esc hint")
 }
@@ -155,6 +155,24 @@ func TestConfigurationUpdate_EscNavigatesBack(t *testing.T) {
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
 	_, _, action := screens.ConfigurationUpdate(msg, 0, config, true)
 	assert.Equal(t, "back", action, "Esc should go back to ToolSelection")
+}
+
+func TestConfigurationUpdate_UpDownSwitchesField(t *testing.T) {
+	t.Parallel()
+
+	config := model.TUIConfig{Language: "en", Persistence: "engram"}
+
+	// KeyDown from field 0 (language) → should switch to field 1 (persistence).
+	msgDown := tea.KeyMsg{Type: tea.KeyDown}
+	newField, _, action := screens.ConfigurationUpdate(msgDown, 0, config, true)
+	assert.Equal(t, 1, newField, "KeyDown should switch from language(0) to persistence(1)")
+	assert.Empty(t, action)
+
+	// KeyUp from field 1 (persistence) → should switch to field 0 (language).
+	msgUp := tea.KeyMsg{Type: tea.KeyUp}
+	newField, _, action = screens.ConfigurationUpdate(msgUp, 1, config, true)
+	assert.Equal(t, 0, newField, "KeyUp should switch from persistence(1) to language(0)")
+	assert.Empty(t, action)
 }
 
 func TestConfigurationUpdate_LeftOnLanguageFieldChangesLanguage(t *testing.T) {

@@ -132,6 +132,8 @@ func UninstallUpdate(msg tea.KeyMsg, cursor int, count int) (int, bool, string) 
 			return cursor, false, ""
 		}
 		switch msg.Runes[0] {
+		case ' ':
+			return cursor, true, ""
 		case 'j':
 			if count == 0 {
 				return cursor, false, ""

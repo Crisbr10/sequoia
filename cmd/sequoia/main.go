@@ -350,7 +350,7 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 // support, and blocks until the user quits.
 func runTUI(toolID string) error {
 	p := tea.NewProgram(
-		app.NewModel(toolID),
+		app.NewModel(toolID, Version),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
