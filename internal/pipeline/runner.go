@@ -90,7 +90,7 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 	}
 
 	// Perform the actual operation (Install or Uninstall).
-	err := fn(adapters.InstallOpts{Language: lang})
+	err := fn(adapters.InstallOpts{Language: lang, Context: ctx})
 
 	// Report the result.
 	if err != nil {

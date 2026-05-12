@@ -3,9 +3,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 
@@ -55,7 +57,12 @@ func init() {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	root := newRootCmd()
+	root.SetContext(ctx)
+	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -123,7 +130,7 @@ Examples:
 				return runTUI(toolID)
 			}
 			// Headless mode.
-			return runInstall(toolID, cmd.OutOrStdout())
+			return runInstall(cmd.Context(), toolID, cmd.OutOrStdout())
 		},
 	}
 
@@ -174,7 +181,7 @@ Examples:
   sequoia uninstall --all               # Remove from all tools
   sequoia uninstall --all --yes         # Remove from all tools without prompt`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runUninstall(toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout())
+			return runUninstall(cmd.Context(), toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
 
@@ -208,7 +215,8 @@ var isTerminalFn = isTerminal
 // -- Command handlers ---------------------------------------------------------
 
 // runInstall installs Sequoia into a specific adapter or all detected adapters.
-func runInstall(toolID string, out io.Writer) error {
+// ctx is the signal-aware context from main() — cancellation stops the install early.
+func runInstall(ctx context.Context, toolID string, out io.Writer) error {
 	targets := targetAdapters(toolID)
 	if len(targets) == 0 {
 		if toolID != "" {
@@ -224,7 +232,7 @@ func runInstall(toolID string, out io.Writer) error {
 		if a.IsInstalled() {
 			_, _ = fmt.Fprintf(out, "  Sequoia is already installed. Reinstalling ...\n")
 		}
-		if err := a.Install(adapters.InstallOpts{}); err != nil {
+		if err := a.Install(adapters.InstallOpts{Context: ctx}); err != nil {
 			return fmt.Errorf("install %s: %w", a.ID(), err)
 		}
 		_, _ = fmt.Fprintf(out, "  Done! Use /sequoia-init inside %s to get started.\n", a.Name())
@@ -294,7 +302,8 @@ func ScanTools() []adapters.AdapterStatus {
 // listing the affected tools and waits for "y"/"Y" input. When stdin is piped
 // and yes is false, it returns an error directing users to --yes. When yes is
 // true, the confirmation prompt is skipped entirely.
-func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer) error {
+// ctx is the signal-aware context from main() — cancellation stops uninstall early.
+func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.Reader, out io.Writer) error {
 	targets := targetAdapters(toolID)
 	if all && toolID == "" {
 		targets = adapters.DefaultRegistry.All()
@@ -338,7 +347,7 @@ func runUninstall(toolID string, all bool, yes bool, in io.Reader, out io.Writer
 			continue
 		}
 		_, _ = fmt.Fprintf(out, "Removing Sequoia from %s ...\n", a.Name())
-		if err := a.Uninstall(adapters.InstallOpts{}); err != nil {
+		if err := a.Uninstall(adapters.InstallOpts{Context: ctx}); err != nil {
 			return fmt.Errorf("uninstall %s: %w", a.ID(), err)
 		}
 		_, _ = fmt.Fprintf(out, "  Done.\n")

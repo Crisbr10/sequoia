@@ -30,6 +30,9 @@ type testAdapter struct {
 	mu             sync.Mutex
 	installCalls   int
 	uninstallCalls int
+
+	// lastContext captures the context passed to Install via InstallOpts.
+	lastContext context.Context
 }
 
 func (a *testAdapter) ID() string        { return a.id }
@@ -41,6 +44,7 @@ func (a *testAdapter) Install(opts adapters.InstallOpts) error {
 	_ = opts.Language
 	a.mu.Lock()
 	a.installCalls++
+	a.lastContext = opts.Context
 	a.mu.Unlock()
 	if a.delay > 0 {
 		time.Sleep(a.delay)
@@ -52,6 +56,7 @@ func (a *testAdapter) Uninstall(opts adapters.InstallOpts) error {
 	_ = opts.Language
 	a.mu.Lock()
 	a.uninstallCalls++
+	a.lastContext = opts.Context
 	a.mu.Unlock()
 	if a.delay > 0 {
 		time.Sleep(a.delay)
@@ -489,4 +494,81 @@ func TestRunStatus_ContextCancellation_StopsAndClosesChannel(t *testing.T) {
 
 	_, closed := collectProgressWithTimeout(ch, 200*time.Millisecond)
 	assert.True(t, closed, "Channel should be closed after context cancellation")
+}
+
+// TestRunInstall_PassesContextToAdapter verifies that the pipeline forwards
+// the caller's context to the adapter's Install method via InstallOpts.
+// This is the triangulation test for context propagation: unlike the
+// "already cancelled" test, this verifies the pipeline properly wires
+// a live context through to the adapter layer.
+func TestRunInstall_PassesContextToAdapter(t *testing.T) {
+	t.Parallel()
+
+	adapter := &testAdapter{id: "ctx-test", name: "Context Test"}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+	require.NotEmpty(t, msgs, "Should receive progress messages")
+
+	// The adapter must have received a non-nil context.
+	adapter.mu.Lock()
+	receivedCtx := adapter.lastContext
+	adapter.mu.Unlock()
+
+	require.NotNil(t, receivedCtx, "Adapter should receive a non-nil Context via InstallOpts")
+
+	// The received context should be alive (not cancelled).
+	select {
+	case <-receivedCtx.Done():
+		t.Error("Context passed to adapter should not be cancelled during normal operation")
+	default:
+		// OK — context is still alive.
+	}
+
+	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called once")
+}
+
+// TestRunUninstall_PassesContextToAdapter verifies uninstall context propagation.
+func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
+	t.Parallel()
+
+	adapter := &testAdapter{id: "uninstall-ctx", name: "Uninstall Context", installed: true}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunUninstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+	require.NotEmpty(t, msgs)
+
+	adapter.mu.Lock()
+	receivedCtx := adapter.lastContext
+	adapter.mu.Unlock()
+
+	require.NotNil(t, receivedCtx, "Adapter should receive a non-nil Context via InstallOpts for uninstall")
+
+	select {
+	case <-receivedCtx.Done():
+		t.Error("Context passed to adapter should not be cancelled during normal uninstall")
+	default:
+	}
+
+	assert.Equal(t, 1, adapter.uninstallCallCount())
 }

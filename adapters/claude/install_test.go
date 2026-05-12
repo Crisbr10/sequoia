@@ -1,6 +1,7 @@
 package claude_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -206,4 +207,53 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 	raw, err = os.ReadFile(a.SystemPromptPath())
 	require.NoError(t, err)
 	assert.NotEmpty(t, raw)
+}
+
+// TestInstall_ContextAlreadyCanceled_ReturnsError verifies that when a context
+// is cancelled before Install() is called, the adapter returns a context error
+// immediately without leaving artifacts in the target directories.
+func TestInstall_ContextAlreadyCanceled_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	a := claude.NewAdapter(tmp)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling Install
+
+	opts := adapters.InstallOpts{Context: ctx}
+	err := a.Install(opts)
+
+	require.Error(t, err, "Install should return an error when context is already cancelled")
+	assert.ErrorIs(t, err, context.Canceled, "error should wrap context.Canceled")
+
+	// No installation artifacts should remain.
+	assert.False(t, a.IsInstalled(), "should not be installed after cancelled install")
+	assert.NoFileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
+
+	// CLAUDE.md should either not exist or not contain the sequoia markers.
+	if _, statErr := os.Stat(a.SystemPromptPath()); statErr == nil {
+		raw, readErr := os.ReadFile(a.SystemPromptPath())
+		if readErr == nil {
+			assert.NotContains(t, string(raw), "<!-- sequoia:start -->",
+				"CLAUDE.md should not contain sequoia markers after cancelled install")
+		}
+	}
+}
+
+// TestInstall_ContextValid_NormalOperation verifies that passing a valid
+// (non-cancelled) context through InstallOpts does not break normal install.
+func TestInstall_ContextValid_NormalOperation(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	a := claude.NewAdapter(tmp)
+
+	ctx := context.Background()
+	opts := adapters.InstallOpts{Context: ctx}
+	err := a.Install(opts)
+
+	require.NoError(t, err, "Install with valid context should succeed")
+	assert.True(t, a.IsInstalled())
+	assert.FileExists(t, filepath.Join(a.SkillsPath(), "SKILL.md"))
 }

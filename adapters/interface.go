@@ -2,6 +2,8 @@
 // (Registry, Factory) for registering and retrieving tool integrations.
 package adapters
 
+import "context"
+
 // PromptStrategy defines how Sequoia injects content into a tool's config.
 type PromptStrategy int
 
@@ -26,6 +28,12 @@ type InstallOpts struct {
 	// Language is the ISO 639-1 or BCP 47 code (e.g. "en", "es", "pt-BR")
 	// for the language to use when rendering templates and agent docs.
 	Language string
+
+	// Context is an optional context for cancellation propagation.
+	// When set and cancelled, Install and Uninstall should abort early
+	// and roll back any partial work. A nil Context means no cancellation
+	// support (backwards-compatible with existing callers).
+	Context context.Context
 }
 
 // AdapterStatus reports the current installation state of a tool adapter.

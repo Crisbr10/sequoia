@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -212,9 +213,31 @@ func (a *BaseAdapter) Status() adapters.AdapterStatus {
 	}
 }
 
+// checkContext returns ctx.Err() if the context is done, nil otherwise.
+// A nil context is treated as not cancelled (backwards-compatible).
+func checkContext(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
+}
+
 // Install installs Sequoia files using the common 9-step pattern.
 // The system prompt strategy is delegated to writeSystemPrompt.
+//
+// When opts.Context is set and cancelled, Install aborts early and rolls
+// back any partial work before returning the context error.
 func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
+	// Check for early cancellation before doing any work.
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("install: %w", err)
+	}
+
 	_ = opts.Language
 
 	base, err := a.base()
@@ -251,6 +274,11 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 		}
 	}
 
+	// Check cancellation before creating directories.
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("install: %w", err)
+	}
+
 	skillsDir := a.skillsPathFn(base)
 	commandsDir := a.commandsPathFn(base)
 	backupDir := a.backupPathFn(base)
@@ -273,6 +301,12 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: skill: %w", err)
 	}
 
+	// Check cancellation after skills install — roll back if needed.
+	if err := checkContext(opts.Context); err != nil {
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("install: %w", err)
+	}
+
 	// Install command files via the common framework.
 	cmdInstaller := NewInstaller(InstallerConfig{
 		SourceDir: staging,
@@ -283,6 +317,13 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 	if err := cmdInstaller.Run(); err != nil {
 		_ = skillInstaller.Rollback()
 		return fmt.Errorf("install: commands: %w", err)
+	}
+
+	// Check cancellation after commands install — roll back if needed.
+	if err := checkContext(opts.Context); err != nil {
+		_ = cmdInstaller.Rollback()
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("install: %w", err)
 	}
 
 	// Render and write the system prompt.
@@ -298,6 +339,13 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 		return fmt.Errorf("install: system prompt: %w", err)
 	}
 
+	// Check cancellation after system prompt — roll back if needed.
+	if err := checkContext(opts.Context); err != nil {
+		_ = cmdInstaller.Rollback()
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("install: %w", err)
+	}
+
 	// Write the version marker file.
 	if err := os.WriteFile(a.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
@@ -308,7 +356,15 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) error {
 
 // Uninstall removes Sequoia files using the common pattern.
 // The system prompt strategy is delegated to removeSystemPrompt.
+//
+// When opts.Context is set and cancelled, Uninstall returns early without
+// modifying any files.
 func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) error {
+	// Check for early cancellation before doing any work.
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("uninstall: %w", err)
+	}
+
 	_ = opts.Language
 
 	base, err := a.base()
