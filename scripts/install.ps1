@@ -13,6 +13,9 @@
     Target directory for the binary (default: $env:LOCALAPPDATA\sequoia).
 .PARAMETER SkipChecksum
     Skip SHA-256 verification of the downloaded archive.
+    Opt-in flag for air-gapped environments where checksums.txt is unreachable.
+    Without this flag, checksum verification is MANDATORY — the installer
+    will abort if checksums.txt cannot be downloaded.
 .PARAMETER AddToPath
     Add INSTALL_DIR to the user-level PATH environment variable.
 .EXAMPLE
@@ -162,7 +165,20 @@ try {
             Invoke-WebRequest -Uri $ChecksumUrl -OutFile $checksumsPath -UseBasicParsing -ErrorAction Stop
             $checksumsDownloaded = $true
         } catch {
-            Write-Warn "Could not download checksums.txt. Skipping checksum verification."
+            if ($SkipChecksum) {
+                Write-Warn "Could not download checksums.txt. Skipping verification (-SkipChecksum)."
+            } else {
+                Write-Err "Could not download checksums.txt from:"
+                Write-Err "  $ChecksumUrl"
+                Write-Err ""
+                Write-Err "Checksum verification is mandatory. The binary cannot be verified."
+                Write-Err "To bypass this check (air-gapped environments), use -SkipChecksum:"
+                Write-Err ""
+                Write-Err "  .\install.ps1 -SkipChecksum"
+                Write-Err ""
+                Write-Err "  Or: irm https://.../install.ps1 | iex; install-sequoia -SkipChecksum"
+                exit $EXIT_CHECKSUM
+            }
         }
 
         if ($checksumsDownloaded -and (Test-Path $checksumsPath)) {

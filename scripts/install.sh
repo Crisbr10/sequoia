@@ -7,11 +7,14 @@
 #
 # Or with custom options:
 #   curl -sSL ... | REPO=myfork/sequoia VERSION=v0.2.0 bash
+#   curl -sSL ... | SKIP_CHECKSUMS=true bash   (air-gapped / no checksums.txt)
 #
 # Environment variables:
-#   REPO         GitHub org/repo (default: Crisbr10/sequoia)
-#   VERSION      Release version tag (default: latest, resolved via GitHub API)
-#   INSTALL_DIR  Target directory for the binary (default: /usr/local/bin)
+#   REPO           GitHub org/repo (default: Crisbr10/sequoia)
+#   VERSION        Release version tag (default: latest, resolved via GitHub API)
+#   INSTALL_DIR    Target directory for the binary (default: /usr/local/bin)
+#   SKIP_CHECKSUMS If set to "true", bypass SHA-256 verification (opt-in, for
+#                  air-gapped environments where checksums.txt is unreachable)
 # =============================================================================
 
 set -euo pipefail
@@ -21,6 +24,29 @@ BINARY="sequoia"
 REPO="${REPO:-Crisbr10/sequoia}"
 VERSION_INPUT="${VERSION:-latest}"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+SKIP_CHECKSUMS="${SKIP_CHECKSUMS:-false}"
+
+# Support --skip-checksums flag when running script directly (not piped)
+for arg in "$@"; do
+    case "$arg" in
+        --skip-checksums) SKIP_CHECKSUMS="true" ;;
+        --help|-h)
+            echo "Sequoia One-Line Installer"
+            echo ""
+            echo "Environment variables:"
+            echo "  REPO           GitHub org/repo (default: Crisbr10/sequoia)"
+            echo "  VERSION        Release version tag (default: latest)"
+            echo "  INSTALL_DIR    Target directory (default: /usr/local/bin)"
+            echo "  SKIP_CHECKSUMS Set to 'true' to bypass SHA-256 verification"
+            echo "                 (opt-in for air-gapped environments)"
+            echo ""
+            echo "Flags (when running script directly):"
+            echo "  --skip-checksums  Bypass SHA-256 verification"
+            echo "  --help, -h        Show this help message"
+            exit $EXIT_OK
+            ;;
+    esac
+done
 
 # Exit codes (matched to design contract)
 EXIT_OK=0
@@ -216,14 +242,34 @@ fi
 # -- SHA-256 checksum verification --------------------------------------------
 log_info "Verifying SHA-256 checksum..."
 
-CHECKSUMS_DOWNLOADED=""
+CHECKSUMS_FILE="${TMPDIR}/checksums.txt"
+
+# Download checksums with retry. If download fails, ABORT unless user opted in
+# to skip verification (--skip-checksums / SKIP_CHECKSUMS=true).
 if [ "$DOWNLOADER" = "curl" ]; then
-    curl -fsSL --retry 3 --retry-delay 2 -o "${TMPDIR}/checksums.txt" "$CHECKSUM_URL" 2>/dev/null && CHECKSUMS_DOWNLOADED="1" || true
+    curl -fsSL --retry 3 --retry-delay 2 -o "$CHECKSUMS_FILE" "$CHECKSUM_URL" 2>/dev/null
+    CHECKSUMS_DOWNLOAD_EXIT=$?
 else
-    wget -q --retry-connrefused --tries=3 -O "${TMPDIR}/checksums.txt" "$CHECKSUM_URL" 2>/dev/null && CHECKSUMS_DOWNLOADED="1" || true
+    wget -q --retry-connrefused --tries=3 -O "$CHECKSUMS_FILE" "$CHECKSUM_URL" 2>/dev/null
+    CHECKSUMS_DOWNLOAD_EXIT=$?
 fi
 
-if [ -n "$CHECKSUMS_DOWNLOADED" ] && [ -f "${TMPDIR}/checksums.txt" ]; then
+if [ "$CHECKSUMS_DOWNLOAD_EXIT" -ne 0 ]; then
+    if [ "$SKIP_CHECKSUMS" = "true" ]; then
+        log_warn "Could not download checksums.txt. Skipping verification (--skip-checksums)."
+    else
+        log_error "Could not download checksums.txt from:"
+        log_error "  ${CHECKSUM_URL}"
+        log_error ""
+        log_error "Checksum verification is mandatory. The binary cannot be verified."
+        log_error "To bypass this check (air-gapped environments), set SKIP_CHECKSUMS=true:"
+        log_error ""
+        log_error "  curl -sSL ... | SKIP_CHECKSUMS=true bash"
+        log_error ""
+        log_error "  Or run: ./install.sh --skip-checksums"
+        exit $EXIT_CHECKSUM
+    fi
+elif [ -f "$CHECKSUMS_FILE" ]; then
     COMPUTED_HASH=""
     if [ "$HASH_TOOL" = "sha256sum" ]; then
         COMPUTED_HASH="$(sha256sum "${TMPDIR}/${TARBALL}" | awk '{print $1}')"
@@ -231,7 +277,7 @@ if [ -n "$CHECKSUMS_DOWNLOADED" ] && [ -f "${TMPDIR}/checksums.txt" ]; then
         COMPUTED_HASH="$(shasum -a 256 "${TMPDIR}/${TARBALL}" | awk '{print $1}')"
     fi
 
-    EXPECTED_HASH="$(grep "${TARBALL}" "${TMPDIR}/checksums.txt" | awk '{print $1}' | head -1)" || EXPECTED_HASH=""
+    EXPECTED_HASH="$(grep "${TARBALL}" "$CHECKSUMS_FILE" | awk '{print $1}' | head -1)" || EXPECTED_HASH=""
 
     if [ -z "$EXPECTED_HASH" ]; then
         log_warn "No checksum entry found for ${TARBALL} in checksums.txt. Skipping verification."
@@ -245,7 +291,8 @@ if [ -n "$CHECKSUMS_DOWNLOADED" ] && [ -f "${TMPDIR}/checksums.txt" ]; then
         log_info "Checksum verified: ${COMPUTED_HASH}"
     fi
 else
-    log_warn "Could not download checksums.txt. Skipping checksum verification."
+    # Download reported success but file is absent — edge case, warn and continue
+    log_warn "Checksums file missing after download. Skipping verification."
 fi
 
 # -- Extract ------------------------------------------------------------------
