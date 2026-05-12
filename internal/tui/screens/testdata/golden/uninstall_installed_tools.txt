@@ -3,4 +3,4 @@
 ▶ [ ] Claude Code
   [x] Gemini CLI
 
-  ↑/↓ j/k navigate  Space toggle  Enter confirm  q quit
+  ↑/↓ j/k navigate  Space toggle  Enter confirm  Esc back  q quit

@@ -40,6 +40,10 @@ type Model struct {
 	// OperationMode tracks the current operation: "install" or "uninstall".
 	// Empty string defaults to install-variant labels in views.
 	OperationMode string
+	// PreviousScreen records the screen that was active before the most recent
+	// navigation. It is set by the NavigateMsg handler so that screens can
+	// implement source-aware back navigation.
+	PreviousScreen model.Screen
 	// Progress is a buffered channel receiving ProgressMsg from install goroutines.
 	// Capacity is 64 to prevent pipeline blocking during bursty progress updates.
 	Progress chan model.ProgressMsg

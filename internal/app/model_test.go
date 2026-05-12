@@ -577,11 +577,22 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 	updated, cmd := m.Update(msg)
 
 	require.NotNil(t, cmd, "r on Status should produce a command")
+	// startPipeline returns tea.Batch containing navigate + install + poll commands.
 	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "r on Status should produce NavigateMsg, got %T", result)
+	batch, ok := result.(tea.BatchMsg)
+	require.True(t, ok, "r on Status should produce tea.BatchMsg, got %T", result)
+	require.NotEmpty(t, batch, "batch should contain commands")
+
+	// The first command in the batch should be the NavigateMsg.
+	navResult := batch[0]()
+	nav, ok := navResult.(tui.NavigateMsg)
+	require.True(t, ok, "first batched command should produce NavigateMsg, got %T", navResult)
 	assert.Equal(t, model.ScreenInstallProgress, nav.Target)
-	_ = updated
+
+	// Verify the model populated ProgressTools.
+	m2 := updated.(app.Model)
+	assert.NotEmpty(t, m2.ProgressTools, "reinstall should populate ProgressTools")
+	assert.Equal(t, "install", m2.OperationMode, "reinstall should set OperationMode to install")
 }
 
 func TestStatus_UKeyNoOp(t *testing.T) {

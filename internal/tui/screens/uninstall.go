@@ -12,7 +12,8 @@ import (
 
 // UninstallView renders the Uninstall screen showing a checkbox list
 // of installed tools. Tools that are not installed are not shown.
-func UninstallView(tools []model.ToolState, cursor int) string {
+// errorMsg, when non-empty, is rendered above the footer as a validation error.
+func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string {
 	var b strings.Builder
 
 	// Title.
@@ -24,6 +25,13 @@ func UninstallView(tools []model.ToolState, cursor int) string {
 	if len(installed) == 0 {
 		b.WriteString(styles.Muted().Render("  Nothing to uninstall"))
 		b.WriteString("\n\n")
+
+		// Error message (if any).
+		if errorMsg != "" {
+			b.WriteString(styles.Error().Render("  "))
+			b.WriteString(styles.Error().Render(errorMsg))
+			b.WriteString("\n\n")
+		}
 
 		// Only q available when nothing to uninstall.
 		b.WriteString(styles.Muted().Render("  "))
@@ -40,6 +48,13 @@ func UninstallView(tools []model.ToolState, cursor int) string {
 
 	b.WriteString("\n")
 
+	// Error message (if any).
+	if errorMsg != "" {
+		b.WriteString(styles.Error().Render("  "))
+		b.WriteString(styles.Error().Render(errorMsg))
+		b.WriteString("\n\n")
+	}
+
 	// Key hints.
 	b.WriteString(styles.Muted().Render("  "))
 	b.WriteString(styles.Accent().Render("↑/↓ j/k"))
@@ -48,6 +63,8 @@ func UninstallView(tools []model.ToolState, cursor int) string {
 	b.WriteString(styles.Muted().Render(" toggle  "))
 	b.WriteString(styles.Accent().Render("Enter"))
 	b.WriteString(styles.Muted().Render(" confirm  "))
+	b.WriteString(styles.Accent().Render("Esc"))
+	b.WriteString(styles.Muted().Render(" back  "))
 	b.WriteString(styles.Accent().Render("q"))
 	b.WriteString(styles.Muted().Render(" quit"))
 

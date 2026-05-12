@@ -22,6 +22,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tui.NavigateMsg:
 		m.Cursor = 0
 		m.ErrorMsg = ""
+		m.PreviousScreen = m.Screen
 		m.Screen = msg.Target
 		return m, nil
 
@@ -104,18 +105,8 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		switch action {
 		case "confirm":
-			// Build initial progress state from selected tools.
-			m.OperationMode = "install"
-			m.ProgressTools = buildProgressTools(m.Tools)
-			m.InstallCompleted = 0
-			m.InstallFailed = 0
 			m.ErrorMsg = ""
-			navigateCmd := func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenInstallProgress}
-			}
-			installCmd := pipeline.RunInstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
-			pollCmd := waitForProgress(m.Progress)
-			return m, tea.Batch(navigateCmd, installCmd, pollCmd)
+			return m, m.startPipeline("install")
 		case "back":
 			m.ErrorMsg = ""
 			return m, func() tea.Msg {
@@ -148,7 +139,25 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, screens.CompleteUpdate(msg)
 
 	case model.ScreenError:
-		return m, screens.ErrorUpdate(msg)
+		// Inline handler: rebuild pipeline on retry, not bare navigation.
+		switch msg.Type {
+		case tea.KeyEsc, tea.KeyLeft:
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: model.ScreenToolSelection}
+			}
+		case tea.KeyCtrlC:
+			return m, tea.Quit
+		}
+
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			switch msg.Runes[0] {
+			case 'r':
+				return m, m.startPipeline(m.OperationMode)
+			case 'q':
+				return m, tea.Quit
+			}
+		}
+		return m, nil
 
 	case model.ScreenStatus:
 		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
@@ -160,9 +169,13 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return tui.NavigateMsg{Target: model.ScreenUninstall}
 			}
 		case "reinstall":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenInstallProgress}
+			// Mark all installed tools as selected so the pipeline picks them up.
+			for i := range m.Tools {
+				if m.Tools[i].Adapter.IsInstalled() {
+					m.Tools[i].Selected = true
+				}
 			}
+			return m, m.startPipeline("install")
 		case "back":
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenWelcome}
@@ -173,24 +186,18 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ScreenUninstall:
-		// Confirmation mode: only y and n matter.
+		// Confirmation mode: only y, n, and Esc matter.
 		if m.UninstallConfirming {
+			if msg.Type == tea.KeyEsc {
+				m.UninstallConfirming = false
+				return m, nil
+			}
 			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
 				switch msg.Runes[0] {
 				case 'y':
 					m.UninstallConfirming = false
-					m.OperationMode = "uninstall"
-					// Build progress state for selected+installed tools.
-					m.ProgressTools = buildUninstallProgressTools(m.Tools)
-					m.InstallCompleted = 0
-					m.InstallFailed = 0
 					m.ErrorMsg = ""
-					navigateCmd := func() tea.Msg {
-						return tui.NavigateMsg{Target: model.ScreenInstallProgress}
-					}
-					uninstallCmd := pipeline.RunUninstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
-					pollCmd := waitForProgress(m.Progress)
-					return m, tea.Batch(navigateCmd, uninstallCmd, pollCmd)
+					return m, m.startPipeline("uninstall")
 				case 'n':
 					m.UninstallConfirming = false
 					return m, nil
@@ -203,19 +210,26 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.Cursor = newCursor
 		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
 			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
+			m.ErrorMsg = ""
 		}
 
 		switch action {
 		case "confirm":
 			// Check at least one tool is selected and installed.
 			if hasSelectedInstalled(m.Tools) {
+				m.ErrorMsg = ""
 				m.UninstallConfirming = true
+			} else {
+				m.ErrorMsg = "Select at least one installed tool to continue"
 			}
 			return m, nil
 		case "back":
 			m.UninstallConfirming = false
+			// Navigate back to the source screen (Welcome or Status).
+			// PreviousScreen defaults to ScreenWelcome (zero value), which is
+			// correct when the user arrived from the Welcome screen directly.
 			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
+				return tui.NavigateMsg{Target: m.PreviousScreen}
 			}
 		}
 		return m, nil
@@ -330,6 +344,35 @@ func buildUninstallProgressTools(tools []model.ToolState) []screens.ProgressTool
 		})
 	}
 	return result
+}
+
+// startPipeline builds the progress state, starts the pipeline (install or
+// uninstall), and returns the batched tea commands that begin execution.
+// All entry points to the InstallProgress screen MUST use this method so
+// that ProgressTools, counters, and polling are set up consistently.
+func (m *Model) startPipeline(mode string) tea.Cmd {
+	if mode == "install" {
+		m.OperationMode = "install"
+		m.ProgressTools = buildProgressTools(m.Tools)
+	} else {
+		m.OperationMode = "uninstall"
+		m.ProgressTools = buildUninstallProgressTools(m.Tools)
+	}
+	m.InstallCompleted = 0
+	m.InstallFailed = 0
+
+	navigateCmd := func() tea.Msg {
+		return tui.NavigateMsg{Target: model.ScreenInstallProgress}
+	}
+
+	var pipelineCmd tea.Cmd
+	if mode == "install" {
+		pipelineCmd = pipeline.RunInstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+	} else {
+		pipelineCmd = pipeline.RunUninstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+	}
+
+	return tea.Batch(navigateCmd, pipelineCmd, waitForProgress(m.Progress))
 }
 
 // waitForProgress returns a tea.Cmd that reads the next model.ProgressMsg

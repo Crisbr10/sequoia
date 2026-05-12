@@ -268,3 +268,85 @@ func TestOperationModeTracking_ZeroValueSafeFallback(t *testing.T) {
 	m := Model{}
 	assert.Empty(t, m.OperationMode, "zero-value OperationMode should be empty, not nil/undefined")
 }
+
+func TestStartPipeline_InstallMode(t *testing.T) {
+	tools := []model.ToolState{
+		{Adapter: &stubAdapter{id: "tool-1", name: "Tool 1"}, Selected: true},
+		{Adapter: &stubAdapter{id: "tool-2", name: "Tool 2"}, Selected: false},
+		{Adapter: &stubAdapter{id: "tool-3", name: "Tool 3"}, Selected: true},
+	}
+
+	m := Model{
+		Tools:         tools,
+		Config:        model.TUIConfig{Language: "en"},
+		Progress:      make(chan model.ProgressMsg, 64),
+		InstallCompleted: 5, // Non-zero to verify reset
+		InstallFailed:    3, // Non-zero to verify reset
+	}
+	// Set up context for the pipeline.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.ctx = ctx
+
+	cmd := m.startPipeline("install")
+
+	// Verify OperationMode is set.
+	assert.Equal(t, "install", m.OperationMode, "OperationMode should be 'install'")
+
+	// Verify ProgressTools are built from selected tools (2 of 3).
+	require.Len(t, m.ProgressTools, 2, "ProgressTools should have exactly the selected tools")
+	assert.Equal(t, "tool-1", m.ProgressTools[0].ToolID)
+	assert.Equal(t, "Tool 1", m.ProgressTools[0].ToolName)
+	assert.Equal(t, "tool-3", m.ProgressTools[1].ToolID)
+	assert.Equal(t, "Tool 3", m.ProgressTools[1].ToolName)
+
+	// Verify all steps start pending.
+	for _, pt := range m.ProgressTools {
+		require.Len(t, pt.Steps, 3)
+		for _, step := range pt.Steps {
+			assert.Equal(t, screens.StepPending, step.Status)
+		}
+	}
+
+	// Verify counters are reset to zero.
+	assert.Equal(t, 0, m.InstallCompleted, "InstallCompleted should be reset to 0")
+	assert.Equal(t, 0, m.InstallFailed, "InstallFailed should be reset to 0")
+
+	// Verify returned command is not nil (tea.Batch).
+	assert.NotNil(t, cmd, "startPipeline should return a non-nil tea.Cmd")
+}
+
+func TestStartPipeline_UninstallMode(t *testing.T) {
+	tools := []model.ToolState{
+		{Adapter: &stubAdapter{id: "a", name: "A", installed: true}, Selected: true},
+		{Adapter: &stubAdapter{id: "b", name: "B", installed: true}, Selected: false},
+		{Adapter: &stubAdapter{id: "c", name: "C", installed: false}, Selected: true},
+	}
+
+	m := Model{
+		Tools:         tools,
+		Config:        model.TUIConfig{Language: "es"},
+		Progress:      make(chan model.ProgressMsg, 64),
+		InstallCompleted: 10,
+		InstallFailed:    5,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.ctx = ctx
+
+	cmd := m.startPipeline("uninstall")
+
+	// Verify OperationMode is set.
+	assert.Equal(t, "uninstall", m.OperationMode, "OperationMode should be 'uninstall'")
+
+	// buildUninstallProgressTools filters by Selected AND Installed: only "a" qualifies.
+	require.Len(t, m.ProgressTools, 1, "ProgressTools should have 1 tool (selected+installed)")
+	assert.Equal(t, "a", m.ProgressTools[0].ToolID)
+
+	// Verify counters reset.
+	assert.Equal(t, 0, m.InstallCompleted)
+	assert.Equal(t, 0, m.InstallFailed)
+
+	// Verify returned command is not nil.
+	assert.NotNil(t, cmd, "startPipeline should return a non-nil tea.Cmd")
+}

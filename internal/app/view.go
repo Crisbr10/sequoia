@@ -25,7 +25,7 @@ func (m Model) View() string {
 	case model.ScreenStatus:
 		return screens.StatusView(m.Tools, m.Cursor)
 	case model.ScreenUninstall:
-		view := screens.UninstallView(m.Tools, m.Cursor)
+		view := screens.UninstallView(m.Tools, m.Cursor, m.ErrorMsg)
 		if m.UninstallConfirming {
 			view += "\n" + renderUninstallConfirm()
 		}

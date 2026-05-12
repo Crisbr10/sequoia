@@ -19,7 +19,7 @@ var TransitionMap = map[model.Screen][]model.Screen{
 	model.ScreenComplete:        {model.ScreenStatus},
 	model.ScreenError:           {model.ScreenInstallProgress, model.ScreenToolSelection},
 	model.ScreenStatus:          {model.ScreenUninstall, model.ScreenInstallProgress, model.ScreenWelcome},
-	model.ScreenUninstall:       {model.ScreenInstallProgress, model.ScreenWelcome},
+	model.ScreenUninstall:       {model.ScreenInstallProgress, model.ScreenWelcome, model.ScreenStatus},
 }
 
 // IsValidTransition reports whether the transition from → to is allowed
