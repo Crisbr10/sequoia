@@ -20,19 +20,19 @@ const (
 
 // --- Tool Selection Screen ---
 const (
-	MsgToolSelectionTitle          = "tool_selection.title"
-	MsgToolSelectionInstruction    = "tool_selection.instruction"
-	MsgToolSelectionEmpty          = "tool_selection.empty"
-	MsgToolSelectionSelectedCount  = "tool_selection.selected_count"
+	MsgToolSelectionTitle         = "tool_selection.title"
+	MsgToolSelectionInstruction   = "tool_selection.instruction"
+	MsgToolSelectionEmpty         = "tool_selection.empty"
+	MsgToolSelectionSelectedCount = "tool_selection.selected_count"
 )
 
 // --- Configuration Screen ---
 const (
-	MsgConfigurationTitle            = "configuration.title"
-	MsgConfigurationLanguageLabel    = "configuration.language_label"
-	MsgConfigurationLanguageEN       = "configuration.language_en"
-	MsgConfigurationLanguageES       = "configuration.language_es"
-	MsgConfigurationPersistenceLabel = "configuration.persistence_label"
+	MsgConfigurationTitle             = "configuration.title"
+	MsgConfigurationLanguageLabel     = "configuration.language_label"
+	MsgConfigurationLanguageEN        = "configuration.language_en"
+	MsgConfigurationLanguageES        = "configuration.language_es"
+	MsgConfigurationPersistenceLabel  = "configuration.persistence_label"
 	MsgConfigurationPersistenceEngram = "configuration.persistence_engram"
 	MsgConfigurationPersistenceFiles  = "configuration.persistence_files"
 	MsgConfigurationPersistenceBoth   = "configuration.persistence_both"
@@ -41,20 +41,20 @@ const (
 
 // --- Install Progress Screen ---
 const (
-	MsgInstallProgressTitleInstall   = "install_progress.title_install"
-	MsgInstallProgressTitleUninstall = "install_progress.title_uninstall"
+	MsgInstallProgressTitleInstall     = "install_progress.title_install"
+	MsgInstallProgressTitleUninstall   = "install_progress.title_uninstall"
 	MsgInstallProgressSummaryInstall   = "install_progress.summary_install"
 	MsgInstallProgressSummaryUninstall = "install_progress.summary_uninstall"
 )
 
 // --- Complete Screen ---
 const (
-	MsgCompleteHeadingInstall          = "complete.heading_install"
-	MsgCompleteHeadingUninstall        = "complete.heading_uninstall"
+	MsgCompleteHeadingInstall           = "complete.heading_install"
+	MsgCompleteHeadingUninstall         = "complete.heading_uninstall"
 	MsgCompleteHeadingUninstallWarnings = "complete.heading_uninstall_warnings"
-	MsgCompleteInstalledItems          = "complete.installed_items"
-	MsgCompleteWarningsNote            = "complete.warnings_note"
-	MsgCompleteTryCommand              = "complete.try_command"
+	MsgCompleteInstalledItems           = "complete.installed_items"
+	MsgCompleteWarningsNote             = "complete.warnings_note"
+	MsgCompleteTryCommand               = "complete.try_command"
 )
 
 // --- Error Screen ---

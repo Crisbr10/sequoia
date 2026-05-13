@@ -19,7 +19,7 @@ var templateCache sync.Map
 // each (fs, name) pair is only parsed once. The data parameter is passed
 // directly to template.Execute and can be any type that the template references.
 func RenderTemplate(fs embed.FS, name string, data interface{}) (string, error) {
-	key := fmt.Sprintf("%p:%s", fs, name)
+	key := fmt.Sprintf("%p:%s", &fs, name)
 	if cached, ok := templateCache.Load(key); ok {
 		tmpl := cached.(*template.Template)
 		var buf bytes.Buffer

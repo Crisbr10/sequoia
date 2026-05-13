@@ -19,9 +19,9 @@ import (
 // bundle holds the go-i18n/v2 bundle with loaded message catalogs.
 // It is populated by Init() via sync.Once.
 var (
-	bundle     *i18n.Bundle
-	initOnce   sync.Once
-	initErr    error
+	bundle      *i18n.Bundle
+	initOnce    sync.Once
+	initErr     error
 	initialized bool
 )
 
@@ -51,8 +51,8 @@ func Init() error {
 			log.Printf("[i18n] warning: Spanish catalog not found (%v), continuing with English only", err)
 		} else {
 			if _, err := bundle.ParseMessageFileBytes(esData, "es.toml"); err != nil {
-			log.Printf("[i18n] warning: failed to parse es.toml: %v", err)
-		}
+				log.Printf("[i18n] warning: failed to parse es.toml: %v", err)
+			}
 		}
 
 		initialized = true
