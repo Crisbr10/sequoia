@@ -4,27 +4,35 @@
 
 ### Requirement: Configuration Screen
 
-The Configuration screen MUST offer a persistence backend selector (Engram/Files/Both). The language selector (EN/ES) SHALL NOT be rendered in the view — the language field label and option lines MUST be absent from the visual output. However, internal language state cycling, Tab field switching, and pipeline propagation to `adapters.InstallOpts.Language` MUST remain fully functional for future i18n wiring. Engram option SHALL be disabled when MCP is not detected. Tab SHALL switch focus between the hidden language field and the visible Persistence field. Up, Down, Left, and Right arrows SHALL cycle the options within the currently active field. The commented-out language rendering block MUST bear `// TODO(i18n):` markers referencing "translation catalog" or "i18n infrastructure".
+The Configuration screen MUST offer a persistence backend selector (Engram/Files/Both). The language selector (EN/ES) SHALL be rendered when `i18n.Initialized()` is true — the language field label ("Language:") and option lines ("English", "Español") MUST be visible in the view output. When i18n is not initialized, the language selector SHALL NOT be rendered and only the Persistence field SHALL be visible. Engram option SHALL be disabled when MCP is not detected. Tab SHALL switch focus between the language field (field 0) and the Persistence field (field 1). Up and Down arrows SHALL cycle the language options; Left and Right arrows SHALL cycle the persistence options. All `TODO(i18n)` comment markers SHALL be removed from the source file. All field labels and option text SHALL be sourced from the i18n catalog via `i18n.T()`.
 
 | # | Scenario | GIVEN | WHEN | THEN |
 |---|----------|-------|------|------|
-| 7 | Engram available | Engram MCP detected | Config renders | "Engram" option selectable; no "Language:", "English", or "Español" visible |
-| 8 | Engram unavailable | Engram MCP not detected | Config renders | "Engram" greyed out with "(not detected)" note; no language labels visible |
+| 7 | Engram available | Engram MCP detected, i18n initialized | Config renders | "Engram" option selectable; "Language:", "English", "Español" visible |
+| 8 | Engram unavailable | Engram MCP not detected, i18n initialized | Config renders | "Engram" greyed out with "(not detected)" note; language labels visible |
 | 9 | Proceed | User selects options | Enter pressed | Transitions to Install Progress |
-| 10 | Tab switches field | Active field 0 (language, hidden) | User presses Tab | Active field changes to 1 (persistence); config unchanged |
-| 11 | Up/Down cycles language internally | Active field 0 (language, hidden), config.Language="en" | User presses Down | config.Language changes to "es"; view does NOT show "Language:", "English", or "Español" |
+| 10 | Tab switches both fields | Active field 0 (language), i18n initialized | User presses Tab | Active field changes to 1 (persistence); Tab again toggles back to 0 |
+| 11 | Up/Down cycles language | Active field 0 (language), config.Language="en" | User presses Down | config.Language changes to "es"; view shows "► Español" |
 | 12 | Left/Right cycles persistence | Persistence field focused, "Files" selected | User presses Right | Selection cycles to "Both" |
-| 13 | View hides language section | Config screen active, config.Language="en" | ConfigurationView() called | Output does NOT contain "Language:", "English", or "Español"; Persistence and footer render normally |
-| 14 | Commented code has TODO(i18n) marker | Source file configuration.go | Language rendering block inspected | Block preceded by "TODO(i18n)" comment referencing translation catalog or i18n infrastructure |
+| 13 | Language selector visible when initialized | Config screen active, i18n initialized, config.Language="en" | ConfigurationView() called | Output contains "Language:", "► English", "Español"; Persistence and footer render normally |
+| 14 | Language selector hidden when not initialized | Config screen active, i18n NOT initialized | ConfigurationView() called | Output lacks "Language:"; only persistence field visible |
 
-### Requirement: Golden Files Reflect Hidden Language Selector
+### Requirement: Golden Files Include Language Selector
 
-Golden test files for the Configuration screen MUST be regenerated to reflect the hidden language selector. The standard golden file (`configuration_standard.txt`) and engram-unavailable golden file (`configuration_engram_unavailable.txt`) MUST NOT contain "Language:", "English", or "Español" strings. Both files MUST retain the "Persistence:" section with appropriate options and the footer hints (Tab, arrow keys, Enter, Esc).
+Golden test files for the Configuration screen MUST be regenerated to include the language selector. The standard golden file (`configuration_standard.txt`) and engram-unavailable golden file (`configuration_engram_unavailable.txt`) MUST contain "Language:", "English", and "Español" strings. Both files MUST retain the "Persistence:" section with appropriate options and the footer hints (Tab, arrow keys, Enter, Esc).
 
 | # | Scenario | GIVEN | WHEN | THEN |
 |---|----------|-------|------|------|
-| 15 | Standard golden lacks language | Standard golden file exists | Content is read | No "Language:", "English", or "Español"; "Persistence:" section with "Engram", "Files", "Both"; footer hints present |
-| 16 | Engram-unavailable golden lacks language | Engram-unavailable golden file exists | Content is read | No "Language:", "English", or "Español"; "Persistence:" section with "Engram (not detected)", "Files", "Both"; footer hints present |
+| 15 | Standard golden includes language | Standard golden file exists | Content is read | Contains "Language:", "English", "Español"; "Persistence:" section with "Engram", "Files", "Both"; footer hints present |
+| 16 | Engram-unavailable golden includes language | Engram-unavailable golden file exists | Content is read | Contains "Language:", "English", "Español"; "Persistence:" section with "Engram (not detected)", "Files", "Both"; footer hints present |
+
+### Requirement: Configuration Tests Re-Enabled
+
+The previously skipped test `TestConfigurationView_ShowsLanguageOptions` in `internal/tui/screens/configuration_test.go` SHALL be unskipped (no `t.Skip()` call). The test SHALL assert "English" and "Español" are visible when i18n is initialized. The `TestConfigurationView_RendersLanguageAndPersistence` test in `internal/app/model_test.go` SHALL also be unskipped.
+
+| # | Scenario | GIVEN | WHEN | THEN |
+|---|----------|-------|------|------|
+| 17 | Unskipped test passes | i18n initialized, standard TUI config | Test runs | English and Español assertions pass; no Skip() call present |
 
 ### Requirement: Install Progress Screen
 
