@@ -1,0 +1,42 @@
+# FIX-012 Apply Progress
+
+## Task
+Remove 151 lines of unused routing infrastructure from `internal/tui/router.go`.
+
+## Completed
+
+### Phase 1: Analysis
+- Read `router.go` (151 lines) — identified all symbols
+- Searched entire project for references to each symbol
+- Confirmed `NavigateMsg` is heavily used (73+ references across production code)
+- Confirmed `TransitionMap`, `ScreenRouter`, `router`, `IsValidTransition`, `NextScreen`, `NewRouter` are ONLY referenced in `router.go` and `router_test.go`
+- `CurrentScreenName` — confirmed zero references anywhere
+
+### Phase 2: Deletion (router.go)
+- Removed: `TransitionMap` (13 lines)
+- Removed: `IsValidTransition` (14 lines)
+- Removed: `NextScreen` (67 lines)
+- Removed: `ScreenRouter` interface (10 lines)
+- Removed: `router` struct (4 lines)
+- Removed: `NewRouter` (3 lines)
+- Removed: `CurrentScreen` method (4 lines)
+- Removed: `NavigateTo` method (10 lines)
+- Removed: `tea` import (no longer needed)
+- KEPT: `NavigateMsg` struct — used extensively in `app/update.go`, `app/view.go`, screen packages
+
+**Result**: `router.go` reduced from 151 lines to 14 lines (91% reduction)
+
+### Phase 3: Test Updates (router_test.go)
+- Deleted all 15 test functions for dead code (287 lines → 25 lines)
+- Added: `TestNavigateMsg_StillExists` — verifies NavigateMsg type is defined and functional
+
+### Phase 4: Verification
+- `go test ./internal/tui/...` — PASS (1 new test + all screen/style tests)
+- `go test ./internal/app/...` — PASS (all app tests including NavigateMsg usage)
+- `go test ./... -count=1` — ALL 17 packages PASS
+- `go build -o sequoia.exe ./cmd/sequoia` — builds successfully
+- `grep` for dead code symbols — ZERO references in any `.go` file
+
+## Files Modified
+- `internal/tui/router.go` — 151→14 lines (keep only NavigateMsg)
+- `internal/tui/router_test.go` — 287→25 lines (keep only TestNavigateMsg_StillExists)

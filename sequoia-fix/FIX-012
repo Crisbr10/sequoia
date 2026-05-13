@@ -1,0 +1,19 @@
+# FIX-012 — Resolver dead code del ScreenRouter
+
+## Status: COMPLETED
+
+## Summary
+Removed 151 lines of unused routing infrastructure from `internal/tui/router.go`. The `app.Model` handles screen transitions inline in `update.go` with a switch-case — the separate `TransitionMap`, `ScreenRouter`, `router`, `IsValidTransition`, `NextScreen`, and `NewRouter` were a duplicate source of truth that was never wired into production code.
+
+## Changes
+- `internal/tui/router.go`: 151→14 lines (91% reduction)
+  - KEPT: `NavigateMsg` struct — still used by `app/update.go`, all screen packages, and integration tests
+  - REMOVED: `TransitionMap`, `IsValidTransition`, `NextScreen`, `ScreenRouter`, `router`, `NewRouter`, `CurrentScreen`, `NavigateTo`
+- `internal/tui/router_test.go`: 287→25 lines (91% reduction)
+  - KEPT: `TestNavigateMsg_StillExists`
+  - REMOVED: All 15 tests for dead code
+
+## Verification
+- Full test suite: ALL 17 packages PASS
+- Binary builds: `sequoia.exe` builds clean
+- Dead code grep: ZERO references to removed symbols in any `.go` file
