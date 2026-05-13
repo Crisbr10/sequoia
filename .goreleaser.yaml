@@ -80,7 +80,7 @@ release:
     ```
 
 changelog:
-  use: file
+  use: git
   sort: desc
   groups:
     - title: "Features"
