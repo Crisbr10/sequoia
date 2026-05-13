@@ -28,6 +28,7 @@ type goreleaserSchema struct {
 	Changelog goreleaserChangelog
 	Brews     []goreleaserBrew  `yaml:"brews"`
 	Scoops    []goreleaserScoop `yaml:"scoops"`
+	Signs     []goreleaserSign  `yaml:"signs"`
 }
 
 type goreleaserBuild struct {
@@ -102,6 +103,13 @@ type goreleaserScoop struct {
 	License     string         `yaml:"license"`
 	Repository  goreleaserRepo `yaml:"repository"`
 	URLTemplate string         `yaml:"url_template"`
+}
+
+type goreleaserSign struct {
+	Cmd       string   `yaml:"cmd"`
+	Args      []string `yaml:"args"`
+	Artifacts string   `yaml:"artifacts"`
+	Output    bool     `yaml:"output"`
 }
 
 type goreleaserRepo struct {
@@ -236,6 +244,60 @@ func TestGoReleaserConfig(t *testing.T) {
 		assert.Contains(t, scoop.Homepage, "github.com")
 		assert.Equal(t, "MIT", scoop.License, "license must be MIT")
 		assert.NotEmpty(t, scoop.URLTemplate, "scoop url_template must be defined")
+	})
+}
+
+// TestGoreleaserConfig_HasSignsSection validates that .goreleaser.yaml
+// includes cosign keyless signing so users can verify binary authenticity.
+func TestGoreleaserConfig_HasSignsSection(t *testing.T) {
+	content, err := os.ReadFile(".goreleaser.yaml")
+	require.NoError(t, err, ".goreleaser.yaml must exist")
+
+	var cfg goreleaserSchema
+	require.NoError(t, yaml.Unmarshal(content, &cfg), ".goreleaser.yaml must be valid YAML")
+
+	t.Run("signs section exists", func(t *testing.T) {
+		require.NotEmpty(t, cfg.Signs,
+			"signs section must be configured for cosign keyless signing")
+	})
+
+	t.Run("uses cosign command", func(t *testing.T) {
+		sign := cfg.Signs[0]
+		assert.Equal(t, "cosign", sign.Cmd,
+			"signs must use cosign command")
+	})
+
+	t.Run("uses sign-blob subcommand with output flags", func(t *testing.T) {
+		sign := cfg.Signs[0]
+		require.Contains(t, sign.Args, "sign-blob",
+			"signs must invoke sign-blob subcommand")
+		// --output-signature=${signature} produces the .sig file
+		foundSigFlag := false
+		foundCertFlag := false
+		for _, a := range sign.Args {
+			if contains(a, "--output-signature=") {
+				foundSigFlag = true
+			}
+			if contains(a, "--output-certificate=") {
+				foundCertFlag = true
+			}
+		}
+		assert.True(t, foundSigFlag,
+			"sign-blob must emit --output-signature to produce .sig file")
+		assert.True(t, foundCertFlag,
+			"sign-blob must emit --output-certificate to produce .pem file")
+	})
+
+	t.Run("signs all artifacts", func(t *testing.T) {
+		sign := cfg.Signs[0]
+		assert.Equal(t, "all", sign.Artifacts,
+			"signs should cover all release artifacts")
+	})
+
+	t.Run("output enabled", func(t *testing.T) {
+		sign := cfg.Signs[0]
+		assert.True(t, sign.Output,
+			"signs output must be true so .sig and .pem are published")
 	})
 }
 

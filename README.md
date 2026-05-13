@@ -129,6 +129,21 @@ sequoia uninstall --all
 | Gemini CLI | `gemini-cli` | Config merge | `GEMINI.md` |
 | OpenAI Codex | `codex` | TOML merge | `~/.codex/config.toml` |
 
+## Verifying Binaries
+
+All release binaries are signed with [cosign](https://github.com/sigstore/cosign) keyless signing using GitHub Actions OIDC. Download the `.sig` and `.pem` files alongside the binary, then verify:
+
+```bash
+cosign verify-blob \
+  --signature sequoia-windows-amd64.exe.sig \
+  --certificate sequoia-windows-amd64.exe.pem \
+  --certificate-identity "https://github.com/Crisbr10/sequoia/.github/workflows/release.yml@refs/tags/v*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  sequoia-windows-amd64.exe
+```
+
+This confirms the binary was produced by the official Sequoia CI pipeline on GitHub Actions, not tampered with by a third party.
+
 ## Architecture
 
 ```

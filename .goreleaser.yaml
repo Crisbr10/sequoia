@@ -50,6 +50,17 @@ checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
 
+signs:
+  - cmd: cosign
+    args:
+      - sign-blob
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - --yes
+      - ${artifact}
+    artifacts: all
+    output: true
+
 release:
   draft: true
   prerelease: auto
