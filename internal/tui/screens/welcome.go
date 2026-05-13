@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,17 +22,18 @@ const (
 	WelcomeMenuCount     = 4
 )
 
-// welcomeMenuLabels maps menu index → display label.
-var welcomeMenuLabels = [WelcomeMenuCount]string{
-	"Install",
-	"Status",
-	"Uninstall",
-	"Quit",
+// welcomeMenuKeys maps menu index → i18n message key.
+var welcomeMenuKeys = [WelcomeMenuCount]string{
+	i18n.MsgWelcomeMenuInstall,
+	i18n.MsgWelcomeMenuStatus,
+	i18n.MsgWelcomeMenuUninstall,
+	i18n.MsgWelcomeMenuQuit,
 }
 
 // WelcomeView renders the Welcome/Home screen: logo, version, and a
 // navigable main menu. cursor is the currently highlighted menu item index.
-func WelcomeView(version string, cursor int) string {
+// lang is the current UI language (e.g., "en", "es").
+func WelcomeView(version string, cursor int, lang string) string {
 	var b strings.Builder
 
 	// ASCII logo with gradient.
@@ -43,9 +45,10 @@ func WelcomeView(version string, cursor int) string {
 	b.WriteString("\n\n")
 
 	// Main menu.
-	b.WriteString(styles.Subtitle().Render("  Menu"))
+	b.WriteString(styles.Subtitle().Render("  " + i18n.T(i18n.MsgWelcomeSubtitle, lang)))
 	b.WriteString("\n\n")
-	for i, label := range welcomeMenuLabels {
+	for i, key := range welcomeMenuKeys {
+		label := i18n.T(key, lang)
 		if i == cursor {
 			b.WriteString(styles.Accent().Render("  ▶ " + label))
 		} else {
@@ -55,7 +58,7 @@ func WelcomeView(version string, cursor int) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(styles.Muted().Render("  j/k ↑/↓: navigate  Enter: select  q: quit"))
+	b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgWelcomeFooter, lang)))
 
 	return b.String()
 }

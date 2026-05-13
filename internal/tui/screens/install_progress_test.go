@@ -29,7 +29,7 @@ func TestInstallProgressView_ShowsPendingSteps(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	// All steps should show pending indicator.
 	assert.Contains(t, view, "[ ] Skills", "Pending Skills step should show [ ]")
@@ -54,7 +54,7 @@ func TestInstallProgressView_ShowsRunningStep(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	// Running step should show a spinner-like indicator (⋯ or similar animation marker).
 	hasSpinner := strings.Contains(view, "⋯") || strings.Contains(view, "⠋") ||
@@ -85,7 +85,7 @@ func TestInstallProgressView_ShowsCompletedStep(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	// Done steps should show checkmark.
 	assert.Contains(t, view, "[✓] Skills", "Completed Skills step should show [✓]")
@@ -109,7 +109,7 @@ func TestInstallProgressView_ShowsFailedStep(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	// Failed step should show error indicator and message.
 	assert.Contains(t, view, "[✗] Commands", "Failed step should show [✗]")
@@ -138,7 +138,7 @@ func TestInstallProgressView_ShowsMultiToolProgress(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 1, 2, "")
+	view := screens.InstallProgressView(tools, 1, 2, "", "en")
 
 	// Both tool names should appear.
 	assert.Contains(t, view, "Claude Code", "Should show first tool name")
@@ -178,7 +178,7 @@ func TestInstallProgressView_ShowsOverallProgress(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 1, 3, "")
+	view := screens.InstallProgressView(tools, 1, 3, "", "en")
 	assert.Contains(t, view, "Installing", "Should indicate installation is in progress")
 	assert.Contains(t, view, "1 of 3", "Should show overall progress")
 }
@@ -197,7 +197,7 @@ func TestInstallProgressView_AllDone(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 1, 1, "")
+	view := screens.InstallProgressView(tools, 1, 1, "", "en")
 
 	// All steps should show [✓].
 	assert.Contains(t, view, "[✓] Skills", "All-done Skills should show [✓]")
@@ -217,7 +217,7 @@ func TestInstallProgressView_InstallModeShowsInstalling(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "install")
+	view := screens.InstallProgressView(tools, 0, 1, "install", "en")
 	assert.Contains(t, view, "Installing", "install mode should show 'Installing' title")
 	assert.Contains(t, view, "Installing 0 of 1", "install mode should show 'Installing N of M' summary")
 }
@@ -234,7 +234,7 @@ func TestInstallProgressView_UninstallModeShowsUninstalling(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "uninstall")
+	view := screens.InstallProgressView(tools, 0, 1, "uninstall", "en")
 	assert.Contains(t, view, "Uninstalling", "uninstall mode should show 'Uninstalling' title")
 	assert.Contains(t, view, "Uninstalling 0 of 1", "uninstall mode should show 'Uninstalling N of M' summary")
 }
@@ -251,7 +251,7 @@ func TestInstallProgressView_EmptyModeDefaultsToInstalling(t *testing.T) {
 		},
 	}
 
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 	assert.Contains(t, view, "Installing", "empty mode should default to 'Installing' title")
 }
 
@@ -306,7 +306,7 @@ func TestInstallProgressView_Golden_Standard(t *testing.T) {
 			},
 		},
 	}
-	view := screens.InstallProgressView(tools, 1, 2, "")
+	view := screens.InstallProgressView(tools, 1, 2, "", "en")
 
 	golden := goldenPath("install_progress_standard.txt")
 	if updateGolden {
@@ -332,7 +332,7 @@ func TestInstallProgressView_Golden_Error(t *testing.T) {
 			},
 		},
 	}
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	golden := goldenPath("install_progress_error.txt")
 	if updateGolden {
@@ -376,7 +376,7 @@ func TestInstallProgressView_NonEmptyView(t *testing.T) {
 			{Name: "Skills", Status: screens.StepPending},
 		}},
 	}
-	view := screens.InstallProgressView(tools, 0, 1, "")
+	view := screens.InstallProgressView(tools, 0, 1, "", "en")
 
 	assert.NotEmpty(t, view, "Progress view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
@@ -15,17 +16,18 @@ import (
 // It lists each tool with its success/failure status and shows
 // error messages for failed tools.
 // mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
-func ErrorView(progressTools []ProgressTool, mode string) string {
+// lang is the current UI language (e.g., "en", "es").
+func ErrorView(progressTools []ProgressTool, mode string, lang string) string {
 	var b strings.Builder
 
 	// Resolve heading based on mode.
-	heading := "❌  Installation Failed"
+	headingKey := i18n.MsgErrorHeadingInstall
 	if mode == "uninstall" {
-		heading = "❌  Uninstallation Failed"
+		headingKey = i18n.MsgErrorHeadingUninstall
 	}
 
 	// Failure heading.
-	b.WriteString(styles.Error().Render(heading))
+	b.WriteString(styles.Error().Render(i18n.T(headingKey, lang)))
 	b.WriteString("\n\n")
 
 	// Per-tool status list.
@@ -59,12 +61,12 @@ func ErrorView(progressTools []ProgressTool, mode string) string {
 
 	// Retry / navigation options.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render("r"))
-	b.WriteString(styles.Muted().Render(" — Retry failed  "))
-	b.WriteString(styles.Accent().Render("Esc"))
-	b.WriteString(styles.Muted().Render(" — Back to tools  "))
-	b.WriteString(styles.Accent().Render("q"))
-	b.WriteString(styles.Muted().Render(" — Quit"))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterStatusScreenKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterRetryFailed, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterBackKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterBackToTools, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuitLabel, lang)))
 
 	return b.String()
 }

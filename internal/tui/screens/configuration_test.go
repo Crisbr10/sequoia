@@ -16,11 +16,10 @@ import (
 )
 
 func TestConfigurationView_ShowsLanguageOptions(t *testing.T) {
-	t.Skip("TODO(i18n): language rendering hidden — re-enable when i18n is wired")
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 0, true)
+	view := screens.ConfigurationView(config, 0, true, "en")
 
 	// Both language options must be visible.
 	assert.Contains(t, view, "English", "Should show English option")
@@ -34,7 +33,7 @@ func TestConfigurationView_ShowsPersistenceOptions(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 1, true)
+	view := screens.ConfigurationView(config, 1, true, "en")
 
 	// All three persistence options must be visible.
 	assert.Contains(t, view, "Engram", "Should show Engram option")
@@ -49,7 +48,7 @@ func TestConfigurationView_EngramGreyedOutWhenUnavailable(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 0, false)
+	view := screens.ConfigurationView(config, 0, false, "en")
 
 	// When engram is unavailable, a note should appear.
 	assert.Contains(t, view, "not detected", "Should show not-detected note when Engram unavailable")
@@ -59,7 +58,7 @@ func TestConfigurationView_ShowsNavigationHints(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 0, true)
+	view := screens.ConfigurationView(config, 0, true, "en")
 
 	// Should show navigation hints.
 	assert.Contains(t, view, "Tab", "Should show Tab hint")
@@ -268,7 +267,7 @@ func TestConfigurationUpdate_QNoLongerReturnsQuit(t *testing.T) {
 
 func TestConfigurationView_Golden_Standard(t *testing.T) {
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 0, true)
+	view := screens.ConfigurationView(config, 0, true, "en")
 
 	golden := goldenPath("configuration_standard.txt")
 	if updateGolden {
@@ -285,7 +284,7 @@ func TestConfigurationView_Golden_Standard(t *testing.T) {
 
 func TestConfigurationView_Golden_EngramUnavailable(t *testing.T) {
 	config := model.TUIConfig{Language: "es", Persistence: "files"}
-	view := screens.ConfigurationView(config, 1, false)
+	view := screens.ConfigurationView(config, 1, false, "en")
 
 	golden := goldenPath("configuration_engram_unavailable.txt")
 	if updateGolden {
@@ -304,7 +303,7 @@ func TestConfigurationView_NonEmptyView(t *testing.T) {
 	t.Parallel()
 
 	config := model.TUIConfig{Language: "en", Persistence: "engram"}
-	view := screens.ConfigurationView(config, 0, true)
+	view := screens.ConfigurationView(config, 0, true, "en")
 
 	assert.NotEmpty(t, view, "Configuration view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")

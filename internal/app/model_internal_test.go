@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
@@ -131,7 +132,10 @@ func TestBuildUninstallProgressTools_EmptyInput(t *testing.T) {
 }
 
 func TestRenderUninstallConfirm_ContainsPrompt(t *testing.T) {
-	result := renderUninstallConfirm()
+	if err := i18n.Init(); err != nil {
+		t.Fatalf("i18n.Init() failed: %v", err)
+	}
+	result := renderUninstallConfirm("en")
 	assert.Contains(t, result, "Remove Sequoia", "confirmation should mention Remove Sequoia")
 	assert.Contains(t, result, "y/N", "confirmation should show y/N prompt")
 	assert.NotEmpty(t, result, "confirmation should not be empty")

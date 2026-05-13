@@ -30,7 +30,7 @@ func TestErrorView_ShowsFailureHeading(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 	assert.Contains(t, view, "Installation Failed", "Error screen should show failure heading")
 	assert.Contains(t, view, "❌", "Error screen should show failure indicator")
 }
@@ -57,7 +57,7 @@ func TestErrorView_ListsSucceededAndFailedTools(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 
 	// Both tool names should appear.
 	assert.Contains(t, view, "Claude Code", "Error screen should list Claude Code")
@@ -82,7 +82,7 @@ func TestErrorView_ShowsErrorMessagesForFailedTools(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 
 	// The error message from the failed step should be visible.
 	assert.Contains(t, view, "permission denied", "Error screen should show the error message")
@@ -103,7 +103,7 @@ func TestErrorView_ShowsRetryOption(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 
 	assert.Contains(t, view, "r", "Error screen should show 'r' key hint")
 	assert.Contains(t, view, "Retry", "Error screen should hint that r retries")
@@ -122,7 +122,7 @@ func TestErrorView_InstallModeShowsInstallationFailed(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "install")
+	view := screens.ErrorView(tools, "install", "en")
 	assert.Contains(t, view, "Installation Failed", "install mode should show 'Installation Failed'")
 }
 
@@ -138,7 +138,7 @@ func TestErrorView_UninstallModeShowsUninstallationFailed(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "uninstall")
+	view := screens.ErrorView(tools, "uninstall", "en")
 	assert.Contains(t, view, "Uninstallation Failed", "uninstall mode should show 'Uninstallation Failed'")
 }
 
@@ -154,7 +154,7 @@ func TestErrorView_EmptyModeDefaultsToInstallationFailed(t *testing.T) {
 		},
 	}
 
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 	assert.Contains(t, view, "Installation Failed", "empty mode should default to 'Installation Failed'")
 }
 
@@ -252,7 +252,7 @@ func TestErrorView_Golden_MixedResults(t *testing.T) {
 			},
 		},
 	}
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 
 	golden := goldenPath("error_mixed.txt")
 	if updateGolden {
@@ -280,7 +280,7 @@ func TestErrorView_NonEmptyView(t *testing.T) {
 			},
 		},
 	}
-	view := screens.ErrorView(tools, "")
+	view := screens.ErrorView(tools, "", "en")
 
 	assert.NotEmpty(t, view, "Error view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")

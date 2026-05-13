@@ -361,8 +361,6 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 	m.EngramAvailable = true
 	m.Config = model.TUIConfig{Language: "en", Persistence: "engram"}
 
-	t.Skip("TODO(i18n): language rendering hidden — re-enable when i18n is wired")
-
 	view := m.View()
 	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view)
 	assert.Contains(t, view, "Language", "Configuration should show language selector")

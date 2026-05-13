@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/pipeline"
 	"github.com/Crisbr10/sequoia/internal/tui"
@@ -84,7 +85,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Validate at least one tool selected.
 			selected := countSelected(m.Tools)
 			if selected == 0 {
-				m.ErrorMsg = "Select at least one tool to continue"
+				m.ErrorMsg = i18n.T(i18n.MsgValidationSelectAtLeastOne, string(m.Config.Language))
 				return m, nil
 			}
 			m.ErrorMsg = ""
@@ -224,7 +225,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.ErrorMsg = ""
 				m.UninstallConfirming = true
 			} else {
-				m.ErrorMsg = "Select at least one installed tool to continue"
+				m.ErrorMsg = i18n.T(i18n.MsgValidationSelectAtLeastOneInstalled, string(m.Config.Language))
 			}
 			return m, nil
 		case "back":

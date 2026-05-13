@@ -30,7 +30,7 @@ func TestCompleteView_ShowsSuccessHeading(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 	assert.Contains(t, view, "Installation Complete", "Complete screen should show success heading")
 }
 
@@ -56,7 +56,7 @@ func TestCompleteView_ListsInstalledTools(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	// All tool names should appear.
 	assert.Contains(t, view, "Claude Code", "Complete screen should list Claude Code")
@@ -80,7 +80,7 @@ func TestCompleteView_ShowsWhatWasInstalled(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	// Should mention what was installed: skills, commands, system prompt.
 	assert.Contains(t, view, "Skills", "Complete screen should mention Skills were installed")
@@ -102,7 +102,7 @@ func TestCompleteView_ShowsFirstCommandHint(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	// Should show a hint for the first command to try.
 	assert.Contains(t, view, "Try running", "Complete screen should show a 'Try running' hint")
@@ -122,7 +122,7 @@ func TestCompleteView_ShowsKeyHints(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	// Should show keyboard navigation hints.
 	assert.Contains(t, view, "r", "Complete screen should show 'r' key hint")
@@ -145,7 +145,7 @@ func TestCompleteView_InstallModeShowsInstallationComplete(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "install", 0)
+	view := screens.CompleteView(tools, "install", 0, "en")
 	assert.Contains(t, view, "Installation Complete", "install mode should show 'Installation Complete'")
 }
 
@@ -163,7 +163,7 @@ func TestCompleteView_UninstallModeShowsUninstallationComplete(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "uninstall", 0)
+	view := screens.CompleteView(tools, "uninstall", 0, "en")
 	assert.Contains(t, view, "Uninstallation Complete", "uninstall mode should show 'Uninstallation Complete'")
 }
 
@@ -179,7 +179,7 @@ func TestCompleteView_EmptyModeDefaultsToInstallationComplete(t *testing.T) {
 		},
 	}
 
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 	assert.Contains(t, view, "Installation Complete", "empty mode should default to 'Installation Complete'")
 }
 
@@ -249,7 +249,7 @@ func TestCompleteView_Golden_AllSucceed(t *testing.T) {
 			},
 		},
 	}
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	golden := goldenPath("complete_all_succeed.txt")
 	if updateGolden {
@@ -285,7 +285,7 @@ func TestCompleteView_Golden_PartialSuccess(t *testing.T) {
 	}
 	// ProgressTools passed to Complete may include partially failed tools
 	// (those that were retried successfully in error→retry flow).
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	golden := goldenPath("complete_partial.txt")
 	if updateGolden {
@@ -313,7 +313,7 @@ func TestCompleteView_NonEmptyView(t *testing.T) {
 			},
 		},
 	}
-	view := screens.CompleteView(tools, "", 0)
+	view := screens.CompleteView(tools, "", 0, "en")
 
 	assert.NotEmpty(t, view, "Complete view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")

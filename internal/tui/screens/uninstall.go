@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
@@ -13,17 +14,18 @@ import (
 // UninstallView renders the Uninstall screen showing a checkbox list
 // of installed tools. Tools that are not installed are not shown.
 // errorMsg, when non-empty, is rendered above the footer as a validation error.
-func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string {
+// lang is the current UI language (e.g., "en", "es").
+func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang string) string {
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(styles.Title().Render("Uninstall"))
+	b.WriteString(styles.Title().Render(i18n.T(i18n.MsgUninstallTitle, lang)))
 	b.WriteString("\n\n")
 
 	// Collect installed tools.
 	installed := filterInstalled(tools)
 	if len(installed) == 0 {
-		b.WriteString(styles.Muted().Render("  Nothing to uninstall"))
+		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgUninstallEmpty, lang)))
 		b.WriteString("\n\n")
 
 		// Error message (if any).
@@ -35,8 +37,8 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string 
 
 		// Only q available when nothing to uninstall.
 		b.WriteString(styles.Muted().Render("  "))
-		b.WriteString(styles.Accent().Render("q"))
-		b.WriteString(styles.Muted().Render(" quit"))
+		b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
+		b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
 		return b.String()
 	}
 
@@ -57,16 +59,16 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string 
 
 	// Key hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render("↑/↓ j/k"))
-	b.WriteString(styles.Muted().Render(" navigate  "))
-	b.WriteString(styles.Accent().Render("Space"))
-	b.WriteString(styles.Muted().Render(" toggle  "))
-	b.WriteString(styles.Accent().Render("Enter"))
-	b.WriteString(styles.Muted().Render(" confirm  "))
-	b.WriteString(styles.Accent().Render("Esc"))
-	b.WriteString(styles.Muted().Render(" back  "))
-	b.WriteString(styles.Accent().Render("q"))
-	b.WriteString(styles.Muted().Render(" quit"))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterNavigateKeys, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterNavigate, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterToggleKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterToggle, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterConfirmKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterConfirm, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterBackKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterBack, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
 
 	return b.String()
 }

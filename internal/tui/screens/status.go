@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
@@ -12,15 +13,16 @@ import (
 
 // StatusView renders the Status screen with a table showing per-tool
 // installation state: name, installed indicator, version, and path.
-func StatusView(tools []model.ToolState, cursor int) string {
+// lang is the current UI language (e.g., "en", "es").
+func StatusView(tools []model.ToolState, cursor int, lang string) string {
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(styles.Title().Render("Status"))
+	b.WriteString(styles.Title().Render(i18n.T(i18n.MsgStatusTitle, lang)))
 	b.WriteString("\n\n")
 
 	if len(tools) == 0 {
-		b.WriteString(styles.Muted().Render("  No adapters registered"))
+		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgStatusEmpty, lang)))
 		b.WriteString("\n\n")
 	} else {
 		// Per-tool status rows.
@@ -33,18 +35,18 @@ func StatusView(tools []model.ToolState, cursor int) string {
 
 	// Key hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render("↑/↓ j/k"))
-	b.WriteString(styles.Muted().Render(" navigate  "))
-	b.WriteString(styles.Accent().Render("u"))
-	b.WriteString(styles.Muted().Render(" update  "))
-	b.WriteString(styles.Accent().Render("r"))
-	b.WriteString(styles.Muted().Render(" reinstall  "))
-	b.WriteString(styles.Accent().Render("d"))
-	b.WriteString(styles.Muted().Render(" uninstall  "))
-	b.WriteString(styles.Accent().Render("Esc"))
-	b.WriteString(styles.Muted().Render(" back  "))
-	b.WriteString(styles.Accent().Render("q"))
-	b.WriteString(styles.Muted().Render(" quit"))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterNavigateKeys, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterNavigate, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterUpdateKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterUpdateLabel, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterReinstallKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterReinstallLabel, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterUninstallKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterUninstallLabel, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterBackKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterBack, lang)))
+	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
+	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
 
 	return b.String()
 }
