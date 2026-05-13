@@ -40,27 +40,27 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 	b.WriteString(styles.Title().Render("Configuration"))
 	b.WriteString("\n\n")
 
-	// === Language field ===
-	b.WriteString(renderFieldLabel("Language", activeField == 0))
-	b.WriteString("\n")
-
-	// Render language options.
-	langIdx := languageIndex(config.Language)
-	for i, opt := range languageOptions {
-		cursorMark := "  "
-		if activeField == 0 && i == langIdx {
-			cursorMark = styles.Accent().Render("► ")
-		}
-		highlighted := i == langIdx
-		label := opt.label
-		if highlighted && activeField == 0 {
-			label = styles.Accent().Render(label)
-		} else if highlighted {
-			label = styles.Success().Render(label)
-		}
-		fmt.Fprintf(&b, "  %s%s\n", cursorMark, label)
-	}
-	b.WriteString("\n")
+	// TODO(i18n): === Language field (hidden — re-enable when translation catalog is wired) ===
+	// TODO(i18n): b.WriteString(renderFieldLabel("Language", activeField == 0))
+	// TODO(i18n): b.WriteString("\n")
+	//
+	// TODO(i18n): // Render language options.
+	// TODO(i18n): langIdx := languageIndex(config.Language)
+	// TODO(i18n): for i, opt := range languageOptions {
+	// TODO(i18n): 	cursorMark := "  "
+	// TODO(i18n): 	if activeField == 0 && i == langIdx {
+	// TODO(i18n): 		cursorMark = styles.Accent().Render("► ")
+	// TODO(i18n): 	}
+	// TODO(i18n): 	highlighted := i == langIdx
+	// TODO(i18n): 	label := opt.label
+	// TODO(i18n): 	if highlighted && activeField == 0 {
+	// TODO(i18n): 		label = styles.Accent().Render(label)
+	// TODO(i18n): 	} else if highlighted {
+	// TODO(i18n): 		label = styles.Success().Render(label)
+	// TODO(i18n): 	}
+	// TODO(i18n): 	fmt.Fprintf(&b, "  %s%s\n", cursorMark, label)
+	// TODO(i18n): }
+	// TODO(i18n): b.WriteString("\n")
 
 	// === Persistence field ===
 	b.WriteString(renderFieldLabel("Persistence", activeField == 1))

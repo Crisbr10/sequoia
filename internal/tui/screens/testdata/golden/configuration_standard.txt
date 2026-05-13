@@ -1,9 +1,5 @@
    Configuration 
 
-  Language:
-  ► English
-    Español
-
   Persistence:
     Engram
     Files

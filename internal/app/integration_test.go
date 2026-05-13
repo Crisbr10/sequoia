@@ -83,7 +83,7 @@ func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
 	// ToolSelection → Configuration (tool is selected by default).
 	m = sendKey(m, tea.KeyMsg{Type: tea.KeyEnter}, 3)
 	assert.Equal(t, model.ScreenConfiguration, m.Screen)
-	assert.Contains(t, m.View(), "Language")
+	assert.Contains(t, m.View(), "Persistence")
 
 	// Configuration confirm builds ProgressTools.
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
