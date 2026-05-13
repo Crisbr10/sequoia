@@ -16,6 +16,11 @@ on:
       - '.github/workflows/test-action.yml'
       - 'cmd/sequoia/**'
 
+permissions:
+  contents: read
+  issues: write    # needed for the action to post PR comments
+  pull-requests: write
+
 jobs:
   test-action:
     name: Test Sequoia Action
@@ -51,7 +56,7 @@ jobs:
           echo "Action outputs verified successfully."
 
       - name: Verify Report Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: sequoia-audit-report
           path: ./report-output
