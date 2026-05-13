@@ -3,6 +3,7 @@ package codex_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -346,6 +347,47 @@ func TestMergeConfig_ExistingBackupNotOverwritten(t *testing.T) {
 		}
 	}
 	assert.True(t, foundNewBackup, "a new timestamped backup should be created")
+}
+
+// TestMergeConfig_BackupPermissions_Restricted verifies that MergeConfig
+// backup files use owner-only permissions (backup-permissions spec).
+// Skipped on Windows because unix permission bits are no-ops there.
+func TestMergeConfig_BackupPermissions_Restricted(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+
+	table := map[string]interface{}{
+		"skills_path": "/path1",
+	}
+
+	// First call with existing file.
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"dark\"\n"), 0o644))
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// Second call after overwriting config (simulate external restore).
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"light\"\n"), 0o644))
+	require.NoError(t, codex.MergeConfig(configPath, table))
+
+	// Both timestamped backups must have 0o600.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	backupCount := 0
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			fi, err := os.Stat(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm(),
+				"MergeConfig backup %s must be owner-only (0o600)", e.Name())
+			backupCount++
+		}
+	}
+	assert.Equal(t, 2, backupCount, "two backups expected for triangulation")
 }
 
 // TestRemoveConfig_RestoresCorrectBackup verifies the full round-trip:

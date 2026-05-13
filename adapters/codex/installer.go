@@ -27,7 +27,7 @@ func MergeConfig(path string, table map[string]interface{}) error {
 	if existing != "" {
 		suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
 		backupPath := path + ".sequoia-backup-" + suffix
-		if err := os.WriteFile(backupPath, []byte(existing), 0o644); err != nil {
+		if err := os.WriteFile(backupPath, []byte(existing), 0o600); err != nil {
 			return fmt.Errorf("merge config: backup: %w", err)
 		}
 		// Write a session file so RemoveConfig can find the correct backup.

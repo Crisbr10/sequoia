@@ -3,6 +3,7 @@ package common_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -440,6 +441,43 @@ func TestReplaceFile_ExistingBackupNotOverwritten(t *testing.T) {
 		}
 	}
 	assert.True(t, foundNewBackup, "a new timestamped backup should be created")
+}
+
+// TestReplaceFile_BackupPermissions_Restricted verifies that ReplaceFile
+// backup files use owner-only permissions (backup-permissions spec).
+// Skipped on Windows because unix permission bits are no-ops there.
+func TestReplaceFile_BackupPermissions_Restricted(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	// First backup: user content v1.
+	require.NoError(t, os.WriteFile(p, []byte("user content v1\n"), 0o644))
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia v1")))
+
+	// Second backup: user content v2 (simulate external modification).
+	require.NoError(t, os.WriteFile(p, []byte("user content v2\n"), 0o644))
+	require.NoError(t, common.ReplaceFile(p, sequoiaBody("sequoia v2")))
+
+	// Both timestamped backups must have 0o600.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	backupCount := 0
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".sequoia-backup-") {
+			fi, err := os.Stat(filepath.Join(dir, e.Name()))
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm(),
+				"ReplaceFile backup %s must be owner-only (0o600)", e.Name())
+			backupCount++
+		}
+	}
+	assert.Equal(t, 2, backupCount, "two backups expected for triangulation")
 }
 
 // TestRestoreOrRemoveFile_RestoresCorrectBackup verifies the full round-trip:

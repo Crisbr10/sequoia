@@ -290,6 +290,48 @@ func TestInstaller_BackupDirHasUniqueSuffix(t *testing.T) {
 	assert.NotEqual(t, backupDir1, backupDir2, "backup dirs should have unique names")
 }
 
+// TestInstaller_BackupPermissions_Restricted verifies that backup files
+// and directories use owner-only permissions (backup-permissions spec).
+// Skipped on Windows because unix permission bits are no-ops there.
+func TestInstaller_BackupPermissions_Restricted(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), ".sequoia-backup-perm-test")
+
+	writeFile(t, srcDir, "alpha.txt", "new-alpha")
+	writeFile(t, srcDir, "beta.txt", "new-beta")
+	writeFile(t, dstDir, "alpha.txt", "old-alpha")
+	writeFile(t, dstDir, "beta.txt", "old-beta")
+
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir,
+		Files:     []string{"alpha.txt", "beta.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+	require.NoError(t, inst.Prepare())
+
+	// Backup directory must have 0o700 (owner rwx only).
+	info, err := os.Stat(backupDir)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+		"backup directory must be owner-only (0o700)")
+
+	// Both backup files must have 0o600 (owner rw only).
+	for _, name := range []string{"alpha.txt", "beta.txt"} {
+		fi, err := os.Stat(filepath.Join(backupDir, name))
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm(),
+			"backup file %s must be owner-only (0o600)", name)
+	}
+}
+
 // TestInstaller_BackupDirDoesNotCollideWithPreExisting verifies that when
 // a user has pre-created a directory with the predictable backup name,
 // the timestamped backup dir does not collide.

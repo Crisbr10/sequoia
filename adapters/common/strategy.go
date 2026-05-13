@@ -124,7 +124,7 @@ func ReplaceFile(path, content string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(backup, raw, 0o644); err != nil {
+	if err := os.WriteFile(backup, raw, 0o600); err != nil {
 		return err
 	}
 

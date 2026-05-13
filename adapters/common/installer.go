@@ -81,13 +81,16 @@ func (i *Installer) Prepare() error {
 		}
 
 		// Ensure BackupDir exists before the first copy.
-		if err := os.MkdirAll(cfg.BackupDir, 0o755); err != nil {
+		if err := os.MkdirAll(cfg.BackupDir, 0o700); err != nil {
 			return fmt.Errorf("prepare: create backup dir: %w", err)
 		}
 
 		dst := filepath.Join(cfg.BackupDir, name)
 		if err := copyFile(src, dst); err != nil {
 			return fmt.Errorf("prepare: backup %q: %w", name, err)
+		}
+		if err := os.Chmod(dst, 0o600); err != nil {
+			return fmt.Errorf("prepare: chmod backup %q: %w", name, err)
 		}
 	}
 
