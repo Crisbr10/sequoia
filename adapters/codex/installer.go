@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Crisbr10/sequoia/adapters/common"
 )
 
 // MergeConfig reads the config.toml at path, merges the [sequoia] table
@@ -27,11 +29,11 @@ func MergeConfig(path string, table map[string]interface{}) error {
 	if existing != "" {
 		suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
 		backupPath := path + ".sequoia-backup-" + suffix
-		if err := os.WriteFile(backupPath, []byte(existing), 0o600); err != nil {
+		if err := common.AtomicWriteFile(backupPath, []byte(existing), 0o600); err != nil {
 			return fmt.Errorf("merge config: backup: %w", err)
 		}
 		// Write a session file so RemoveConfig can find the correct backup.
-		if err := os.WriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
+		if err := common.AtomicWriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
 			// Best-effort: if session file write fails, the backup exists
 			// but RemoveConfig will fall back to scanning for backups.
 		}
@@ -47,7 +49,7 @@ func MergeConfig(path string, table map[string]interface{}) error {
 		return fmt.Errorf("merge config: mkdir: %w", err)
 	}
 
-	return os.WriteFile(path, []byte(result), 0o644)
+	return common.AtomicWriteFile(path, []byte(result), 0o644)
 }
 
 // RemoveConfig removes the [sequoia] table from the config.toml at path.
@@ -62,7 +64,7 @@ func RemoveConfig(path string) error {
 		suffix := strings.TrimSpace(string(sessionData))
 		backupPath := path + ".sequoia-backup-" + suffix
 		if backupData, err := os.ReadFile(backupPath); err == nil {
-			if err := os.WriteFile(path, backupData, 0o644); err != nil {
+			if err := common.AtomicWriteFile(path, backupData, 0o644); err != nil {
 				return fmt.Errorf("remove config: restore backup: %w", err)
 			}
 			_ = os.Remove(backupPath)
@@ -76,7 +78,7 @@ func RemoveConfig(path string) error {
 	// Fall back to legacy predictable backup name.
 	backupPath := path + ".sequoia-backup"
 	if backupData, err := os.ReadFile(backupPath); err == nil {
-		if err := os.WriteFile(path, backupData, 0o644); err != nil {
+		if err := common.AtomicWriteFile(path, backupData, 0o644); err != nil {
 			return fmt.Errorf("remove config: restore backup: %w", err)
 		}
 		return os.Remove(backupPath)
@@ -96,5 +98,5 @@ func RemoveConfig(path string) error {
 		return fmt.Errorf("remove config: %w", err)
 	}
 
-	return os.WriteFile(path, []byte(result), 0o644)
+	return common.AtomicWriteFile(path, []byte(result), 0o644)
 }

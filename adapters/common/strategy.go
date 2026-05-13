@@ -109,11 +109,11 @@ func ReplaceFile(path, content string) error {
 	}
 
 	if os.IsNotExist(err) {
-		return os.WriteFile(path, []byte(content), 0o644)
+		return AtomicWriteFile(path, []byte(content), 0o644)
 	}
 
 	if managed {
-		return os.WriteFile(path, []byte(content), 0o644)
+		return AtomicWriteFile(path, []byte(content), 0o644)
 	}
 
 	// Generate a unique timestamp suffix to avoid name collisions.
@@ -124,17 +124,17 @@ func ReplaceFile(path, content string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(backup, raw, 0o600); err != nil {
+	if err := AtomicWriteFile(backup, raw, 0o600); err != nil {
 		return err
 	}
 
 	// Write a session file so RestoreOrRemoveFile can find the correct backup.
-	if err := os.WriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
+	if err := AtomicWriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
 		// Best-effort: if session file write fails, the backup exists but
 		// RestoreOrRemoveFile will fall back to scanning for backups.
 	}
 
-	return os.WriteFile(path, []byte(content), 0o644)
+	return AtomicWriteFile(path, []byte(content), 0o644)
 }
 
 // RestoreOrRemoveFile restores the original content from the session-tracked
@@ -160,7 +160,7 @@ func RestoreOrRemoveFile(path string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, raw, 0o644); err != nil {
+		if err := AtomicWriteFile(path, raw, 0o644); err != nil {
 			return err
 		}
 		// Clean up the backup file.
@@ -215,4 +215,19 @@ func isSequoiaManaged(path string) (bool, error) {
 		return false, err
 	}
 	return strings.Contains(string(raw), markerStart), nil
+}
+
+// AtomicWriteFile writes data to path atomically using a temporary file and
+// rename. On Windows this prevents truncated files on crash, where os.WriteFile
+// truncates in place. The temporary file is cleaned up if the rename fails.
+func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }

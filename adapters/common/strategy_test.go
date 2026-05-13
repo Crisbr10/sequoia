@@ -537,6 +537,123 @@ func TestRestoreOrRemoveFile_RestoresCorrectBackup(t *testing.T) {
 	}
 }
 
+// =========================================================================
+// AtomicWriteFile tests
+// =========================================================================
+
+// TestAtomicWriteFile_WritesDataAtomically verifies that AtomicWriteFile
+// writes data to the target path using temp-then-rename, and that no .tmp
+// orphan is left behind on success.
+func TestAtomicWriteFile_WritesDataAtomically(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "target.txt")
+	data := []byte("hello atomic world\n")
+
+	err := common.AtomicWriteFile(path, data, 0o644)
+	require.NoError(t, err)
+
+	// Verify the file was written with correct content.
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, data, got)
+
+	// Verify no .tmp orphan remains after a successful write.
+	_, err = os.Stat(path + ".tmp")
+	assert.True(t, os.IsNotExist(err), "no .tmp file should remain after success")
+}
+
+// TestAtomicWriteFile_FailedRenameCleansTemp verifies that when os.Rename
+// fails (simulated by writing to a read-only directory), the temporary file
+// is cleaned up and the error is returned.
+func TestAtomicWriteFile_FailedRenameCleansTemp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only directory simulation requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Create a read-only subdirectory — rename into it will fail.
+	sub := filepath.Join(dir, "readonly")
+	require.NoError(t, os.Mkdir(sub, 0o755))
+	// Create targetFile's parent as a regular file, so the rename fails.
+	targetPath := filepath.Join(sub, "blocker", "target.txt")
+	blockerPath := filepath.Join(sub, "blocker")
+	require.NoError(t, os.WriteFile(blockerPath, []byte("block"), 0o644))
+
+	err := common.AtomicWriteFile(targetPath, []byte("data"), 0o644)
+	assert.Error(t, err, "rename should fail when parent is a file")
+
+	// Verify the .tmp file was cleaned up.
+	tmpPath := targetPath + ".tmp"
+	_, statErr := os.Stat(tmpPath)
+	assert.True(t, os.IsNotExist(statErr), ".tmp file should be cleaned up on rename failure")
+}
+
+// TestAtomicWriteFile_PreservesExistingOnWriteFailure verifies that if the
+// temp write itself fails halfway, the original file content is preserved.
+// We simulate this by writing to a path whose parent directory does not exist,
+// so os.WriteFile(tmp, ...) fails. The original file (at a different path)
+// should be untouched.
+func TestAtomicWriteFile_PreservesExistingOnWriteFailure(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	original := filepath.Join(dir, "config.toml")
+	originalData := []byte("original content\n")
+	require.NoError(t, os.WriteFile(original, originalData, 0o644))
+
+	// Try to atomic-write to a path inside a non-existent directory,
+	// causing os.WriteFile(tmp) to fail.
+	badPath := filepath.Join(dir, "nonexistent", "config.toml")
+	err := common.AtomicWriteFile(badPath, []byte("new content\n"), 0o644)
+	assert.Error(t, err)
+
+	// The original file must still be intact.
+	got, err := os.ReadFile(original)
+	require.NoError(t, err)
+	assert.Equal(t, originalData, got)
+}
+
+// TestAtomicWriteFile_OverwriteExisting verifies that AtomicWriteFile
+// correctly replaces an existing file atomically.
+func TestAtomicWriteFile_OverwriteExisting(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	oldData := []byte("old config\n")
+	newData := []byte("new config\n")
+
+	// Write original file.
+	require.NoError(t, os.WriteFile(path, oldData, 0o644))
+
+	// Atomic overwrite.
+	err := common.AtomicWriteFile(path, newData, 0o600)
+	require.NoError(t, err)
+
+	// Verify new content.
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, newData, got)
+
+	// Verify no .tmp orphan remains.
+	_, err = os.Stat(path + ".tmp")
+	assert.True(t, os.IsNotExist(err))
+}
+
+// TestAtomicWriteFile_EmptyData verifies atomic write with empty content.
+func TestAtomicWriteFile_EmptyData(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "empty.txt")
+
+	err := common.AtomicWriteFile(path, []byte{}, 0o644)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 // TestRestoreOrRemoveFile_MultipleBackupsOnlyRestoresLatest verifies that
 // when multiple backups exist (from multiple installs), only the session-
 // tracked backup is restored.

@@ -412,7 +412,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 
 	// Write the version marker file.
-	if err := os.WriteFile(a.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
+	if err := AtomicWriteFile(a.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
 
