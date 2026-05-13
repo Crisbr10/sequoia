@@ -1,0 +1,100 @@
+# English message catalog for Sequoia TUI.
+# Keys use dot-notation: screen.element for scannability and collision prevention.
+
+# ─── Welcome Screen ───
+[welcome]
+menu_install = "Install"
+menu_status = "Status"
+menu_uninstall = "Uninstall"
+menu_quit = "Quit"
+subtitle = "Menu"
+footer = "j/k ↑/↓: navigate  Enter: select  q: quit"
+
+# ─── Tool Selection Screen ───
+[tool_selection]
+title = "Select AI Tools"
+instruction = "Choose which AI coding tools to install Sequoia into:"
+empty = "(no tools detected)"
+selected_count = "{{.Selected}} of {{.Total}} tools selected"
+
+# ─── Configuration Screen ───
+[configuration]
+title = "Configuration"
+language_label = "Language"
+language_en = "English"
+language_es = "Español"
+persistence_label = "Persistence"
+persistence_engram = "Engram"
+persistence_files = "Files"
+persistence_both = "Both"
+engram_unavailable = "(not detected)"
+
+# ─── Install Progress Screen ───
+[install_progress]
+title_install = "Installing"
+title_uninstall = "Uninstalling"
+summary_install = "Installing {{.Completed}} of {{.Total}} tools..."
+summary_uninstall = "Uninstalling {{.Completed}} of {{.Total}} tools..."
+
+# ─── Complete Screen ───
+[complete]
+heading_install = "✅  Installation Complete!"
+heading_uninstall = "✅  Uninstallation Complete!"
+heading_uninstall_warnings = "⚠️  Uninstall Completed with Warnings — {{.Count}} tool(s) had issues"
+installed_items = "Installed: Skills, Commands, System Prompt"
+warnings_note = "Some files could not be removed — check permissions and try again."
+try_command = "Try running: sequoia status"
+
+# ─── Error Screen ───
+[error]
+heading_install = "❌  Installation Failed"
+heading_uninstall = "❌  Uninstallation Failed"
+
+# ─── Status Screen ───
+[status]
+title = "Status"
+empty = "No adapters registered"
+
+# ─── Uninstall Screen ───
+[uninstall]
+title = "Uninstall"
+empty = "Nothing to uninstall"
+confirm_prompt = "Remove Sequoia from selected tools?"
+confirm_suffix = " [y/N]"
+
+# ─── Common Validation Messages ───
+[validation]
+select_at_least_one = "Select at least one tool to continue"
+select_at_least_one_installed = "Select at least one installed tool to continue"
+
+# ─── Default / Fallback ───
+[default]
+placeholder = "Sequoia TUI — screen not yet implemented"
+
+# ─── Footer Hints (reusable across screens) ───
+[footer]
+navigate_keys = "↑/↓ j/k"
+navigate = " navigate  "
+toggle_key = "Space"
+toggle = " toggle  "
+confirm_key = "Enter"
+confirm = " confirm  "
+back_key = "Esc"
+back = " back"
+quit_key = "q"
+quit = " quit"
+tab_key = "Tab"
+switch_field = " switch field  "
+arrows_keys = "↑/↓/←/→"
+change_option = " change option  "
+status_screen_key = "r"
+status_screen = " — Status screen  "
+retry_failed = " — Retry failed  "
+back_to_tools = " — Back to tools  "
+quit_label = " — Quit"
+update_key = "u"
+update_label = " update  "
+reinstall_key = "r"
+reinstall_label = " reinstall  "
+uninstall_key = "d"
+uninstall_label = " uninstall  "

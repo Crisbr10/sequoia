@@ -5,9 +5,11 @@ package app
 
 import (
 	"context"
+	"log"
 	"os/exec"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
@@ -132,9 +134,16 @@ func detectEngram() tea.Msg {
 	return EngramDetectedMsg(err == nil)
 }
 
-// Init is the Bubbletea init command. It returns the batched initial commands:
+// Init is the Bubbletea init command. It initializes the i18n engine
+// (loading embedded TOML catalogs) and returns the batched initial commands:
 // detectEngram runs asynchronously to avoid blocking the first TUI render.
+// If i18n.Init() fails (missing/corrupt English catalog), the app quits
+// immediately with a fatal log message.
 func (m Model) Init() tea.Cmd {
+	if err := i18n.Init(); err != nil {
+		log.Printf("FATAL: i18n init failed: %v", err)
+		return tea.Quit
+	}
 	return tea.Batch(
 		detectEngram,
 	)
