@@ -2,9 +2,29 @@
 
 ## Purpose
 
-Define the template updates required to wire P7 (i18n), P4 deep dependency scanning, and P3 resilience patterns into all 5 adapter template files and the AGENTS.md section template.
+Define the template updates required to wire P7 (i18n), P4 deep dependency scanning, and P3 resilience patterns into all 5 adapter template files and the AGENTS.md section template. Also define the language-aware template resolution mechanism (`RenderTemplateLang`) that routes to language-specific `.tmpl` variants.
 
 ## Requirements
+
+### Requirement: Language-Aware Template Resolution
+`adapters/common/template.go` MUST provide `RenderTemplateLang(fs embed.FS, name, lang string, data interface{}) (string, error)`. The function SHALL resolve `{name}.{lang}.tmpl` first, falling back to `{name}.tmpl` when the language-specific template file does not exist in the embedded FS. Adapter `Install()` methods SHALL call `RenderTemplateLang` instead of `RenderTemplate` for skill and system prompt templates.
+
+#### Scenario: Language-specific template exists
+- GIVEN `name = "skill.md"`, `lang = "en"`, and `skill.md.en.tmpl` in the FS
+- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
+- THEN `skill.md.en.tmpl` SHALL be loaded and rendered
+
+#### Scenario: Language file missing — fallback
+- GIVEN `name = "skill.md"`, `lang = "es"`, and NO `skill.md.es.tmpl` in the FS
+- WHEN `RenderTemplateLang(fs, "skill.md", "es", data)` is called
+- THEN `skill.md.tmpl` SHALL be loaded as fallback
+- AND no error SHALL occur
+
+#### Scenario: Existing templates unaffected
+- GIVEN existing adapters with only `skill.md.tmpl` and no language-specific variants
+- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
+- THEN `skill.md.tmpl` SHALL be used (backward compatible)
+- AND existing behavior SHALL be preserved
 
 ### Requirement: P7 Agent Roster Entry in All Templates
 All 5 adapter `skill.md.tmpl` files and the OpenCode `agents-md-section.md.tmpl` MUST include P7 in their agent roster tables. The P7 entry SHALL follow the existing row format: `| P7 i18n | Hardcoded strings, locale formatting, RTL, translation keys | Always |`.

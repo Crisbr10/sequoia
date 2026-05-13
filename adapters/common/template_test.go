@@ -113,6 +113,72 @@ func TestRenderTemplate_CacheIntegrity(t *testing.T) {
 }
 
 // =========================================================================
+// RenderTemplateLang tests
+// =========================================================================
+
+// TestRenderTemplateLang_EnglishFindsFile verifies that when the language is
+// "en" and a test.en.tmpl file exists, that language-specific template is
+// used instead of the base template.
+func TestRenderTemplateLang_EnglishFindsFile(t *testing.T) {
+	t.Parallel()
+
+	type data struct {
+		Name    string
+		Version string
+	}
+	d := data{Name: "Alice", Version: "1.0"}
+
+	result, err := common.RenderTemplateLang(templateTestFS, "testdata/test", "en", d)
+	require.NoError(t, err)
+	result = strings.ReplaceAll(result, "\r\n", "\n")
+
+	// The test.en.tmpl appends "(English)" to distinguish it from test.tmpl.
+	assert.Equal(t, "Hello Alice! Version: 1.0 (English)\n", result,
+		"English template should be used when test.en.tmpl exists")
+}
+
+// TestRenderTemplateLang_SpanishFallsBack verifies that when the language is
+// "es" but no test.es.tmpl exists, RenderTemplateLang falls back to the base
+// test.tmpl (backward compatibility).
+func TestRenderTemplateLang_SpanishFallsBack(t *testing.T) {
+	t.Parallel()
+
+	type data struct {
+		Name    string
+		Version string
+	}
+	d := data{Name: "Bob", Version: "2.0"}
+
+	result, err := common.RenderTemplateLang(templateTestFS, "testdata/test", "es", d)
+	require.NoError(t, err)
+	result = strings.ReplaceAll(result, "\r\n", "\n")
+
+	// Falls back to test.tmpl (no "(English)" suffix).
+	assert.Equal(t, "Hello Bob! Version: 2.0\n", result,
+		"base template should be used when test.es.tmpl does not exist")
+}
+
+// TestRenderTemplateLang_UnknownLangFallsBack verifies that an unrecognized
+// language code also triggers the fallback to the base template.
+func TestRenderTemplateLang_UnknownLangFallsBack(t *testing.T) {
+	t.Parallel()
+
+	type data struct {
+		Name    string
+		Version string
+	}
+	d := data{Name: "Charlie", Version: "3.0"}
+
+	result, err := common.RenderTemplateLang(templateTestFS, "testdata/test", "zh", d)
+	require.NoError(t, err)
+	result = strings.ReplaceAll(result, "\r\n", "\n")
+
+	// Falls back to test.tmpl (no "(English)" suffix).
+	assert.Equal(t, "Hello Charlie! Version: 3.0\n", result,
+		"base template should be used when test.zh.tmpl does not exist")
+}
+
+// =========================================================================
 // BenchmarkRenderTemplate — measures performance of RenderTemplate
 // including the first (cold) and subsequent (warm cache) calls.
 // =========================================================================

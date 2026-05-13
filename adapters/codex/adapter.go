@@ -71,7 +71,11 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 			err = fmt.Errorf("%w: %w", adapters.ErrInstallFailed, err)
 		}
 	}()
-	_ = opts.Language
+	// Default to English if no language is specified.
+	lang := opts.Language
+	if lang == "" {
+		lang = "en"
+	}
 
 	base, err := codexBase(a.HomeDir())
 	if err != nil {
@@ -90,7 +94,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
+	skillContent, err := common.RenderTemplateLang(templateFS, "templates/skill.md", lang, data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -167,8 +171,6 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
 			err = fmt.Errorf("%w: %w", adapters.ErrUninstallFailed, err)
 		}
 	}()
-
-	_ = opts.Language
 
 	base, err := codexBase(a.HomeDir())
 	if err != nil {

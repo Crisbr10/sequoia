@@ -74,8 +74,6 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
 		}
 	}()
 
-	_ = opts.Language
-
 	base, err := geminiBase(a.HomeDir())
 	if err != nil {
 		return fmt.Errorf("uninstall: resolve home: %w", err)

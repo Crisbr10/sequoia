@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the Go code changes to pass the user-selected language from the TUI configuration through the pipeline runner to adapter Install/Uninstall calls, replacing the `_ = lang` placeholder.
+Define the Go code changes to pass the user-selected language from the TUI configuration through the pipeline runner to adapter Install/Uninstall calls, including language-aware template resolution via `RenderTemplateLang`.
 
 ## Requirements
 
@@ -29,10 +29,44 @@ The `ToolAdapter` interface methods `Install()` and `Uninstall()` MUST be change
 - WHEN `go build ./...` runs
 - THEN compilation SHALL succeed with zero errors
 
-#### Scenario: Unused parameter is explicit
-- GIVEN an adapter that does not use language for its operations
-- WHEN the `Install(opts InstallOpts)` method is implemented
-- THEN `_ = opts.Language` SHALL explicitly mark the parameter as reserved
+### Requirement: Adapters Use Language for Template Selection
+All adapter `Install()` implementations that render templates (BaseAdapter, Codex, `_template`) MUST use `opts.Language` to select language-specific templates via `RenderTemplateLang`. The `_ = opts.Language` discard pattern SHALL be removed from these adapters. Uninstall methods and adapters that do NOT render templates MAY keep the language parameter but MUST NOT discard it with `_ = opts.Language`.
+
+#### Scenario: BaseAdapter passes language to template rendering
+- GIVEN `BaseAdapter.Install()` with `opts.Language = "es"`
+- WHEN the skill and system prompt templates are rendered
+- THEN `RenderTemplateLang(fs, name, "es", data)` SHALL be called
+- AND the function SHALL attempt to load `{name}.es.tmpl` before falling back to `{name}.tmpl`
+
+#### Scenario: Codex adapter uses language for skill template
+- GIVEN `codex.Adapter.Install()` with `opts.Language = "en"`
+- WHEN the skill template is rendered
+- THEN `RenderTemplateLang(templateFS, "templates/skill.md", "en", data)` SHALL be called
+
+#### Scenario: Default to English when language is empty
+- GIVEN `opts.Language = ""` (empty string)
+- WHEN any adapter renders templates
+- THEN the language SHALL default to `"en"`
+
+### Requirement: Language-Aware Template Resolution
+`adapters/common/template.go` MUST provide a `RenderTemplateLang(fs embed.FS, name, lang string, data interface{}) (string, error)` function. The function SHALL first attempt to load `{name}.{lang}.tmpl` from the embedded FS. If the language-specific file does not exist, it SHALL fall back to `{name}.tmpl` for backward compatibility.
+
+#### Scenario: Lang-resolved template found
+- GIVEN `name = "skill.md"`, `lang = "en"`, and `skill.md.en.tmpl` exists in the FS
+- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
+- THEN `skill.md.en.tmpl` SHALL be loaded and rendered
+
+#### Scenario: Fallback when lang file missing
+- GIVEN `name = "skill.md"`, `lang = "es"`, and `skill.md.es.tmpl` does NOT exist
+- WHEN `RenderTemplateLang(fs, "skill.md", "es", data)` is called
+- THEN `skill.md.tmpl` SHALL be loaded as fallback
+- AND no error SHALL be returned
+
+#### Scenario: Unknown language falls back
+- GIVEN `name = "skill.md"`, `lang = "zh"`, and `skill.md.zh.tmpl` does NOT exist
+- WHEN `RenderTemplateLang(fs, "skill.md", "zh", data)` is called
+- THEN `skill.md.tmpl` SHALL be loaded as fallback
+- AND existing behavior SHALL be preserved
 
 ### Requirement: Pipeline Runner Passes Language
 `internal/pipeline/runner.go` MUST construct `InstallOpts{Language: lang}` from the `lang string` parameter and pass it to `adapter.Install()` and `adapter.Uninstall()`. The `_ = lang` placeholder SHALL be removed.
