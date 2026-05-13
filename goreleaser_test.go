@@ -219,9 +219,9 @@ func TestGoReleaserConfig(t *testing.T) {
 			"release should be draft mode to allow review before publishing")
 	})
 
-	t.Run("changelog uses file-based source", func(t *testing.T) {
-		assert.Equal(t, "file", cfg.Changelog.Use,
-			"changelog should use file-based source (CHANGELOG.md)")
+	t.Run("changelog uses git-based source", func(t *testing.T) {
+		assert.Equal(t, "git", cfg.Changelog.Use,
+			"changelog should use git-based source (conventional commits)")
 		assert.NotEmpty(t, cfg.Changelog.Groups,
 			"changelog should group commits (feat, fix, docs, etc.)")
 	})
