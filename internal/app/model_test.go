@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/testutil"
 	"github.com/Crisbr10/sequoia/internal/app"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui"
@@ -22,28 +23,15 @@ import (
 // mutex around the swap+NewModel critical section.
 var registryMu sync.Mutex
 
-// mockAdapter is a minimal ToolAdapter for model tests.
-type mockAdapter struct {
-	id        string
-	name      string
-	installed bool
+// installedMock creates a MockAdapter with Detect and IsInstalled returning the given value.
+func installedMock(id, name string, installed bool) *testutil.MockAdapter {
+	return &testutil.MockAdapter{
+		IDVal:           id,
+		NameVal:         name,
+		DetectFunc:      func() bool { return installed },
+		IsInstalledFunc: func() bool { return installed },
+	}
 }
-
-func (m *mockAdapter) ID() string                                { return m.id }
-func (m *mockAdapter) Name() string                              { return m.name }
-func (m *mockAdapter) Detect() bool                              { return m.installed }
-func (m *mockAdapter) IsInstalled() bool                         { return m.installed }
-func (m *mockAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
-func (m *mockAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
-func (m *mockAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
-func (m *mockAdapter) SkillsPath() string                        { return "" }
-func (m *mockAdapter) CommandsPath() string                      { return "" }
-func (m *mockAdapter) SystemPromptPath() string                  { return "" }
-func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyMarkdownSections
-}
-
-var _ adapters.ToolAdapter = (*mockAdapter)(nil)
 
 func TestNewModel_StoresVersion(t *testing.T) {
 	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
@@ -79,8 +67,8 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
-	reg.Register(&mockAdapter{id: "opencode", name: "OpenCode"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
 	m := app.NewModel("", "test")
 	require.Len(t, m.Tools, 2, "Tools should be populated from DefaultRegistry")
@@ -255,8 +243,8 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
-	reg.Register(&mockAdapter{id: "opencode", name: "OpenCode"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
@@ -299,7 +287,7 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
@@ -326,7 +314,7 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection
@@ -354,7 +342,7 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
@@ -374,7 +362,7 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
@@ -416,7 +404,7 @@ func TestInstallProgressView_RendersProgressTable(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
@@ -462,7 +450,7 @@ func TestCompleteView_RendersSuccess(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenComplete
@@ -523,7 +511,7 @@ func TestStatusView_RendersToolTable(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
@@ -541,7 +529,7 @@ func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
@@ -565,7 +553,7 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
@@ -600,7 +588,7 @@ func TestStatus_UKeyNoOp(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
@@ -620,7 +608,7 @@ func TestUninstallView_RendersCheckboxList(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
@@ -639,7 +627,7 @@ func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
 	// Tool must be installed for confirmation to work.
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
@@ -661,7 +649,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
@@ -699,7 +687,7 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
@@ -737,7 +725,7 @@ func TestErrorView_RendersFailedTools(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenError
@@ -766,7 +754,7 @@ func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
@@ -805,7 +793,7 @@ func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "fail-tool", name: "Fail Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
@@ -844,7 +832,7 @@ func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenInstallProgress
@@ -888,7 +876,7 @@ func TestView_DefaultPlaceholder(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "test-tool", name: "Test Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
 	m := app.NewModel("", "test")
 	// Set screen to an invalid value.
@@ -906,7 +894,7 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code", installed: true})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall
@@ -985,7 +973,7 @@ func TestToolSelection_SpaceToggles(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&mockAdapter{id: "claude-code", name: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenToolSelection

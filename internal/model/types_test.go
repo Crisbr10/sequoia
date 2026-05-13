@@ -7,31 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/testutil"
 	"github.com/Crisbr10/sequoia/internal/model"
 )
 
-// mockAdapter is a minimal ToolAdapter test double for adapters-level tests.
-// It does NOT satisfy model.ToolInfo because Status() returns adapters.AdapterStatus.
-type mockAdapter struct {
-	id   string
-	name string
-}
-
-func (m *mockAdapter) ID() string                                { return m.id }
-func (m *mockAdapter) Name() string                              { return m.name }
-func (m *mockAdapter) Detect() bool                              { return false }
-func (m *mockAdapter) IsInstalled() bool                         { return false }
-func (m *mockAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
-func (m *mockAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
-func (m *mockAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
-func (m *mockAdapter) SkillsPath() string                        { return "" }
-func (m *mockAdapter) CommandsPath() string                      { return "" }
-func (m *mockAdapter) SystemPromptPath() string                  { return "" }
-func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyMarkdownSections
-}
-
-var _ adapters.ToolAdapter = (*mockAdapter)(nil)
+var _ adapters.ToolAdapter = (*testutil.MockAdapter)(nil)
 
 // toolInfoMock is a test double that satisfies model.ToolInfo.
 type toolInfoMock struct {

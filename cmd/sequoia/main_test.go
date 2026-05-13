@@ -88,6 +88,30 @@ func TestVersionCmd(t *testing.T) {
 	}
 }
 
+// TestVersionCmd_DevVersionResolves confirms that when Version is the default
+// "0.1.0-dev", the version command resolves it via debug.ReadBuildInfo.
+// The resolved value is non-empty and does not contain "(devel)".
+func TestVersionCmd_DevVersionResolves(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	cmd := newRootCmdWithOut(&out)
+	cmd.SetArgs([]string{"version"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("version command returned unexpected error: %v", err)
+	}
+
+	got := strings.TrimSpace(out.String())
+	if got == "" {
+		t.Fatal("version command with dev fallback returned empty output")
+	}
+	if got == "(devel)" {
+		t.Error("version command should not output raw '(devel)', should be resolved")
+	}
+}
+
 // TestStatusCmd verifies the status subcommand runs without error.
 func TestStatusCmd(t *testing.T) {
 	t.Parallel()

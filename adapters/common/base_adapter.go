@@ -80,6 +80,10 @@ type BaseAdapter struct {
 	// (e.g., symlink resolution failures). Protected by mu.
 	warnings []string
 	mu       sync.Mutex
+	// cachedHomeOnce guards one-time resolution of os.UserHomeDir().
+	cachedHomeOnce sync.Once
+	cachedHomeDir  string
+	cachedHomeErr  error
 }
 
 // SetIDName sets the adapter's unique ID and human-readable name.
@@ -178,11 +182,13 @@ func (a *BaseAdapter) clearWarnings() {
 func (a *BaseAdapter) base() (string, error) {
 	homeDir := a.homeDir
 	if homeDir == "" {
-		var err error
-		homeDir, err = os.UserHomeDir()
-		if err != nil {
-			return "", err
+		a.cachedHomeOnce.Do(func() {
+			a.cachedHomeDir, a.cachedHomeErr = os.UserHomeDir()
+		})
+		if a.cachedHomeErr != nil {
+			return "", a.cachedHomeErr
 		}
+		homeDir = a.cachedHomeDir
 	}
 
 	resolved, warning := ResolveSymlink(homeDir)

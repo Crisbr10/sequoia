@@ -180,3 +180,9 @@ func UninstallUpdate(msg tea.KeyMsg, cursor int, count int) (int, bool, string) 
 
 	return cursor, false, ""
 }
+
+// RenderConfirmPrompt returns the styled confirmation prompt for the Uninstall screen.
+func RenderConfirmPrompt(lang string) string {
+	return styles.Accent().Render("  "+i18n.T(i18n.MsgUninstallConfirmPrompt, lang)) +
+		styles.Muted().Render(i18n.T(i18n.MsgUninstallConfirmSuffix, lang))
+}

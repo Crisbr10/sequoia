@@ -35,28 +35,6 @@ import (
 // Falls back to "0.1.0-dev" only for local go build.
 var Version = "0.1.0-dev"
 
-func init() {
-	if Version != "0.1.0-dev" {
-		return // ldflags already set the version (GoReleaser)
-	}
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return
-	}
-	// go install @v0.1.2 embeds the module version
-	if v := info.Main.Version; v != "" && v != "(devel)" {
-		Version = v
-		return
-	}
-	// Check VCS info (go build from tagged commit)
-	for _, s := range info.Settings {
-		if s.Key == "vcs.revision" {
-			Version = "unknown-" + s.Value[:8]
-			return
-		}
-	}
-}
-
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -229,7 +207,22 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print the CLI version",
 		Long:  "Print the Sequoia CLI version number.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), Version)
+			v := Version
+			if v == "0.1.0-dev" {
+				if info, ok := debug.ReadBuildInfo(); ok {
+					if mv := info.Main.Version; mv != "" && mv != "(devel)" {
+						v = mv
+					} else {
+						for _, s := range info.Settings {
+							if s.Key == "vcs.revision" {
+								v = "unknown-" + s.Value[:8]
+								break
+							}
+						}
+					}
+				}
+			}
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), v)
 			return nil
 		},
 	}

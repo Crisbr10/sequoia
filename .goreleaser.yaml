@@ -80,7 +80,7 @@ release:
     ```
 
 changelog:
-  use: github-native
+  use: file
   sort: desc
   groups:
     - title: "Features"

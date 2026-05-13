@@ -8,31 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/testutil"
 )
-
-// mockAdapter is a minimal ToolAdapter test double.
-// It implements all interface methods with no-op stubs.
-type mockAdapter struct {
-	id   string
-	name string
-}
-
-func (m *mockAdapter) ID() string                                { return m.id }
-func (m *mockAdapter) Name() string                              { return m.name }
-func (m *mockAdapter) Detect() bool                              { return false }
-func (m *mockAdapter) IsInstalled() bool                         { return false }
-func (m *mockAdapter) Install(opts adapters.InstallOpts) error   { return nil }
-func (m *mockAdapter) Uninstall(opts adapters.InstallOpts) error { return nil }
-func (m *mockAdapter) Status() adapters.AdapterStatus            { return adapters.AdapterStatus{} }
-func (m *mockAdapter) SkillsPath() string                        { return "" }
-func (m *mockAdapter) CommandsPath() string                      { return "" }
-func (m *mockAdapter) SystemPromptPath() string                  { return "" }
-func (m *mockAdapter) PromptStrategy() adapters.PromptStrategy {
-	return adapters.StrategyMarkdownSections
-}
-
-// compile-time contract: mockAdapter must satisfy ToolAdapter.
-var _ adapters.ToolAdapter = (*mockAdapter)(nil)
 
 func TestRegistry_RegisterAndGet(t *testing.T) {
 	t.Parallel()
@@ -45,13 +22,13 @@ func TestRegistry_RegisterAndGet(t *testing.T) {
 	}{
 		{
 			name:    "registered adapter is retrievable by ID",
-			adapter: &mockAdapter{id: "claude-code", name: "Claude Code"},
+			adapter: &testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"},
 			getID:   "claude-code",
 			wantErr: false,
 		},
 		{
 			name:    "get unknown ID returns ErrUnknownAdapter",
-			adapter: &mockAdapter{id: "known-tool", name: "Known Tool"},
+			adapter: &testutil.MockAdapter{IDVal: "known-tool", NameVal: "Known Tool"},
 			getID:   "does-not-exist",
 			wantErr: true,
 		},
@@ -80,9 +57,9 @@ func TestRegistry_All_ReturnsAllInOrder(t *testing.T) {
 	t.Parallel()
 
 	r := &adapters.Registry{}
-	a1 := &mockAdapter{id: "alpha", name: "Alpha"}
-	a2 := &mockAdapter{id: "beta", name: "Beta"}
-	a3 := &mockAdapter{id: "gamma", name: "Gamma"}
+	a1 := &testutil.MockAdapter{IDVal: "alpha", NameVal: "Alpha"}
+	a2 := &testutil.MockAdapter{IDVal: "beta", NameVal: "Beta"}
+	a3 := &testutil.MockAdapter{IDVal: "gamma", NameVal: "Gamma"}
 
 	r.Register(a1)
 	r.Register(a2)
@@ -100,8 +77,8 @@ func TestRegistry_RegisterDuplicate_ReplacesExisting(t *testing.T) {
 	t.Parallel()
 
 	r := &adapters.Registry{}
-	original := &mockAdapter{id: "tool-x", name: "Original Name"}
-	replacement := &mockAdapter{id: "tool-x", name: "Replacement Name"}
+	original := &testutil.MockAdapter{IDVal: "tool-x", NameVal: "Original Name"}
+	replacement := &testutil.MockAdapter{IDVal: "tool-x", NameVal: "Replacement Name"}
 
 	r.Register(original)
 	r.Register(replacement)
@@ -127,7 +104,7 @@ func TestFactory_NewAdapter_KnownID(t *testing.T) {
 
 	// Register into DefaultRegistry directly for the factory test.
 	// Use a unique ID to avoid collisions with parallel tests.
-	a := &mockAdapter{id: "factory-test-known", name: "Factory Known"}
+	a := &testutil.MockAdapter{IDVal: "factory-test-known", NameVal: "Factory Known"}
 	adapters.DefaultRegistry.Register(a)
 
 	got, err := adapters.NewAdapter("factory-test-known")
@@ -158,7 +135,7 @@ func TestRegistry_ConcurrentAccess_NoRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			id := "concurrent-adapter"
-			r.Register(&mockAdapter{id: id, name: "Concurrent"})
+			r.Register(&testutil.MockAdapter{IDVal: id, NameVal: "Concurrent"})
 			_ = i
 		}()
 	}

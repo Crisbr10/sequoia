@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
@@ -131,16 +130,6 @@ func TestBuildUninstallProgressTools_EmptyInput(t *testing.T) {
 	assert.Empty(t, result, "nil input should produce empty result")
 }
 
-func TestRenderUninstallConfirm_ContainsPrompt(t *testing.T) {
-	if err := i18n.Init(); err != nil {
-		t.Fatalf("i18n.Init() failed: %v", err)
-	}
-	result := renderUninstallConfirm("en")
-	assert.Contains(t, result, "Remove Sequoia", "confirmation should mention Remove Sequoia")
-	assert.Contains(t, result, "y/N", "confirmation should show y/N prompt")
-	assert.NotEmpty(t, result, "confirmation should not be empty")
-}
-
 func TestWaitForProgress_ReceivesMessage(t *testing.T) {
 	ch := make(chan model.ProgressMsg, 1)
 	expected := model.ProgressMsg{ToolID: "test", Step: "Skills", Done: true}
@@ -217,26 +206,6 @@ func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
 	result := cmd()
 	// Since we close immediately and no message is sent, result should be nil.
 	assert.Nil(t, result, "closed channel with no pending messages should return nil")
-}
-
-func TestWaitForProgress_ContextCancellationIgnored(t *testing.T) {
-	// waitForProgress doesn't use context directly — it blocks on channel read.
-	// This test verifies that when a message is available, it's returned
-	// regardless of external state.
-	ch := make(chan model.ProgressMsg, 1)
-	expected := model.ProgressMsg{ToolID: "ctx-test", Step: "Apply", Done: false}
-	ch <- expected
-
-	// Cancel a dummy context — waitForProgress doesn't use it.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	_ = ctx
-
-	cmd := waitForProgress(ch)
-	result := cmd()
-	msg, ok := result.(model.ProgressMsg)
-	require.True(t, ok)
-	assert.Equal(t, "ctx-test", msg.ToolID)
 }
 
 func TestOperationModeTracking_DefaultEmpty(t *testing.T) {

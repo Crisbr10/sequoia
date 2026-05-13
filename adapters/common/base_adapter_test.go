@@ -351,3 +351,63 @@ func TestBaseAdapter_WarningsClearedOnInstall(t *testing.T) {
 	// The stale warning must be gone.
 	assert.Empty(t, a.Warnings(), "warnings should be cleared at start of Install")
 }
+
+// TestBaseAdapter_BaseCachesUserHomeDir verifies that base() caches
+// os.UserHomeDir() via sync.Once and returns consistent results across
+// repeated calls. The explicit homeDir override path is unchanged.
+func TestBaseAdapter_BaseCachesUserHomeDir(t *testing.T) {
+	t.Parallel()
+
+	a := &common.BaseAdapter{}
+	a.SetIDName("cache-test", "Cache Test")
+	a.ResolveBase(func(homeDir string) (string, error) {
+		return filepath.Join(homeDir, ".cache-test"), nil
+	})
+	a.SetPathFns(
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+	)
+
+	// Calling SkillsPath() triggers base(), which calls os.UserHomeDir().
+	// Repeated calls should return the same path (cached).
+	first := a.SkillsPath()
+	require.NotEmpty(t, first, "SkillsPath should be non-empty")
+
+	second := a.SkillsPath()
+	assert.Equal(t, first, second, "SkillsPath should be stable across calls (home dir cached)")
+
+	// CommandsPath should also use the cached home.
+	cmds := a.CommandsPath()
+	assert.NotEmpty(t, cmds, "CommandsPath should be non-empty")
+	assert.Contains(t, cmds, ".cache-test", "CommandsPath should use the cached home dir")
+}
+
+// TestBaseAdapter_HomeDirOverrideBypassesCache verifies that when
+// SetHomeDir is used, base() uses the explicit path without calling
+// os.UserHomeDir().
+func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	a := &common.BaseAdapter{}
+	a.SetIDName("override-test", "Override Test")
+	a.SetHomeDir(tmp)
+	a.ResolveBase(func(homeDir string) (string, error) {
+		return filepath.Join(homeDir, ".override"), nil
+	})
+	a.SetPathFns(
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+	)
+
+	// SkillsPath should use the explicit homeDir.
+	sp := a.SkillsPath()
+	assert.Contains(t, sp, tmp, "SkillsPath should use the explicit homeDir via override")
+	assert.Contains(t, sp, ".override", "SkillsPath should include the resolved base")
+}

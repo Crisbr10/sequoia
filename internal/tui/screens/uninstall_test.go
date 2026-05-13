@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
@@ -289,4 +290,14 @@ func TestUninstallView_Golden_NothingInstalled(t *testing.T) {
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
+}
+
+func TestRenderConfirmPrompt_ContainsPrompt(t *testing.T) {
+	if err := i18n.Init(); err != nil {
+		t.Fatalf("i18n.Init() failed: %v", err)
+	}
+	result := screens.RenderConfirmPrompt("en")
+	assert.Contains(t, result, "Remove Sequoia", "confirmation should mention Remove Sequoia")
+	assert.Contains(t, result, "y/N", "confirmation should show y/N prompt")
+	assert.NotEmpty(t, result, "confirmation should not be empty")
 }
