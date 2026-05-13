@@ -237,3 +237,117 @@ func TestInstall_ReturnsSentinelError(t *testing.T) {
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed),
 		"error should wrap ErrInstallFailed, got: %v", err)
 }
+
+// =========================================================================
+// TestBaseAdapter_AddWarning_Warnings
+// =========================================================================
+
+// TestBaseAdapter_AddWarning_Warnings verifies that AddWarning appends to the
+// internal warnings slice and that Warnings returns a copy (defensive).
+func TestBaseAdapter_AddWarning_Warnings(t *testing.T) {
+	t.Parallel()
+
+	a := &common.BaseAdapter{}
+
+	// Start with no warnings.
+	assert.Empty(t, a.Warnings(), "warnings should start empty")
+
+	// Add a warning.
+	a.AddWarning("test warning one")
+	warns := a.Warnings()
+	assert.Len(t, warns, 1, "should have 1 warning after adding one")
+	assert.Equal(t, "test warning one", warns[0])
+
+	// Add another warning.
+	a.AddWarning("test warning two")
+	warns = a.Warnings()
+	assert.Len(t, warns, 2, "should have 2 warnings after adding second")
+
+	// Warnings() must return a copy — mutating the returned slice
+	// must not affect the internal slice.
+	warns[0] = "mutated"
+	warns2 := a.Warnings()
+	assert.Equal(t, "test warning one", warns2[0], "Warnings() must return a defensive copy")
+	assert.Len(t, warns2, 2)
+}
+
+// TestBaseAdapter_AddWarning_ThreadSafety verifies concurrent AddWarning
+// and Warnings calls do not race. Run with: go test -race
+func TestBaseAdapter_AddWarning_ThreadSafety(t *testing.T) {
+	t.Parallel()
+
+	a := &common.BaseAdapter{}
+	const numGoroutines = 50
+	done := make(chan struct{})
+
+	// Launch writers and readers concurrently.
+	for i := 0; i < numGoroutines; i++ {
+		go func(n int) {
+			a.AddWarning(fmt.Sprintf("warning-%d", n))
+			done <- struct{}{}
+		}(i)
+		go func() {
+			_ = a.Warnings()
+			done <- struct{}{}
+		}()
+	}
+
+	// Wait for all goroutines.
+	for i := 0; i < numGoroutines*2; i++ {
+		<-done
+	}
+
+	// Final warnings should be non-empty.
+	assert.NotEmpty(t, a.Warnings(), "should have accumulated warnings")
+}
+
+// =========================================================================
+// TestBaseAdapter_WarningsClearedOnInstall
+// =========================================================================
+
+// warningsTestAdapter creates a minimal BaseAdapter for Install testing
+// with a working template setup so Install succeeds.
+func warningsTestAdapter(t *testing.T, home string) *common.BaseAdapter {
+	t.Helper()
+
+	a := &common.BaseAdapter{}
+	a.SetIDName("warn-adapter", "Warning Adapter")
+	a.SetHomeDir(home)
+	a.ResolveBase(func(homeDir string) (string, error) {
+		return homeDir, nil
+	})
+	a.SetPathFns(
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+	)
+	a.SetStrategy(adapters.StrategyFileReplace,
+		func(base, content string) error { return nil }, // no-op for test
+		nil,
+	)
+	a.SetInstallTemplates(testFS, "sequoia-warn-*",
+		"testdata/test.tmpl",
+		func() interface{} { return map[string]string{"Name": "warn", "Version": "0.1.0"} })
+	return a
+}
+
+// TestBaseAdapter_WarningsClearedOnInstall verifies that warnings are cleared
+// when Install() starts (even if Install later fails).
+func TestBaseAdapter_WarningsClearedOnInstall(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	a := warningsTestAdapter(t, home)
+
+	// Pre-populate warnings.
+	a.AddWarning("stale warning from previous run")
+
+	// Install should fail (templateFS is testFS without "templates/skill.md")
+	// but warnings should be cleared at the start nonetheless.
+	_ = a.Install(adapters.InstallOpts{})
+
+	// The stale warning must be gone.
+	assert.Empty(t, a.Warnings(), "warnings should be cleared at start of Install")
+}

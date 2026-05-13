@@ -5,6 +5,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,6 +24,14 @@ type pipelineInstaller interface {
 // from the concrete adapter behind model.ToolInfo.
 type pipelineUninstaller interface {
 	Uninstall(adapters.InstallOpts) error
+}
+
+// WarningEmitter is a local interface for adapters that collect non-fatal
+// warnings during Install/Uninstall (e.g., symlink resolution failures).
+// Adapters that implement this interface will have their warnings surfaced
+// as ProgressMsg{Warning: true} after a successful operation.
+type WarningEmitter interface {
+	Warnings() []string
 }
 
 // InstallSteps defines the install steps in execution order.
@@ -135,6 +144,21 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 		Step:   step,
 		Done:   true,
 	})
+
+	// After a successful install/uninstall, check if the adapter collected
+	// any non-fatal warnings and surface them as a separate progress message.
+	if emitter, ok := adapter.(WarningEmitter); ok {
+		warnings := emitter.Warnings()
+		if len(warnings) > 0 {
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID:  toolID,
+				Step:    step,
+				Done:    true,
+				Warning: true,
+				Error:   strings.Join(warnings, "\n"),
+			})
+		}
+	}
 }
 
 // runInstallSteps extracts the Install method from the concrete adapter

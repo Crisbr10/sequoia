@@ -1,28 +1,13 @@
 package claude
 
 import (
-	"os"
 	"path/filepath"
 )
 
 // claudeBase returns the ~/.claude/ directory.
-// If homeDir is non-empty it is used directly; otherwise os.UserHomeDir() is called.
-// Symlinks in homeDir are resolved via filepath.EvalSymlinks before joining.
-// On resolution failure, the unresolved path is used as a fallback.
+// BaseAdapter.base() handles home directory resolution and symlink detection.
 func claudeBase(homeDir string) (string, error) {
-	if homeDir == "" {
-		var err error
-		homeDir, err = os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-	}
-	resolved, err := filepath.EvalSymlinks(homeDir)
-	if err != nil {
-		// Fall back to unresolved path on any error.
-		resolved = homeDir
-	}
-	return filepath.Join(resolved, ".claude"), nil
+	return filepath.Join(homeDir, ".claude"), nil
 }
 
 // skillsPath returns ~/.claude/skills/sequoia/

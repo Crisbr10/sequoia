@@ -3,14 +3,11 @@
 package template
 
 import (
-	"os"
 	"path/filepath"
 )
 
 // toolBase returns the root configuration directory for this tool.
-// If homeDir is non-empty it is used directly; otherwise os.UserHomeDir() is called.
-// Symlinks in homeDir are resolved via filepath.EvalSymlinks before joining.
-// On resolution failure, the unresolved path is used as a fallback.
+// BaseAdapter.base() handles home directory resolution and symlink detection.
 //
 // TODO: Replace ".my-tool/config" with the actual config directory path.
 //
@@ -21,20 +18,8 @@ import (
 //	  Gemini CLI:  ".gemini"
 //	  Codex:       ".codex"
 func toolBase(homeDir string) (string, error) {
-	if homeDir == "" {
-		var err error
-		homeDir, err = os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-	}
-	resolved, err := filepath.EvalSymlinks(homeDir)
-	if err != nil {
-		// Fall back to unresolved path on any error.
-		resolved = homeDir
-	}
 	// TODO: Replace ".my-tool/config" with the tool's config directory name.
-	return filepath.Join(resolved, ".my-tool", "config"), nil
+	return filepath.Join(homeDir, ".my-tool", "config"), nil
 }
 
 // skillsPath returns the directory where skill files are stored.

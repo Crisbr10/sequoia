@@ -1,27 +1,13 @@
 package gemini
 
 import (
-	"os"
 	"path/filepath"
 )
 
 // geminiBase returns the ~/.gemini/ directory.
-// If homeDir is non-empty it is used directly; otherwise os.UserHomeDir() is called.
-// Symlinks in homeDir are resolved via filepath.EvalSymlinks before joining.
-// On resolution failure, the unresolved path is used as a fallback.
+// BaseAdapter.base() handles home directory resolution and symlink detection.
 func geminiBase(homeDir string) (string, error) {
-	if homeDir == "" {
-		var err error
-		homeDir, err = os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-	}
-	resolved, err := filepath.EvalSymlinks(homeDir)
-	if err != nil {
-		resolved = homeDir
-	}
-	return filepath.Join(resolved, ".gemini"), nil
+	return filepath.Join(homeDir, ".gemini"), nil
 }
 
 // skillsPath returns ~/.gemini/sequoia/skills/

@@ -616,3 +616,116 @@ func TestRunInstall_MultiTool_SendsTwoMessagesEach(t *testing.T) {
 	assert.Equal(t, 1, adapter1.installCallCount())
 	assert.Equal(t, 1, adapter2.installCallCount())
 }
+
+// =========================================================================
+// TestRunInstall_WarningEmitter
+// =========================================================================
+
+// warnAdapter wraps testAdapter and implements Warnings() []string
+// so the pipeline's WarningEmitter type assertion succeeds.
+type warnAdapter struct {
+	testAdapter
+	warnings []string
+}
+
+func (a *warnAdapter) Warnings() []string {
+	return append([]string{}, a.warnings...)
+}
+
+// TestRunInstall_WarningEmitter verifies that when an adapter implements
+// Warnings() []string and returns non-empty warnings, the pipeline emits
+// a ProgressMsg with Warning=true.
+func TestRunInstall_WarningEmitter(t *testing.T) {
+	t.Parallel()
+
+	w := &warnAdapter{
+		testAdapter: testAdapter{id: "warn-tool", name: "Warn Tool"},
+		warnings:    []string{"symlink warning: /fake/path"},
+	}
+	tools := []model.ToolState{
+		{Adapter: w, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// After warning emission: 1 running + 2 done (success + warning).
+	require.Len(t, msgs, 3, "Should receive 3 messages: 1 running + 1 done + 1 warning")
+
+	// First: running.
+	assert.Equal(t, "warn-tool", msgs[0].ToolID)
+	assert.False(t, msgs[0].Done)
+
+	// Second: done (success).
+	assert.Equal(t, "warn-tool", msgs[1].ToolID)
+	assert.True(t, msgs[1].Done)
+	assert.Empty(t, msgs[1].Error)
+	assert.False(t, msgs[1].Warning)
+
+	// Third: warning.
+	assert.Equal(t, "warn-tool", msgs[2].ToolID)
+	assert.True(t, msgs[2].Done)
+	assert.True(t, msgs[2].Warning, "warning message should have Warning=true")
+	assert.NotEmpty(t, msgs[2].Error, "warning message should contain the joined warnings in Error")
+	assert.Contains(t, msgs[2].Error, "symlink warning: /fake/path")
+}
+
+// TestRunInstall_WarningEmitter_EmptyWarnings verifies that when an adapter
+// implements Warnings() but returns an empty slice, no warning ProgressMsg is sent.
+func TestRunInstall_WarningEmitter_EmptyWarnings(t *testing.T) {
+	t.Parallel()
+
+	w := &warnAdapter{
+		testAdapter: testAdapter{id: "clean-tool", name: "Clean Tool"},
+		warnings:    []string{},
+	}
+	tools := []model.ToolState{
+		{Adapter: w, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// No warnings — standard 2 messages (1 running + 1 done).
+	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 done")
+	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
+}
+
+// TestRunInstall_WarningEmitter_NoInterface verifies that when an adapter
+// does NOT implement Warnings(), the pipeline works normally without warnings.
+func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {
+	t.Parallel()
+
+	a := &testAdapter{id: "plain-tool", name: "Plain Tool"}
+	tools := []model.ToolState{
+		{Adapter: a, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// Standard 2 messages.
+	require.Len(t, msgs, 2, "Should receive 2 messages for normal adapter")
+	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
+}

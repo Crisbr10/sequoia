@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Crisbr10/sequoia/adapters"
@@ -74,6 +75,11 @@ type BaseAdapter struct {
 	// back skill and command installers when the system prompt step fails.
 	// opencode and cursor need this; claude and gemini do not.
 	rollbackOnSystemPromptError bool
+
+	// warnings collects non-fatal warnings during adapter operations
+	// (e.g., symlink resolution failures). Protected by mu.
+	warnings []string
+	mu       sync.Mutex
 }
 
 // SetIDName sets the adapter's unique ID and human-readable name.
@@ -145,9 +151,46 @@ func (a *BaseAdapter) SetRollbackOnSystemPromptError(v bool) {
 	a.rollbackOnSystemPromptError = v
 }
 
+// AddWarning appends a non-fatal warning message. Thread-safe.
+func (a *BaseAdapter) AddWarning(msg string) {
+	a.mu.Lock()
+	a.warnings = append(a.warnings, msg)
+	a.mu.Unlock()
+}
+
+// Warnings returns a copy of all accumulated warning messages. Thread-safe.
+func (a *BaseAdapter) Warnings() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string{}, a.warnings...)
+}
+
+// clearWarnings removes all accumulated warnings. Caller must hold a.mu or
+// call from a context where no concurrent access is possible (e.g., start of
+// Install/Uninstall before any goroutine shares the adapter).
+func (a *BaseAdapter) clearWarnings() {
+	a.warnings = a.warnings[:0]
+}
+
 // base resolves and returns the tool's config root directory.
+// If a.homeDir is empty, os.UserHomeDir() is called. The home directory
+// is resolved via ResolveSymlink before being passed to resolveBase.
 func (a *BaseAdapter) base() (string, error) {
-	return a.resolveBase(a.homeDir)
+	homeDir := a.homeDir
+	if homeDir == "" {
+		var err error
+		homeDir, err = os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	resolved, warning := ResolveSymlink(homeDir)
+	if warning != "" {
+		a.AddWarning(warning)
+	}
+
+	return a.resolveBase(resolved)
 }
 
 // SkillsPath returns the absolute path to the skills directory.
@@ -244,6 +287,9 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 			err = fmt.Errorf("%w: %w", adapters.ErrInstallFailed, err)
 		}
 	}()
+	// Clear warnings from any previous operation.
+	a.clearWarnings()
+
 	// Check for early cancellation before doing any work.
 	if err := checkContext(opts.Context); err != nil {
 		return fmt.Errorf("install: %w", err)
@@ -389,6 +435,8 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 			err = fmt.Errorf("%w: %w", adapters.ErrUninstallFailed, err)
 		}
 	}()
+	// Clear warnings from any previous operation.
+	a.clearWarnings()
 
 	// Check for early cancellation before doing any work.
 	if err := checkContext(opts.Context); err != nil {
