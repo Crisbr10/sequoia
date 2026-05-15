@@ -53,6 +53,10 @@ func TestAdapter_IsInstalled_FileExists(t *testing.T) {
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
+	// Both .sequoia-version AND sequoia-ai.md must exist for IsInstalled to return true.
+	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
+
 	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
 	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia rules\n"), 0o644))
 
@@ -110,13 +114,17 @@ func TestAdapter_Status_VersionMissingLegacy(t *testing.T) {
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
+	// Create .sequoia-version so IsInstalled returns true (D3 fix: IsInstalled checks version file).
+	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	require.NoError(t, os.WriteFile(versionFile, []byte(""), 0o644))
+
 	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
 	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia\n"), 0o644))
 
 	a := cursor.NewAdapter(tmp)
 	s := a.Status()
-	assert.True(t, s.Installed, "expected installed=true even without version file")
-	assert.Equal(t, "", s.Version, "Status().Version should be empty for legacy installs without .sequoia-version")
+	assert.True(t, s.Installed, "expected installed=true when .sequoia-version exists")
+	assert.Equal(t, "", s.Version, "Status().Version should be empty when version file has empty content")
 }
 
 func TestAdapter_Status_HasPath(t *testing.T) {
@@ -126,6 +134,74 @@ func TestAdapter_Status_HasPath(t *testing.T) {
 	assert.Equal(t, a.SkillsPath(), s.Path, "Status().Path should equal SkillsPath()")
 	assert.True(t, filepath.ToSlash(s.Path) != "",
 		"Status().Path should not be empty")
+}
+
+// TestAdapter_IsInstalled_PreExistingSystemPrompt_ReturnsFalse verifies that
+// a pre-existing sequoia-ai.md file does NOT cause a false positive when
+// the .sequoia-version marker file is absent. REQ-BUG-003.
+func TestAdapter_IsInstalled_PreExistingSystemPrompt_ReturnsFalse(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
+
+	// Create sequoia-ai.md (pre-existing system prompt) but NOT .sequoia-version.
+	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
+	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia rules\n"), 0o644))
+
+	a := cursor.NewAdapter(tmp)
+	assert.False(t, a.IsInstalled(),
+		"IsInstalled must return false when .sequoia-version is absent, even if sequoia-ai.md exists")
+}
+
+// TestAdapter_IsInstalled_ReturnsFalseAfterUninstall verifies that after
+// uninstall removes the .sequoia-version file, IsInstalled returns false
+// even when sequoia-ai.md still exists (e.g., restored from backup).
+// REQ-BUG-003 scenario: After clean uninstall.
+func TestAdapter_IsInstalled_ReturnsFalseAfterUninstall(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
+
+	// Simulate a full installation: both files present.
+	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
+	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia\n"), 0o644))
+
+	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
+
+	// Verify IsInstalled returns true when both files exist.
+	a := cursor.NewAdapter(tmp)
+	assert.True(t, a.IsInstalled(), "IsInstalled must return true when both files exist")
+
+	// Simulate uninstall: remove .sequoia-version but sequoia-ai.md may persist
+	// (e.g., restored from backup by ReplaceFile).
+	require.NoError(t, os.Remove(versionFile))
+
+	assert.False(t, a.IsInstalled(),
+		"IsInstalled must return false after uninstall removes .sequoia-version, even if sequoia-ai.md persists")
+}
+
+// TestAdapter_IsInstalled_VersionFileOnly_ReturnsTrue verifies that
+// when both .sequoia-version and sequoia-ai.md exist, IsInstalled returns true.
+// This is the triangulation: the happy path after the fix.
+func TestAdapter_IsInstalled_VersionFileOnly_ReturnsTrue(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
+
+	// Both files present = fully installed.
+	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
+	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia rules\n"), 0o644))
+
+	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
+
+	a := cursor.NewAdapter(tmp)
+	assert.True(t, a.IsInstalled(),
+		"IsInstalled must return true when both .sequoia-version and sequoia-ai.md exist")
 }
 
 func TestAdapter_SkillsPath(t *testing.T) {

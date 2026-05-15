@@ -39,7 +39,7 @@ func newAdapter(homeDir string) *Adapter {
 		func() interface{} { return templateData{Version: common.Version} })
 	a.SetRollbackOnSystemPromptError(true)
 	a.SetIsInstalledFn(func(base string) bool {
-		_, err := os.Stat(systemPromptPath(base))
+		_, err := os.Stat(versionFilePath(base))
 		return err == nil
 	})
 	a.SetDetectFn(func() bool {
