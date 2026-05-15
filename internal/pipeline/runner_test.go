@@ -705,6 +705,47 @@ func TestRunInstall_WarningEmitter_EmptyWarnings(t *testing.T) {
 	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
 }
 
+// TestStartPipeline_ChannelRecreated verifies that calling RunInstall twice
+// with the same channel parameter does not panic. The first call closes the
+// channel; the second write must be safe (REQ-BUG-002).
+// This test models what startPipeline protects against by always creating
+// a fresh channel, and also validates that sendProgress handles a closed
+// channel gracefully.
+func TestStartPipeline_ChannelRecreated(t *testing.T) {
+	t.Parallel()
+
+	adapter := &testAdapter{id: "chan-test", name: "Channel Test"}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+
+	// First pipeline run — creates goroutines, waits, closes channel.
+	cmd1 := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd1)
+	cmd1() // blocks until all goroutines complete and channel is closed
+
+	// Drain remaining messages to confirm closure.
+	_ = collectProgress(ch)
+
+	// Verify channel is closed (zero value, ok=false).
+	_, ok := <-ch
+	assert.False(t, ok, "channel should be closed after first pipeline run")
+
+	// Second pipeline run with the SAME closed channel must not panic.
+	require.NotPanics(t, func() {
+		cmd2 := pipeline.RunInstall(ctx, tools, ch, "en")
+		require.NotNil(t, cmd2)
+		// cmd2's goroutines will try to send on the closed channel.
+		// This must not panic — sendProgress must handle it gracefully.
+		cmd2()
+	}, "second pipeline run with a closed channel must not panic (sendProgress must be defensive)")
+}
+
 // TestRunInstall_WarningEmitter_NoInterface verifies that when an adapter
 // does NOT implement Warnings(), the pipeline works normally without warnings.
 func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {

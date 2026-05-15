@@ -67,7 +67,7 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 			case <-ctx.Done():
 				// Context cancelled before goroutine starts — stop launching new goroutines.
 				wg.Wait()
-				close(ch)
+				safeClose(ch)
 				return nil
 			default:
 			}
@@ -82,7 +82,7 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 		// Wait for all goroutines to complete, then signal completion
 		// by closing the channel.
 		wg.Wait()
-		close(ch)
+		safeClose(ch)
 		return nil
 	}
 }
@@ -197,7 +197,7 @@ func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.
 			select {
 			case <-ctx.Done():
 				wg.Wait()
-				close(ch)
+				safeClose(ch)
 				return nil
 			default:
 			}
@@ -210,7 +210,7 @@ func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.
 		}
 
 		wg.Wait()
-		close(ch)
+		safeClose(ch)
 		return nil
 	}
 }
@@ -223,7 +223,7 @@ func RunStatus(ctx context.Context, tools []model.ToolState, ch chan<- model.Pro
 		for _, tool := range tools {
 			select {
 			case <-ctx.Done():
-				close(ch)
+				safeClose(ch)
 				return nil
 			default:
 			}
@@ -236,9 +236,17 @@ func RunStatus(ctx context.Context, tools []model.ToolState, ch chan<- model.Pro
 			})
 		}
 
-		close(ch)
+		safeClose(ch)
 		return nil
 	}
+}
+
+// safeClose closes a channel, recovering if the channel is already closed.
+// This is defensive: startPipeline always allocates a fresh channel, but
+// safeClose protects against edge cases where a channel is reused.
+func safeClose(ch chan<- model.ProgressMsg) {
+	defer func() { recover() }()
+	close(ch)
 }
 
 // sendProgress attempts to send a ProgressMsg on ch, respecting context
@@ -249,7 +257,15 @@ func RunStatus(ctx context.Context, tools []model.ToolState, ch chan<- model.Pro
 // done, the message is discarded and false is returned. Otherwise, the
 // send blocks until the channel has room (capacity is 64, so this is
 // unlikely to block in practice).
-func sendProgress(ctx context.Context, ch chan<- model.ProgressMsg, msg model.ProgressMsg) bool {
+func sendProgress(ctx context.Context, ch chan<- model.ProgressMsg, msg model.ProgressMsg) (sent bool) {
+	// Defensive: recover from panic caused by sending on a closed channel.
+	// This protects against callers that reuse a closed channel, though
+	// startPipeline always creates a fresh channel.
+	defer func() {
+		if r := recover(); r != nil {
+			sent = false
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		return false

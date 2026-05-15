@@ -359,6 +359,11 @@ func buildUninstallProgressTools(tools []model.ToolState) []screens.ProgressTool
 // All entry points to the InstallProgress screen MUST use this method so
 // that ProgressTools, counters, and polling are set up consistently.
 func (m *Model) startPipeline(mode string) tea.Cmd {
+	// Allocate a fresh channel on every invocation. The previous channel
+	// (if any) was closed by the prior pipeline run. Reusing it would cause
+	// a panic in sendProgress. See REQ-BUG-002.
+	m.Progress = make(chan model.ProgressMsg, 64)
+
 	if mode == "install" {
 		m.OperationMode = "install"
 		m.ProgressTools = buildProgressTools(m.Tools)
