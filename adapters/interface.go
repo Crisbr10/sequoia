@@ -76,3 +76,10 @@ type ToolAdapter interface {
 	// PromptStrategy returns the injection strategy used by this adapter.
 	PromptStrategy() PromptStrategy
 }
+
+// BackupDirGetter is an optional interface that adapters may implement
+// to expose the last backup directory path after Install/Uninstall.
+// REQ-BUG-004: the pipeline queries this to surface backup feedback.
+type BackupDirGetter interface {
+	LastBackupDir() string
+}

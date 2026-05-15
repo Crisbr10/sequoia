@@ -382,3 +382,59 @@ func TestInstallProgressView_NonEmptyView(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(view), "\n")
 	assert.GreaterOrEqual(t, len(lines), 3, "Progress view should span at least 3 lines")
 }
+
+// TestApplyProgressMsg_BackupInfo verifies that when a ProgressMsg with
+// Info set is applied, the step's Info field is populated. REQ-BUG-004.
+func TestApplyProgressMsg_BackupInfo(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolID:   "claude-code",
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Installing", Status: screens.StepDone},
+			},
+		},
+	}
+
+	msg := model.ProgressMsg{
+		ToolID: "claude-code",
+		Step:   "Installing",
+		Done:   true,
+		Info:   "/tmp/sequoia-backups/cursor-abc123",
+	}
+
+	updated, completed, newFailed, newWarning := screens.ApplyProgressMsg(tools, msg)
+
+	assert.Equal(t, 1, completed, "completed count should be 1")
+	assert.False(t, newFailed, "backup info should not be a failure")
+	assert.False(t, newWarning, "backup info should not be a warning")
+	assert.Equal(t, "/tmp/sequoia-backups/cursor-abc123", updated[0].Steps[0].Info,
+		"Info field should be populated from ProgressMsg.Info")
+	assert.Equal(t, screens.StepDone, updated[0].Steps[0].Status,
+		"step status should remain StepDone")
+}
+
+// TestInstallProgressView_BackupInfoRendered verifies that the backup info
+// is rendered in the view output. REQ-BUG-004.
+func TestInstallProgressView_BackupInfoRendered(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolID:   "claude-code",
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Installing", Status: screens.StepDone, Info: "/tmp/sequoia-backups/cursor-abc123"},
+			},
+		},
+	}
+
+	view := screens.InstallProgressView(tools, 1, 1, "install", "en")
+
+	assert.Contains(t, view, "[✓] Installing", "step should show checkmark")
+	assert.Contains(t, view, "/tmp/sequoia-backups/cursor-abc123",
+		"backup info should be rendered in the view")
+	assert.Contains(t, view, "Installing 1 of 1", "progress should show 1 of 1")
+}

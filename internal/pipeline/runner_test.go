@@ -770,3 +770,118 @@ func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {
 	require.Len(t, msgs, 2, "Should receive 2 messages for normal adapter")
 	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
 }
+
+// =========================================================================
+// TestRunInstall_BackupDirGetter
+// =========================================================================
+
+// backupAdapter wraps testAdapter and implements adapters.BackupDirGetter
+// so the pipeline can query the backup directory after Install/Uninstall.
+type backupAdapter struct {
+	testAdapter
+	backupDir string
+}
+
+func (a *backupAdapter) LastBackupDir() string {
+	return a.backupDir
+}
+
+// TestRunInstall_BackupDirGetter verifies that when an adapter implements
+// BackupDirGetter and returns a non-empty path, the pipeline emits a
+// ProgressMsg with Info set to the backup directory. REQ-BUG-004.
+func TestRunInstall_BackupDirGetter(t *testing.T) {
+	t.Parallel()
+
+	b := &backupAdapter{
+		testAdapter: testAdapter{id: "backup-tool", name: "Backup Tool"},
+		backupDir:   "/tmp/sequoia-backups/cursor-abc123",
+	}
+	tools := []model.ToolState{
+		{Adapter: b, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// After backup info emission: 1 running + 2 done (success + backup info).
+	require.Len(t, msgs, 3, "Should receive 3 messages: 1 running + 1 done + 1 backup info")
+
+	// First: running.
+	assert.Equal(t, "backup-tool", msgs[0].ToolID)
+	assert.False(t, msgs[0].Done)
+
+	// Second: done (success).
+	assert.Equal(t, "backup-tool", msgs[1].ToolID)
+	assert.True(t, msgs[1].Done)
+	assert.Empty(t, msgs[1].Error)
+	assert.Empty(t, msgs[1].Info)
+
+	// Third: backup info.
+	assert.Equal(t, "backup-tool", msgs[2].ToolID)
+	assert.True(t, msgs[2].Done)
+	assert.NotEmpty(t, msgs[2].Info, "backup info message should have Info set")
+	assert.Contains(t, msgs[2].Info, "/tmp/sequoia-backups/cursor-abc123",
+		"Info should contain the backup directory path")
+	assert.False(t, msgs[2].Warning, "backup info should not be a warning")
+	assert.Empty(t, msgs[2].Error, "backup info should not have Error set")
+}
+
+// TestRunInstall_BackupDirGetter_EmptyDir verifies that when BackupDirGetter
+// returns an empty string, no extra ProgressMsg is emitted.
+func TestRunInstall_BackupDirGetter_EmptyDir(t *testing.T) {
+	t.Parallel()
+
+	b := &backupAdapter{
+		testAdapter: testAdapter{id: "no-backup-tool", name: "No Backup Tool"},
+		backupDir:   "",
+	}
+	tools := []model.ToolState{
+		{Adapter: b, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// Standard 2 messages — no backup info when dir is empty.
+	require.Len(t, msgs, 2, "Should receive 2 messages when backup dir is empty")
+	assert.Empty(t, msgs[1].Info, "done message should not have Info when backup dir is empty")
+}
+
+// TestRunInstall_BackupDirGetter_NoInterface verifies that when an adapter
+// does NOT implement BackupDirGetter, no extra Info message is emitted.
+func TestRunInstall_BackupDirGetter_NoInterface(t *testing.T) {
+	t.Parallel()
+
+	a := &testAdapter{id: "no-getter", name: "No Getter"}
+	tools := []model.ToolState{
+		{Adapter: a, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, 64)
+	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// Standard 2 messages.
+	require.Len(t, msgs, 2, "Should receive 2 messages for adapter without BackupDirGetter")
+	assert.Empty(t, msgs[1].Info, "done message should not have Info when no BackupDirGetter")
+}

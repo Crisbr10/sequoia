@@ -106,6 +106,9 @@ type ProgressMsg struct {
 	// FailedCount reports how many individual sub-operations failed during
 	// a partial failure (used for warning messages like "3 files could not be removed").
 	FailedCount int
+	// Info contains non-error, non-warning informational text such as the
+	// backup directory path (REQ-BUG-004).
+	Info string
 }
 
 // Language represents a supported UI language.

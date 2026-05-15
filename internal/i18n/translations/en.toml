@@ -35,6 +35,7 @@ title_install = "Installing"
 title_uninstall = "Uninstalling"
 summary_install = "Installing {{.Completed}} of {{.Total}} tools..."
 summary_uninstall = "Uninstalling {{.Completed}} of {{.Total}} tools..."
+backup_dir = "Backup: {{.Dir}}"
 
 # ─── Complete Screen ───
 [complete]

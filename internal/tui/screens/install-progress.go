@@ -31,8 +31,12 @@ type ProgressStep struct {
 	Name string
 	// Status is the current execution state of this step.
 	Status StepStatus
-	// Error contains the error message when Status is StepFailed.
+	// Error contains the error message when Status is StepFailed, or warning text
+	// when the step is StepDone with a non-fatal warning.
 	Error string
+	// Info contains informational annotation text such as the backup directory path.
+	// It is displayed below the step in muted style when non-empty (REQ-BUG-004).
+	Info string
 }
 
 // ProgressTool represents per-tool install progress data for the display.
@@ -133,6 +137,15 @@ func renderStepRow(step ProgressStep) string {
 				prefix,
 				styles.Muted().Render(step.Error))
 		}
+		// Info annotation (e.g., backup directory path). REQ-BUG-004.
+		if step.Info != "" {
+			return fmt.Sprintf("%s%s %s\n%s      %s",
+				prefix,
+				styles.Success().Render("[✓]"),
+				styles.Success().Render(step.Name),
+				prefix,
+				styles.Muted().Render(step.Info))
+		}
 		return fmt.Sprintf("%s%s %s",
 			prefix,
 			styles.Success().Render("[✓]"),
@@ -210,7 +223,11 @@ func ApplyProgressMsg(tools []ProgressTool, msg model.ProgressMsg) ([]ProgressTo
 		// Find the matching step.
 		for j := range tools[i].Steps {
 			if tools[i].Steps[j].Name == msg.Step {
-				if msg.Warning {
+				if msg.Info != "" {
+					// Info message (e.g., backup directory) — annotate the step.
+					// Does not change Done status; step must already be Done.
+					tools[i].Steps[j].Info = msg.Info
+				} else if msg.Warning {
 					// Warning: step completed with non-fatal errors.
 					tools[i].Steps[j].Status = StepDone
 					tools[i].Steps[j].Error = msg.Error

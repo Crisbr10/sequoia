@@ -45,6 +45,7 @@ const (
 	MsgInstallProgressTitleUninstall   = "install_progress.title_uninstall"
 	MsgInstallProgressSummaryInstall   = "install_progress.summary_install"
 	MsgInstallProgressSummaryUninstall = "install_progress.summary_uninstall"
+	MsgInstallBackupDir                = "install_progress.backup_dir"
 )
 
 // --- Complete Screen ---

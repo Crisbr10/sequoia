@@ -80,6 +80,10 @@ type BaseAdapter struct {
 	// (e.g., symlink resolution failures). Protected by mu.
 	warnings []string
 	mu       sync.Mutex
+	// lastBackupDir stores the backup directory path from the most recent
+	// Install or Uninstall operation. Exposed via LastBackupDir() for
+	// BackupDirGetter interface conformance (REQ-BUG-004).
+	lastBackupDir string
 	// cachedHomeOnce guards one-time resolution of os.UserHomeDir().
 	cachedHomeOnce sync.Once
 	cachedHomeDir  string
@@ -167,6 +171,12 @@ func (a *BaseAdapter) Warnings() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return append([]string{}, a.warnings...)
+}
+
+// LastBackupDir returns the backup directory path from the most recent
+// Install or Uninstall operation. Implements adapters.BackupDirGetter.
+func (a *BaseAdapter) LastBackupDir() string {
+	return a.lastBackupDir
 }
 
 // clearWarnings removes all accumulated warnings. Caller must hold a.mu or
@@ -352,6 +362,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	// with pre-existing directories.
 	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
 	backupDir := a.backupPathFn(base) + "-" + sessionSuffix
+	a.lastBackupDir = backupDir
 
 	// Create target directories before Prepare (Prepare probes for write access).
 	for _, dir := range []string{skillsDir, commandsDir} {

@@ -159,6 +159,20 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 			})
 		}
 	}
+
+	// After a successful install/uninstall, check if the adapter exposes
+	// the backup directory and surface it as an informational message (REQ-BUG-004).
+	if getter, ok := adapter.(adapters.BackupDirGetter); ok {
+		dir := getter.LastBackupDir()
+		if dir != "" {
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID: toolID,
+				Step:   step,
+				Done:   true,
+				Info:   dir,
+			})
+		}
+	}
 }
 
 // runInstallSteps extracts the Install method from the concrete adapter
