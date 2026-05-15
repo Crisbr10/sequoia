@@ -119,11 +119,11 @@ func TestUninstallView_ShowsError(t *testing.T) {
 func TestUninstallUpdate_SpaceTogglesSelection(t *testing.T) {
 	t.Parallel()
 
-	_ = []model.ToolState{
+	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
 	msg := tea.KeyMsg{Type: tea.KeySpace}
-	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, 1)
+	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, 0, newCursor, "Cursor should not change on Space")
 	assert.True(t, shouldToggle, "Space should trigger toggle")
@@ -133,8 +133,13 @@ func TestUninstallUpdate_SpaceTogglesSelection(t *testing.T) {
 func TestUninstallUpdate_UpArrowMovesCursor(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyUp}
-	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 1, 3)
+	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 1, tools)
 
 	assert.Equal(t, 0, newCursor, "Up arrow should decrement cursor")
 	assert.False(t, shouldToggle)
@@ -144,8 +149,13 @@ func TestUninstallUpdate_UpArrowMovesCursor(t *testing.T) {
 func TestUninstallUpdate_DownArrowMovesCursor(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyDown}
-	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, 3)
+	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, 1, newCursor, "Down arrow should increment cursor")
 	assert.False(t, shouldToggle)
@@ -155,20 +165,30 @@ func TestUninstallUpdate_DownArrowMovesCursor(t *testing.T) {
 func TestUninstallUpdate_JKKeysMoveCursor(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
-	newCursor, _, _ := screens.UninstallUpdate(msg, 0, 3)
+	newCursor, _, _ := screens.UninstallUpdate(msg, 0, tools)
 	assert.Equal(t, 1, newCursor, "'j' should move cursor down")
 
 	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
-	newCursor, _, _ = screens.UninstallUpdate(msg, 1, 3)
+	newCursor, _, _ = screens.UninstallUpdate(msg, 1, tools)
 	assert.Equal(t, 0, newCursor, "'k' should move cursor up")
 }
 
 func TestUninstallUpdate_WrapsAtTop(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyUp}
-	newCursor, _, _ := screens.UninstallUpdate(msg, 0, 3)
+	newCursor, _, _ := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, 2, newCursor, "Up arrow at top should wrap to last item")
 }
@@ -176,8 +196,13 @@ func TestUninstallUpdate_WrapsAtTop(t *testing.T) {
 func TestUninstallUpdate_WrapsAtBottom(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyDown}
-	newCursor, _, _ := screens.UninstallUpdate(msg, 2, 3)
+	newCursor, _, _ := screens.UninstallUpdate(msg, 2, tools)
 
 	assert.Equal(t, 0, newCursor, "Down arrow at bottom should wrap to first item")
 }
@@ -185,8 +210,13 @@ func TestUninstallUpdate_WrapsAtBottom(t *testing.T) {
 func TestUninstallUpdate_EnterConfirms(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "b", name: "B", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "c", name: "C", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	_, _, action := screens.UninstallUpdate(msg, 0, 3)
+	_, _, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, "confirm", action, "Enter should confirm selection")
 }
@@ -194,17 +224,23 @@ func TestUninstallUpdate_EnterConfirms(t *testing.T) {
 func TestUninstallUpdate_EnterWithZeroToolsDoesNotConfirm(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: false}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	_, _, action := screens.UninstallUpdate(msg, 0, 0)
+	_, _, action := screens.UninstallUpdate(msg, 0, tools)
 
-	assert.NotEqual(t, "confirm", action, "Enter with 0 tools should not confirm")
+	assert.NotEqual(t, "confirm", action, "Enter with 0 installed tools should not confirm")
 }
 
 func TestUninstallUpdate_EscReturnsBack(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	_, _, action := screens.UninstallUpdate(msg, 0, 3)
+	_, _, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, "back", action, "Esc should return back to Status")
 }
@@ -212,8 +248,11 @@ func TestUninstallUpdate_EscReturnsBack(t *testing.T) {
 func TestUninstallUpdate_LeftArrowReturnsBack(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyLeft}
-	_, _, action := screens.UninstallUpdate(msg, 0, 3)
+	_, _, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, "back", action, "Left arrow should return back to Status")
 }
@@ -221,9 +260,12 @@ func TestUninstallUpdate_LeftArrowReturnsBack(t *testing.T) {
 func TestUninstallUpdate_SpaceRuneToggles(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+	}
 	// Some terminals send space as a rune (' ') instead of tea.KeySpace.
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
-	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, 1)
+	newCursor, shouldToggle, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.Equal(t, 0, newCursor, "Cursor should not change on space rune")
 	assert.True(t, shouldToggle, "Space rune should trigger toggle")
@@ -233,11 +275,74 @@ func TestUninstallUpdate_SpaceRuneToggles(t *testing.T) {
 func TestUninstallUpdate_UnknownKeyReturnsEmptyAction(t *testing.T) {
 	t.Parallel()
 
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "a", name: "A", inst: true}, Selected: false},
+	}
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
-	_, shouldToggle, action := screens.UninstallUpdate(msg, 0, 3)
+	_, shouldToggle, action := screens.UninstallUpdate(msg, 0, tools)
 
 	assert.False(t, shouldToggle, "Unknown key should not toggle")
 	assert.Empty(t, action, "Unknown key should return empty action")
+}
+
+// TestUninstallUpdate_CursorSkipsUninstalledTools verifies the core D1 fix:
+// with mixed installed/uninstalled tools, cursor navigation skips uninstalled
+// indices and wraps within the installed subset only. REQ-BUG-001.
+func TestUninstallUpdate_CursorSkipsUninstalledTools(t *testing.T) {
+	t.Parallel()
+
+	// 3 tools: only #0 and #2 are installed. #1 is NOT installed.
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude", name: "Claude Code", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
+		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI", inst: true}, Selected: false},
+	}
+
+	// Down from index 0 (Claude) should go to index 2 (Gemini), skipping 1 (OpenCode).
+	msgDown := tea.KeyMsg{Type: tea.KeyDown}
+	newCursor, _, _ := screens.UninstallUpdate(msgDown, 0, tools)
+	assert.Equal(t, 2, newCursor, "Down from installed tool 0 should skip uninstalled index 1 and land on 2")
+
+	// Down from index 2 (last installed) should wrap to index 0.
+	newCursor, _, _ = screens.UninstallUpdate(msgDown, 2, tools)
+	assert.Equal(t, 0, newCursor, "Down from last installed tool should wrap to first installed (index 0)")
+
+	// Up from index 2 should go to index 0 (skip uninstalled index 1).
+	msgUp := tea.KeyMsg{Type: tea.KeyUp}
+	newCursor, _, _ = screens.UninstallUpdate(msgUp, 2, tools)
+	assert.Equal(t, 0, newCursor, "Up from last installed tool should skip uninstalled index 1 and go to 0")
+
+	// Up from index 0 should wrap to last installed (index 2).
+	newCursor, _, _ = screens.UninstallUpdate(msgUp, 0, tools)
+	assert.Equal(t, 2, newCursor, "Up from first installed tool should wrap to last installed (index 2)")
+}
+
+// TestUninstallView_IteratesFullToolsSkipsNonInstalled verifies that
+// UninstallView renders tools by iterating the full []ToolState but only
+// showing installed tools. Non-installed tools are still in the index
+// sequence for cursor tracking. REQ-BUG-001.
+func TestUninstallView_IteratesFullToolsSkipsNonInstalled(t *testing.T) {
+	t.Parallel()
+
+	// 3 tools, only #0 and #2 installed. Cursor at #2 (Gemini, last installed).
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
+		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
+		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI", inst: true}, Selected: true},
+	}
+	view := screens.UninstallView(tools, 2, "", "en")
+
+	// Should show installed tools only.
+	assert.Contains(t, view, "Claude Code", "installed tool Claude Code should appear")
+	assert.Contains(t, view, "Gemini CLI", "installed tool Gemini CLI should appear")
+	assert.NotContains(t, view, "OpenCode", "uninstalled tool OpenCode should NOT appear")
+
+	// Gemini CLI (index 2) should be highlighted (▶ indicator).
+	assert.Contains(t, view, "▶", "cursor at index 2 (Gemini CLI) should show highlight indicator")
+
+	// Should show checkboxes.
+	assert.Contains(t, view, "[x]", "selected Gemini CLI should show [x]")
+	assert.Contains(t, view, "[ ]", "unselected Claude Code should show [ ]")
 }
 
 func TestUninstallView_ShowsEscBackHint(t *testing.T) {

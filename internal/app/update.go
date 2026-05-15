@@ -211,9 +211,9 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		newCursor, shouldToggle, action := screens.UninstallUpdate(msg, m.Cursor, len(m.Tools))
+		newCursor, shouldToggle, action := screens.UninstallUpdate(msg, m.Cursor, m.Tools)
 		m.Cursor = newCursor
-		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
+		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle && m.Tools[m.Cursor].Adapter.IsInstalled() {
 			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
 			m.ErrorMsg = ""
 		}

@@ -649,7 +649,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenUninstall

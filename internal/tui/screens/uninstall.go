@@ -13,6 +13,8 @@ import (
 
 // UninstallView renders the Uninstall screen showing a checkbox list
 // of installed tools. Tools that are not installed are not shown.
+// The full tools array is iterated so cursor indexing matches the
+// original ToolState positions; only installed tools are rendered.
 // errorMsg, when non-empty, is rendered above the footer as a validation error.
 // lang is the current UI language (e.g., "en", "es").
 func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang string) string {
@@ -22,9 +24,15 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang st
 	b.WriteString(styles.Title().Render(i18n.T(i18n.MsgUninstallTitle, lang)))
 	b.WriteString("\n\n")
 
-	// Collect installed tools.
-	installed := filterInstalled(tools)
-	if len(installed) == 0 {
+	// Count installed tools to detect empty state.
+	installedCount := 0
+	for _, ts := range tools {
+		if ts.Adapter.IsInstalled() {
+			installedCount++
+		}
+	}
+
+	if installedCount == 0 {
 		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgUninstallEmpty, lang)))
 		b.WriteString("\n\n")
 
@@ -42,8 +50,13 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang st
 		return b.String()
 	}
 
-	// Checkbox list of installed tools.
-	for i, ts := range installed {
+	// Iterate full tools array; skip non-installed tools.
+	// Cursor indexing uses the full array position so cursor wraps correctly
+	// within the installed subset (see REQ-BUG-001).
+	for i, ts := range tools {
+		if !ts.Adapter.IsInstalled() {
+			continue
+		}
 		b.WriteString(renderUninstallRow(ts, i, cursor == i))
 		b.WriteString("\n")
 	}
@@ -110,27 +123,47 @@ func renderUninstallRow(ts model.ToolState, _ int, highlighted bool) string {
 // UninstallUpdate handles key events on the Uninstall screen.
 // It returns the new cursor position, whether to toggle the current selection,
 // and an action string: "confirm" (Enter), "back" (Esc/Left), or "" (no action).
-// count is the total number of installable tools (installed + not-installed)
-// available to the caller for toggling logic.
-func UninstallUpdate(msg tea.KeyMsg, cursor int, count int) (int, bool, string) {
+// tools is the full []ToolState array. Navigation skips non-installed tools
+// and wraps within the installed subset (REQ-BUG-001).
+func UninstallUpdate(msg tea.KeyMsg, cursor int, tools []model.ToolState) (int, bool, string) {
+	// Count installed tools for boundary checks.
+	installedCount := 0
+	for _, ts := range tools {
+		if ts.Adapter.IsInstalled() {
+			installedCount++
+		}
+	}
+
 	switch msg.Type {
 	case tea.KeyUp:
-		if count == 0 {
+		if installedCount == 0 {
 			return cursor, false, ""
 		}
-		cursor--
-		if cursor < 0 {
-			cursor = count - 1
+		// Find the previous installed tool, wrapping around.
+		for {
+			cursor--
+			if cursor < 0 {
+				cursor = len(tools) - 1
+			}
+			if tools[cursor].Adapter.IsInstalled() {
+				break
+			}
 		}
 		return cursor, false, ""
 
 	case tea.KeyDown:
-		if count == 0 {
+		if installedCount == 0 {
 			return cursor, false, ""
 		}
-		cursor++
-		if cursor >= count {
-			cursor = 0
+		// Find the next installed tool, wrapping around.
+		for {
+			cursor++
+			if cursor >= len(tools) {
+				cursor = 0
+			}
+			if tools[cursor].Adapter.IsInstalled() {
+				break
+			}
 		}
 		return cursor, false, ""
 
@@ -138,7 +171,7 @@ func UninstallUpdate(msg tea.KeyMsg, cursor int, count int) (int, bool, string) 
 		return cursor, true, ""
 
 	case tea.KeyEnter:
-		if count == 0 {
+		if installedCount == 0 {
 			return cursor, false, ""
 		}
 		return cursor, false, "confirm"
@@ -154,22 +187,32 @@ func UninstallUpdate(msg tea.KeyMsg, cursor int, count int) (int, bool, string) 
 		case ' ':
 			return cursor, true, ""
 		case 'j':
-			if count == 0 {
+			if installedCount == 0 {
 				return cursor, false, ""
 			}
-			cursor++
-			if cursor >= count {
-				cursor = 0
+			for {
+				cursor++
+				if cursor >= len(tools) {
+					cursor = 0
+				}
+				if tools[cursor].Adapter.IsInstalled() {
+					break
+				}
 			}
 			return cursor, false, ""
 
 		case 'k':
-			if count == 0 {
+			if installedCount == 0 {
 				return cursor, false, ""
 			}
-			cursor--
-			if cursor < 0 {
-				cursor = count - 1
+			for {
+				cursor--
+				if cursor < 0 {
+					cursor = len(tools) - 1
+				}
+				if tools[cursor].Adapter.IsInstalled() {
+					break
+				}
 			}
 			return cursor, false, ""
 
