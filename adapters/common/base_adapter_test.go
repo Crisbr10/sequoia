@@ -391,7 +391,14 @@ func TestBaseAdapter_BaseCachesUserHomeDir(t *testing.T) {
 func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
 	t.Parallel()
 
-	tmp := t.TempDir()
+	raw := t.TempDir()
+	// Normalize the temp dir path: on Windows, t.TempDir() may return paths
+	// using 8.3 short names (C:\Users\RUNNER~1\...) while ResolveSymlink
+	// inside base() resolves them to long names (C:\Users\runneradmin\...).
+	// Normalize before comparison to avoid short-vs-long mismatch.
+	tmp, err := filepath.EvalSymlinks(raw)
+	require.NoError(t, err)
+
 	a := &common.BaseAdapter{}
 	a.SetIDName("override-test", "Override Test")
 	a.SetHomeDir(tmp)

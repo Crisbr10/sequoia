@@ -32,7 +32,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v1
+          version: v1.64
 
       - name: Test
         run: |

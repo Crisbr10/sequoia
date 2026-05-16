@@ -17,47 +17,62 @@ import (
 )
 
 // bundle holds the go-i18n/v2 bundle with loaded message catalogs.
-// It is populated by Init() via sync.Once.
+// It is populated by Init() via sync.Mutex for safe testing resets.
 var (
 	bundle      *i18n.Bundle
-	initOnce    sync.Once
+	initMu      sync.Mutex
 	initErr     error
 	initialized bool
 )
 
 // Init loads the embedded English and Spanish TOML catalogs into the global
 // i18n bundle. It MUST be called once at application startup before any T()
-// calls. The function is idempotent via sync.Once — subsequent calls after the
+// calls. The function is idempotent — subsequent calls after the
 // first successful init are no-ops.
 //
 // Missing or corrupt English catalog is fatal (returns error). Missing Spanish
 // catalog is non-fatal (logs a warning, continues with English-only).
 func Init() error {
-	initOnce.Do(func() {
-		bundle = i18n.NewBundle(language.English)
-		bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
+	initMu.Lock()
+	defer initMu.Unlock()
 
-		// Load English catalog (required).
-		enData, err := translations.FS.ReadFile("en.toml")
-		if err != nil {
-			initErr = fmt.Errorf("i18n: failed to read en.toml: %w", err)
-			return
+	if initialized {
+		return initErr
+	}
+
+	bundle = i18n.NewBundle(language.English)
+	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
+
+	// Load English catalog (required).
+	enData, err := translations.FS.ReadFile("en.toml")
+	if err != nil {
+		initErr = fmt.Errorf("i18n: failed to read en.toml: %w", err)
+		return initErr
+	}
+	bundle.MustParseMessageFileBytes(enData, "en.toml")
+
+	// Load Spanish catalog (non-fatal).
+	esData, err := translations.FS.ReadFile("es.toml")
+	if err != nil {
+		log.Printf("[i18n] warning: Spanish catalog not found (%v), continuing with English only", err)
+	} else {
+		if _, err := bundle.ParseMessageFileBytes(esData, "es.toml"); err != nil {
+			log.Printf("[i18n] warning: failed to parse es.toml: %v", err)
 		}
-		bundle.MustParseMessageFileBytes(enData, "en.toml")
+	}
 
-		// Load Spanish catalog (non-fatal).
-		esData, err := translations.FS.ReadFile("es.toml")
-		if err != nil {
-			log.Printf("[i18n] warning: Spanish catalog not found (%v), continuing with English only", err)
-		} else {
-			if _, err := bundle.ParseMessageFileBytes(esData, "es.toml"); err != nil {
-				log.Printf("[i18n] warning: failed to parse es.toml: %v", err)
-			}
-		}
+	initialized = true
+	return nil
+}
 
-		initialized = true
-	})
-	return initErr
+// ResetForTesting clears the bundle so tests can start from a clean slate.
+// Must NOT be called from production code.
+func ResetForTesting() {
+	initMu.Lock()
+	defer initMu.Unlock()
+	bundle = nil
+	initialized = false
+	initErr = nil
 }
 
 // T looks up the localized message for key in the given language.

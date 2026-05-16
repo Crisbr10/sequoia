@@ -564,25 +564,20 @@ func TestAtomicWriteFile_WritesDataAtomically(t *testing.T) {
 }
 
 // TestAtomicWriteFile_FailedRenameCleansTemp verifies that when os.Rename
-// fails (simulated by writing to a read-only directory), the temporary file
-// is cleaned up and the error is returned.
+// fails (target path is a directory — rename of a file onto a directory fails
+// on all platforms), the temporary file is cleaned up and the error is returned.
 func TestAtomicWriteFile_FailedRenameCleansTemp(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("read-only directory simulation requires Unix semantics — skipping on Windows")
-	}
 	t.Parallel()
 
 	dir := t.TempDir()
-	// Create a read-only subdirectory — rename into it will fail.
-	sub := filepath.Join(dir, "readonly")
-	require.NoError(t, os.Mkdir(sub, 0o755))
-	// Create targetFile's parent as a regular file, so the rename fails.
-	targetPath := filepath.Join(sub, "blocker", "target.txt")
-	blockerPath := filepath.Join(sub, "blocker")
-	require.NoError(t, os.WriteFile(blockerPath, []byte("block"), 0o644))
+	// Create the target as a directory so that os.Rename(file, dir) fails on
+	// every platform (you cannot replace a directory with a regular file).
+	// The write of the .tmp file succeeds because the parent is writable.
+	targetPath := filepath.Join(dir, "target")
+	require.NoError(t, os.Mkdir(targetPath, 0o755))
 
 	err := common.AtomicWriteFile(targetPath, []byte("data"), 0o644)
-	assert.Error(t, err, "rename should fail when parent is a file")
+	assert.Error(t, err, "rename should fail when target is a directory")
 
 	// Verify the .tmp file was cleaned up.
 	tmpPath := targetPath + ".tmp"

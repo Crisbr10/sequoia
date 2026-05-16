@@ -12,8 +12,11 @@ import (
 // TestInit_HappyPath verifies that Init() succeeds when both embedded catalogs
 // are present, and Initialized() transitions to true.
 // Spec scenario 1.
+// NOT parallel — checks pre-Init global state that would be racy with other
+// tests calling Init().
 func TestInit_HappyPath(t *testing.T) {
-	t.Parallel()
+	// Reset global state so we have a clean slate before the pre-Init check.
+	i18n.ResetForTesting()
 
 	// Before Init, Initialized should be false.
 	assert.False(t, i18n.Initialized(),
@@ -187,13 +190,12 @@ func TestT_MultipleKeysAcrossScreens(t *testing.T) {
 
 // TestT_BeforeInitStillWorks verifies that T() doesn't panic when called
 // before Init(). It should return the key itself as a safe fallback.
+// NOT parallel — checks pre-Init behavior that depends on global state.
 func TestT_BeforeInitStillWorks(t *testing.T) {
-	t.Parallel()
+	// Reset global state so the bundle is truly uninitialized.
+	i18n.ResetForTesting()
 
-	// We can't easily reset the bundle's sync.Once, but the stub
-	// returns the key itself in all cases before Init.
-	// After the real implementation, T() should not panic even if
-	// called before Init() — it should return the key.
+	// T() before Init() should not panic and should return the key itself.
 	result := i18n.T("welcome.menu_install", "en")
 	assert.NotEmpty(t, result, "T() before Init() should still return something")
 }
