@@ -1,6 +1,6 @@
    Status 
 
-▶ ✅ Claude Code  v0.1.0  /home/user/.claude
-  ✅ OpenCode  v0.1.0  /home/user/.config/opencode
+▶ ✅ Claude Code  v0.1.0
+  ✅ OpenCode  v0.1.0
 
   ↑/↓ j/k navigate  u update  r reinstall  d uninstall  Esc back  q quit

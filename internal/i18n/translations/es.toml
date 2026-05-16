@@ -44,6 +44,7 @@ heading_install = "✅  ¡Instalación Completa!"
 heading_uninstall = "✅  ¡Desinstalación Completa!"
 heading_uninstall_warnings = "⚠️  Desinstalación Completada con Avisos — {{.Count}} herramienta(s) tuvieron problemas"
 installed_items = "Instalado: Skills, Comandos, System Prompt"
+uninstalled_items = "Desinstalado: Skills, Comandos, System Prompt"
 warnings_note = "Algunos archivos no pudieron eliminarse — verifica los permisos e inténtalo de nuevo."
 try_command = "Prueba ejecutando: sequoia status"
 

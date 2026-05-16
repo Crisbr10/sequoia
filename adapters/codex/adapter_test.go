@@ -273,3 +273,37 @@ func TestAdapter_Install_ReturnsSentinelError(t *testing.T) {
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed),
 		"error should wrap ErrInstallFailed, got: %v", err)
 }
+
+// TestAdapter_ProductionPath verifies that Codex's Install and Uninstall,
+// when homeDir="" (production), resolve the correct home directory via
+// a.Base() instead of operating on a relative path.
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	a := codex.NewAdapter("")
+
+	// Install should create files in the controlled home.
+	require.NoError(t, a.Install(adapters.InstallOpts{}))
+
+	codexDir := filepath.Join(tmpHome, ".codex")
+	sequoiaDir := filepath.Join(codexDir, "sequoia")
+	skillsDir := filepath.Join(sequoiaDir, "skills")
+
+	// Verify install created files in the production home.
+	_, err := os.Stat(skillsDir)
+	require.NoError(t, err, "skills dir should exist after install")
+	skillFile := filepath.Join(skillsDir, "SKILL.md")
+	_, err = os.Stat(skillFile)
+	require.NoError(t, err, "SKILL.md should exist after install")
+
+	// Uninstall should remove files from the controlled home.
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
+
+	// After uninstall, the sequoia dir must be gone.
+	_, err = os.Stat(sequoiaDir)
+	assert.True(t, os.IsNotExist(err),
+		"sequoia dir must be removed from production home after uninstall, but it still exists")
+}

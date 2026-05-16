@@ -39,7 +39,7 @@ func TestStatusView_ShowsNotInstalledToolsWithCross(t *testing.T) {
 	assert.Contains(t, view, "❌", "Status should show not-installed indicator")
 }
 
-func TestStatusView_ShowsVersionAndPath(t *testing.T) {
+func TestStatusView_ShowsVersion(t *testing.T) {
 	t.Parallel()
 
 	tools := []model.ToolState{
@@ -48,7 +48,7 @@ func TestStatusView_ShowsVersionAndPath(t *testing.T) {
 	view := screens.StatusView(tools, 0, "en")
 
 	assert.Contains(t, view, "v0.1.0", "Status should show version")
-	assert.Contains(t, view, "/home/user/.claude", "Status should show install path")
+	assert.NotContains(t, view, "/home/user/.claude", "Status should not show install path")
 }
 
 func TestStatusView_ShowsMixedState(t *testing.T) {

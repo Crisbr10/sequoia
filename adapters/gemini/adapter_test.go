@@ -368,3 +368,37 @@ func TestAdapter_Install_ReturnsSentinelError(t *testing.T) {
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed),
 		"error should wrap ErrInstallFailed, got: %v", err)
 }
+
+// TestAdapter_Uninstall_ProductionPath verifies that Gemini's Uninstall,
+// when homeDir="" (production), resolves the correct home directory via
+// a.base() instead of operating on a relative path.
+// NOT parallel-safe: uses t.Setenv which is incompatible with t.Parallel().
+func TestAdapter_Uninstall_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Create .gemini dir with sequoia content inside the controlled home.
+	geminiDir := filepath.Join(tmpHome, ".gemini")
+	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
+
+	sequoiaDir := filepath.Join(geminiDir, "sequoia")
+	require.NoError(t, os.MkdirAll(sequoiaDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sequoiaDir, "test-file.txt"),
+		[]byte("content"), 0o644))
+
+	// Write GEMINI.md with sequoia section so RemoveMarkdownSection works.
+	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
+	require.NoError(t, os.WriteFile(geminiMD,
+		[]byte("<!-- sequoia:start -->\ncontent\n<!-- sequoia:end -->\n"), 0o644))
+
+	// Create adapter with empty homeDir (production path).
+	a := gemini.NewAdapter("")
+	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
+
+	// After uninstall, sequoia dir under the controlled home must be gone.
+	_, err := os.Stat(sequoiaDir)
+	assert.True(t, os.IsNotExist(err),
+		"sequoia dir must be removed from production home after uninstall, but it still exists")
+}

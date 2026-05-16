@@ -45,12 +45,12 @@ The Uninstall screen footer SHALL display "Esc back" alongside existing navigati
 
 ### Requirement: Status Screen
 
-The Status screen MUST show per-tool: name, installed (✅/❌), Sequoia version, installation path. Available actions: `u` update, `r` reinstall all installed tools, `d` uninstall, `q` quit. The reinstall action SHALL build ProgressTools from all tools where `IsInstalled()` is true, reset progress counters, start the install pipeline, and begin progress polling.
+The Status screen MUST show per-tool: cursor indicator, installed marker (✅/❌), tool name, and Sequoia version. The installation path MUST NOT appear in TUI status rows. Available actions: `u` update, `r` reinstall all installed tools, `d` uninstall, `q` quit. The reinstall action SHALL build ProgressTools from all tools where `IsInstalled()` is true, reset progress counters, start the install pipeline, and begin progress polling.
 
 | # | Scenario | GIVEN | WHEN | THEN |
 |---|----------|-------|------|------|
-| 1 | All installed | 2 tools, both `IsInstalled()==true` | Status renders | Both show ✅ with version and path |
-| 2 | Mixed state | 1 installed, 1 not | Status renders | Installed: ✅; not-installed: ❌ with "—" |
+| 1 | All installed | 2 tools, both `IsInstalled()==true` | Status renders | Both show ✅ with version (no path) |
+| 2 | Mixed state | 1 installed, 1 not | Status renders | Installed: ✅; not-installed: ❌ with "—" (no extra dash) |
 | 3 | Uninstall action | Tool highlighted | User presses `d` | Transitions to Uninstall screen |
 | 4 | Reinstall action | Installed tools present | User presses `r` | ProgressTools built from all installed tools; counters reset; install pipeline started; polling begins; navigates to InstallProgress |
 | 5 | No tools detected | 0 adapters registered | Status renders | "No adapters registered" message |

@@ -50,6 +50,13 @@ dist/
 tmp/
 temp/
 
+# Adapter test artifacts (installed Sequoia content from test runs)
+adapters/*/.claude/
+adapters/*/.gemini/
+adapters/*/.cursor/
+adapters/*/.codex/
+adapters/*/.opencode/
+
 # OS generated
 [Tt]humbs.db
 *.orig

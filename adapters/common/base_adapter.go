@@ -186,10 +186,10 @@ func (a *BaseAdapter) clearWarnings() {
 	a.warnings = a.warnings[:0]
 }
 
-// base resolves and returns the tool's config root directory.
+// Base resolves and returns the tool's config root directory.
 // If a.homeDir is empty, os.UserHomeDir() is called. The home directory
 // is resolved via ResolveSymlink before being passed to resolveBase.
-func (a *BaseAdapter) base() (string, error) {
+func (a *BaseAdapter) Base() (string, error) {
 	homeDir := a.homeDir
 	if homeDir == "" {
 		a.cachedHomeOnce.Do(func() {
@@ -211,7 +211,7 @@ func (a *BaseAdapter) base() (string, error) {
 
 // SkillsPath returns the absolute path to the skills directory.
 func (a *BaseAdapter) SkillsPath() string {
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return ""
 	}
@@ -220,7 +220,7 @@ func (a *BaseAdapter) SkillsPath() string {
 
 // CommandsPath returns the absolute path to the commands directory.
 func (a *BaseAdapter) CommandsPath() string {
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return ""
 	}
@@ -229,7 +229,7 @@ func (a *BaseAdapter) CommandsPath() string {
 
 // SystemPromptPath returns the absolute path to the system prompt file.
 func (a *BaseAdapter) SystemPromptPath() string {
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return ""
 	}
@@ -248,7 +248,7 @@ func (a *BaseAdapter) Detect() bool {
 
 // IsInstalled reports whether Sequoia has already been installed.
 func (a *BaseAdapter) IsInstalled() bool {
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return false
 	}
@@ -260,7 +260,7 @@ func (a *BaseAdapter) Status() adapters.AdapterStatus {
 	installed := a.IsInstalled()
 	version := ""
 	if installed {
-		base, err := a.base()
+		base, err := a.Base()
 		if err == nil {
 			data, err := os.ReadFile(a.versionFilePathFn(base))
 			if err == nil {
@@ -317,7 +317,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		lang = "en"
 	}
 
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return fmt.Errorf("install: resolve home: %w", err)
 	}
@@ -460,7 +460,7 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("uninstall: %w", err)
 	}
 
-	base, err := a.base()
+	base, err := a.Base()
 	if err != nil {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}

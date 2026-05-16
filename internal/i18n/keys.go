@@ -54,6 +54,7 @@ const (
 	MsgCompleteHeadingUninstall         = "complete.heading_uninstall"
 	MsgCompleteHeadingUninstallWarnings = "complete.heading_uninstall_warnings"
 	MsgCompleteInstalledItems           = "complete.installed_items"
+	MsgCompleteUninstalledItems         = "complete.uninstalled_items"
 	MsgCompleteWarningsNote             = "complete.warnings_note"
 	MsgCompleteTryCommand               = "complete.try_command"
 )

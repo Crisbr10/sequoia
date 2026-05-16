@@ -12,7 +12,7 @@ import (
 )
 
 // StatusView renders the Status screen with a table showing per-tool
-// installation state: name, installed indicator, version, and path.
+// installation state: name, installed indicator, and version.
 // lang is the current UI language (e.g., "en", "es").
 func StatusView(tools []model.ToolState, cursor int, lang string) string {
 	var b strings.Builder
@@ -68,22 +68,17 @@ func renderStatusRow(ts model.ToolState, highlighted bool) string {
 		marker = styles.Success().Render("✅")
 	}
 
-	// Version and path.
+	// Version.
 	version := status.Version
 	if version == "" {
 		version = "—"
 	}
-	path := status.Path
-	if path == "" {
-		path = "—"
-	}
 
-	line := fmt.Sprintf("%s%s %s  %s  %s",
+	line := fmt.Sprintf("%s%s %s  %s",
 		prefix,
 		marker,
 		styles.Body().Render(ts.Adapter.Name()),
 		styles.Muted().Render(version),
-		styles.Muted().Render(path),
 	)
 	return line
 }

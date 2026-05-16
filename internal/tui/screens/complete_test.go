@@ -167,6 +167,25 @@ func TestCompleteView_UninstallModeShowsUninstallationComplete(t *testing.T) {
 	assert.Contains(t, view, "Uninstallation Complete", "uninstall mode should show 'Uninstallation Complete'")
 }
 
+func TestCompleteView_UninstallModeShowsUninstalledItems(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepDone},
+				{Name: "Commands", Status: screens.StepDone},
+				{Name: "System Prompt", Status: screens.StepDone},
+			},
+		},
+	}
+
+	view := screens.CompleteView(tools, "uninstall", 0, "en")
+	assert.Contains(t, view, "Uninstalled", "clean uninstall should show 'Uninstalled' in summary")
+	assert.NotContains(t, view, "Installed", "clean uninstall should NOT show 'Installed'")
+}
+
 func TestCompleteView_EmptyModeDefaultsToInstallationComplete(t *testing.T) {
 	t.Parallel()
 
@@ -288,6 +307,32 @@ func TestCompleteView_Golden_PartialSuccess(t *testing.T) {
 	view := screens.CompleteView(tools, "", 0, "en")
 
 	golden := goldenPath("complete_partial.txt")
+	if updateGolden {
+		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
+		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
+		t.Logf("updated golden file: %s", golden)
+		return
+	}
+
+	expected, err := os.ReadFile(golden)
+	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
+	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
+}
+
+func TestCompleteView_Golden_UninstallClean(t *testing.T) {
+	tools := []screens.ProgressTool{
+		{
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepDone},
+				{Name: "Commands", Status: screens.StepDone},
+				{Name: "System Prompt", Status: screens.StepDone},
+			},
+		},
+	}
+	view := screens.CompleteView(tools, "uninstall", 0, "en")
+
+	golden := goldenPath("complete_uninstall_clean.txt")
 	if updateGolden {
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))

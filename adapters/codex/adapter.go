@@ -77,7 +77,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		lang = "en"
 	}
 
-	base, err := codexBase(a.HomeDir())
+	base, err := a.Base()
 	if err != nil {
 		return fmt.Errorf("install: resolve home: %w", err)
 	}
@@ -172,7 +172,7 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
 		}
 	}()
 
-	base, err := codexBase(a.HomeDir())
+	base, err := a.Base()
 	if err != nil {
 		return fmt.Errorf("uninstall: resolve home: %w", err)
 	}

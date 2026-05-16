@@ -49,6 +49,7 @@ var allKeys = []string{
 	i18n.MsgCompleteHeadingUninstall,
 	i18n.MsgCompleteHeadingUninstallWarnings,
 	i18n.MsgCompleteInstalledItems,
+	i18n.MsgCompleteUninstalledItems,
 	i18n.MsgCompleteWarningsNote,
 	i18n.MsgCompleteTryCommand,
 
@@ -137,9 +138,9 @@ func TestKeys_TotalCount(t *testing.T) {
 	t.Parallel()
 
 	// Expected: 6 welcome + 4 tool_selection + 9 configuration + 4 install_progress
-	// + 6 complete + 2 error + 2 status + 4 uninstall + 2 validation + 1 default
-	// + 25 footer = 65 keys total
-	expectedCount := 65
+	// + 7 complete + 2 error + 2 status + 4 uninstall + 2 validation + 1 default
+	// + 25 footer = 66 keys total
+	expectedCount := 66
 	assert.Len(t, allKeys, expectedCount,
 		"key count mismatch; update allKeys slice and this assertion when adding/removing keys")
 }

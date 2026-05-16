@@ -1,0 +1,9 @@
+✅  Uninstallation Complete!
+
+  ✅ Claude Code
+
+  Uninstalled: Skills, Commands, System Prompt
+
+  Try running: sequoia status
+
+  r — Status screen  q — Quit

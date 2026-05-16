@@ -207,27 +207,32 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print the CLI version",
 		Long:  "Print the Sequoia CLI version number.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v := Version
-			if v == "0.1.0-dev" {
-				if info, ok := debug.ReadBuildInfo(); ok {
-					if mv := info.Main.Version; mv != "" && mv != "(devel)" {
-						v = mv
-					} else {
-						for _, s := range info.Settings {
-							if s.Key == "vcs.revision" {
-								v = "unknown-" + s.Value[:8]
-								break
-							}
-						}
-					}
-				}
-			}
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), v)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), resolveVersion(Version))
 			return nil
 		},
 	}
 
 	return cmd
+}
+
+// resolveVersion resolves the CLI version. If raw is "0.1.0-dev",
+// it attempts to read the real version from debug.ReadBuildInfo().
+// Otherwise, it returns raw unchanged.
+func resolveVersion(raw string) string {
+	if raw != "0.1.0-dev" {
+		return raw
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if mv := info.Main.Version; mv != "" && mv != "(devel)" {
+			return mv
+		}
+		for _, s := range info.Settings {
+			if s.Key == "vcs.revision" {
+				return "unknown-" + s.Value[:8]
+			}
+		}
+	}
+	return raw
 }
 
 // isTerminalFn wraps isTerminal so it can be overridden in tests.
@@ -401,7 +406,7 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 // support, and blocks until the user quits.
 func runTUI(toolID string) error {
 	p := tea.NewProgram(
-		app.NewModel(toolID, Version),
+		app.NewModel(toolID, resolveVersion(Version)),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

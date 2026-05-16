@@ -69,9 +69,11 @@ func CompleteView(progressTools []ProgressTool, mode string, warnedCount int, la
 
 	b.WriteString("\n")
 
-	// What was installed.
+	// What was installed or uninstalled.
 	if mode == "uninstall" && warnedCount > 0 {
 		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgCompleteWarningsNote, lang)))
+	} else if mode == "uninstall" {
+		b.WriteString(styles.Body().Render("  " + i18n.T(i18n.MsgCompleteUninstalledItems, lang)))
 	} else {
 		b.WriteString(styles.Body().Render("  " + i18n.T(i18n.MsgCompleteInstalledItems, lang)))
 	}

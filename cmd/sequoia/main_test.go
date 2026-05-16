@@ -499,6 +499,41 @@ func TestScanTools_PopulatesVersion(t *testing.T) {
 
 // -- FIX-004: Signal handling tests -------------------------------------------
 
+// TestResolveVersion_PassThrough verifies that resolveVersion returns the raw
+// value unchanged when it is not the dev fallback "0.1.0-dev".
+func TestResolveVersion_PassThrough(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		raw  string
+		want string
+	}{
+		{"1.2.3", "1.2.3"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		got := resolveVersion(tt.raw)
+		if got != tt.want {
+			t.Errorf("resolveVersion(%q) = %q; want %q", tt.raw, got, tt.want)
+		}
+	}
+}
+
+// TestResolveVersion_DevResolves verifies that when Version is "0.1.0-dev",
+// resolveVersion returns a non-empty resolved value that is not "(devel)".
+func TestResolveVersion_DevResolves(t *testing.T) {
+	t.Parallel()
+
+	got := resolveVersion("0.1.0-dev")
+	if got == "" {
+		t.Fatal("resolveVersion('0.1.0-dev') returned empty string")
+	}
+	if got == "(devel)" {
+		t.Error("resolveVersion should not return raw '(devel)', should be resolved")
+	}
+}
+
 // TestSignalHandling_RootCommandHasContext verifies that the root command
 // created by newRootCmd can be assigned a context via SetContext, and that
 // this context is accessible through cmd.Context(). This confirms the
