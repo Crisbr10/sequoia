@@ -347,11 +347,11 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenConfiguration
 	m.EngramAvailable = true
-	m.Config = model.TUIConfig{Language: "en", Persistence: "engram"}
+	m.Config = model.TUIConfig{Persistence: "engram"}
 
 	view := m.View()
 	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view)
-	assert.Contains(t, view, "Language", "Configuration should show language selector")
+	assert.Contains(t, view, "Persistence", "Configuration should show persistence label")
 	assert.Contains(t, view, "Engram", "Configuration should show persistence option")
 }
 

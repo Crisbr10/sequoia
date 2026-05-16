@@ -25,10 +25,6 @@ const (
 // It is designed to be extended with additional fields as needed without
 // breaking the adapter interface (pass-by-value).
 type InstallOpts struct {
-	// Language is the ISO 639-1 or BCP 47 code (e.g. "en", "es", "pt-BR")
-	// for the language to use when rendering templates and agent docs.
-	Language string
-
 	// Context is an optional context for cancellation propagation.
 	// When set and cancelled, Install and Uninstall should abort early
 	// and roll back any partial work. A nil Context means no cancellation
@@ -60,10 +56,10 @@ type ToolAdapter interface {
 	// IsInstalled reports whether Sequoia has already been installed for this tool.
 	IsInstalled() bool
 	// Install installs Sequoia files for this tool.
-	// opts carries optional configuration such as the target language.
+	// opts carries optional configuration such as cancellation context.
 	Install(opts InstallOpts) error
 	// Uninstall removes Sequoia files for this tool.
-	// opts carries optional configuration such as the target language.
+	// opts carries optional configuration such as cancellation context.
 	Uninstall(opts InstallOpts) error
 	// Status returns the current installation status.
 	Status() AdapterStatus

@@ -311,12 +311,6 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("install: %w", err)
 	}
 
-	// Default to English if no language is specified.
-	lang := opts.Language
-	if lang == "" {
-		lang = "en"
-	}
-
 	base, err := a.Base()
 	if err != nil {
 		return fmt.Errorf("install: resolve home: %w", err)
@@ -331,8 +325,8 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	// Render and stage the skill file with language-aware template resolution.
-	skillContent, err := RenderTemplateLang(a.templateFS, "templates/skill.md", lang, data)
+	// Render and stage the skill file.
+	skillContent, err := RenderTemplate(a.templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -407,9 +401,8 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("install: %w", err)
 	}
 
-	// Render and write the system prompt with language-aware template resolution.
-	sysPromptName := strings.TrimSuffix(a.systemPromptTemplate, ".tmpl")
-	sectionContent, err := RenderTemplateLang(a.templateFS, sysPromptName, lang, data)
+	// Render and write the system prompt.
+	sectionContent, err := RenderTemplate(a.templateFS, a.systemPromptTemplate, data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}

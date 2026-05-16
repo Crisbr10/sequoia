@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
@@ -16,12 +15,11 @@ import (
 // The full tools array is iterated so cursor indexing matches the
 // original ToolState positions; only installed tools are rendered.
 // errorMsg, when non-empty, is rendered above the footer as a validation error.
-// lang is the current UI language (e.g., "en", "es").
-func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang string) string {
+func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string {
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(styles.Title().Render(i18n.T(i18n.MsgUninstallTitle, lang)))
+	b.WriteString(styles.Title().Render("Uninstall"))
 	b.WriteString("\n\n")
 
 	// Count installed tools to detect empty state.
@@ -33,7 +31,7 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang st
 	}
 
 	if installedCount == 0 {
-		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgUninstallEmpty, lang)))
+		b.WriteString(styles.Muted().Render("  Nothing to uninstall"))
 		b.WriteString("\n\n")
 
 		// Error message (if any).
@@ -45,8 +43,8 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang st
 
 		// Only q available when nothing to uninstall.
 		b.WriteString(styles.Muted().Render("  "))
-		b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
-		b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
+		b.WriteString(styles.Accent().Render("q"))
+		b.WriteString(styles.Muted().Render(" quit"))
 		return b.String()
 	}
 
@@ -72,16 +70,16 @@ func UninstallView(tools []model.ToolState, cursor int, errorMsg string, lang st
 
 	// Key hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterNavigateKeys, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterNavigate, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterToggleKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterToggle, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterConfirmKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterConfirm, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterBackKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterBack, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
+	b.WriteString(styles.Accent().Render("↑/↓ j/k"))
+	b.WriteString(styles.Muted().Render(" navigate  "))
+	b.WriteString(styles.Accent().Render("Space"))
+	b.WriteString(styles.Muted().Render(" toggle  "))
+	b.WriteString(styles.Accent().Render("Enter"))
+	b.WriteString(styles.Muted().Render(" confirm  "))
+	b.WriteString(styles.Accent().Render("Esc"))
+	b.WriteString(styles.Muted().Render(" back  "))
+	b.WriteString(styles.Accent().Render("q"))
+	b.WriteString(styles.Muted().Render(" quit"))
 
 	return b.String()
 }
@@ -225,7 +223,7 @@ func UninstallUpdate(msg tea.KeyMsg, cursor int, tools []model.ToolState) (int, 
 }
 
 // RenderConfirmPrompt returns the styled confirmation prompt for the Uninstall screen.
-func RenderConfirmPrompt(lang string) string {
-	return styles.Accent().Render("  "+i18n.T(i18n.MsgUninstallConfirmPrompt, lang)) +
-		styles.Muted().Render(i18n.T(i18n.MsgUninstallConfirmSuffix, lang))
+func RenderConfirmPrompt() string {
+	return styles.Accent().Render("  Remove Sequoia from selected tools?") +
+		styles.Muted().Render(" [y/N]")
 }

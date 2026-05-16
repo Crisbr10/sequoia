@@ -16,7 +16,7 @@ func TestWelcomeView_ContainsBrandingElements(t *testing.T) {
 	t.Parallel()
 
 	version := "v0.1.0"
-	view := screens.WelcomeView(version, 0, "en")
+	view := screens.WelcomeView(version, 0)
 
 	assert.Contains(t, view, version, "Welcome screen should display the version")
 	assert.Contains(t, view, "navigate", "Welcome screen should show navigation hint")
@@ -30,7 +30,7 @@ func TestWelcomeView_ContainsBrandingElements(t *testing.T) {
 func TestWelcomeView_ShowsMenuOptions(t *testing.T) {
 	t.Parallel()
 
-	view := screens.WelcomeView("v0.1.0", 0, "en")
+	view := screens.WelcomeView("v0.1.0", 0)
 
 	assert.Contains(t, view, "Install", "Welcome view should list Install option")
 	assert.Contains(t, view, "Status", "Welcome view should list Status option")
@@ -42,11 +42,11 @@ func TestWelcomeView_HighlightsCursor(t *testing.T) {
 	t.Parallel()
 
 	// Cursor on Install (0): the Install label should be preceded by the cursor marker.
-	view0 := screens.WelcomeView("v0.1.0", 0, "en")
+	view0 := screens.WelcomeView("v0.1.0", 0)
 	assert.Contains(t, view0, "▶", "cursor marker should appear when cursor=0")
 
 	// Cursor on Status (1): different visual from cursor=0.
-	view1 := screens.WelcomeView("v0.1.0", 1, "en")
+	view1 := screens.WelcomeView("v0.1.0", 1)
 	assert.NotEqual(t, view0, view1, "view should differ based on cursor position")
 }
 

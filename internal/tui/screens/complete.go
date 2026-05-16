@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
@@ -17,19 +16,16 @@ import (
 // shows a hint for the first command to try.
 // mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
 // warnedCount is the number of tools that completed with non-fatal warnings.
-// lang is the current UI language (e.g., "en", "es").
-func CompleteView(progressTools []ProgressTool, mode string, warnedCount int, lang string) string {
+func CompleteView(progressTools []ProgressTool, mode string, warnedCount int) string {
 	var b strings.Builder
 
 	// Resolve heading based on mode.
-	heading := i18n.T(i18n.MsgCompleteHeadingInstall, lang)
+	heading := "✅  Installation Complete!"
 	if mode == "uninstall" {
 		if warnedCount > 0 {
-			heading = i18n.T(i18n.MsgCompleteHeadingUninstallWarnings, lang, map[string]interface{}{
-				"Count": warnedCount,
-			})
+			heading = fmt.Sprintf("⚠️  Uninstall Completed with Warnings — %d tool(s) had issues", warnedCount)
 		} else {
-			heading = i18n.T(i18n.MsgCompleteHeadingUninstall, lang)
+			heading = "✅  Uninstallation Complete!"
 		}
 	}
 
@@ -71,24 +67,24 @@ func CompleteView(progressTools []ProgressTool, mode string, warnedCount int, la
 
 	// What was installed or uninstalled.
 	if mode == "uninstall" && warnedCount > 0 {
-		b.WriteString(styles.Muted().Render("  " + i18n.T(i18n.MsgCompleteWarningsNote, lang)))
+		b.WriteString(styles.Muted().Render("  Some files could not be removed — check permissions and try again."))
 	} else if mode == "uninstall" {
-		b.WriteString(styles.Body().Render("  " + i18n.T(i18n.MsgCompleteUninstalledItems, lang)))
+		b.WriteString(styles.Body().Render("  Uninstalled: Skills, Commands, System Prompt"))
 	} else {
-		b.WriteString(styles.Body().Render("  " + i18n.T(i18n.MsgCompleteInstalledItems, lang)))
+		b.WriteString(styles.Body().Render("  Installed: Skills, Commands, System Prompt"))
 	}
 	b.WriteString("\n\n")
 
 	// First command hint.
-	b.WriteString(styles.Highlight().Render("  " + i18n.T(i18n.MsgCompleteTryCommand, lang)))
+	b.WriteString(styles.Highlight().Render("  Try running: sequoia status"))
 	b.WriteString("\n\n")
 
 	// Key hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterStatusScreenKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterStatusScreen, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuitLabel, lang)))
+	b.WriteString(styles.Accent().Render("r"))
+	b.WriteString(styles.Muted().Render(" — Status screen  "))
+	b.WriteString(styles.Accent().Render("q"))
+	b.WriteString(styles.Muted().Render(" — Quit"))
 
 	return b.String()
 }

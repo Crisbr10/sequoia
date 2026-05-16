@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/pipeline"
 	"github.com/Crisbr10/sequoia/internal/tui"
@@ -85,7 +84,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Validate at least one tool selected.
 			selected := countSelected(m.Tools)
 			if selected == 0 {
-				m.ErrorMsg = i18n.T(i18n.MsgValidationSelectAtLeastOne, string(m.Config.Language))
+				m.ErrorMsg = "Select at least one tool to continue"
 				return m, nil
 			}
 			m.ErrorMsg = ""
@@ -225,7 +224,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.ErrorMsg = ""
 				m.UninstallConfirming = true
 			} else {
-				m.ErrorMsg = i18n.T(i18n.MsgValidationSelectAtLeastOneInstalled, string(m.Config.Language))
+				m.ErrorMsg = "Select at least one installed tool to continue"
 			}
 			return m, nil
 		case "back":
@@ -381,9 +380,9 @@ func (m *Model) startPipeline(mode string) tea.Cmd {
 
 	var pipelineCmd tea.Cmd
 	if mode == "install" {
-		pipelineCmd = pipeline.RunInstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+		pipelineCmd = pipeline.RunInstall(m.ctx, m.Tools, m.Progress)
 	} else {
-		pipelineCmd = pipeline.RunUninstall(m.ctx, m.Tools, m.Progress, m.Config.Language)
+		pipelineCmd = pipeline.RunUninstall(m.ctx, m.Tools, m.Progress)
 	}
 
 	return tea.Batch(navigateCmd, pipelineCmd, waitForProgress(m.Progress))

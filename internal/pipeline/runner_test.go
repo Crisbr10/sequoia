@@ -41,7 +41,6 @@ func (a *testAdapter) Detect() bool      { return true }
 func (a *testAdapter) IsInstalled() bool { return a.installed }
 
 func (a *testAdapter) Install(opts adapters.InstallOpts) error {
-	_ = opts.Language
 	a.mu.Lock()
 	a.installCalls++
 	a.lastContext = opts.Context
@@ -53,7 +52,6 @@ func (a *testAdapter) Install(opts adapters.InstallOpts) error {
 }
 
 func (a *testAdapter) Uninstall(opts adapters.InstallOpts) error {
-	_ = opts.Language
 	a.mu.Lock()
 	a.uninstallCalls++
 	a.lastContext = opts.Context
@@ -130,7 +128,7 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd, "RunInstall should return a non-nil tea.Cmd")
 
 	// Execute the command.
@@ -170,7 +168,7 @@ func TestRunInstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -206,7 +204,7 @@ func TestRunInstall_ContextCancellation_StopsGoroutines(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	// Execute in a goroutine and cancel after a short delay.
@@ -245,7 +243,7 @@ func TestRunInstall_SkipsUnselectedTools(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -269,7 +267,7 @@ func TestRunInstall_MultiToolConcurrent_InterleavedMessages(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -315,7 +313,7 @@ func TestRunInstall_ChannelClosedAfterAllGoroutinesComplete(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -352,7 +350,7 @@ func TestRunUninstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunUninstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -386,7 +384,7 @@ func TestRunUninstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunUninstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -419,7 +417,7 @@ func TestRunUninstall_SkipsUnselectedTools(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunUninstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -508,7 +506,7 @@ func TestRunInstall_PassesContextToAdapter(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -546,7 +544,7 @@ func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunUninstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -595,7 +593,7 @@ func TestRunInstall_MultiTool_SendsTwoMessagesEach(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -650,7 +648,7 @@ func TestRunInstall_WarningEmitter(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -694,7 +692,7 @@ func TestRunInstall_WarningEmitter_EmptyWarnings(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -725,7 +723,7 @@ func TestStartPipeline_ChannelRecreated(t *testing.T) {
 	ch := make(chan model.ProgressMsg, 64)
 
 	// First pipeline run — creates goroutines, waits, closes channel.
-	cmd1 := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd1 := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd1)
 	cmd1() // blocks until all goroutines complete and channel is closed
 
@@ -738,7 +736,7 @@ func TestStartPipeline_ChannelRecreated(t *testing.T) {
 
 	// Second pipeline run with the SAME closed channel must not panic.
 	require.NotPanics(t, func() {
-		cmd2 := pipeline.RunInstall(ctx, tools, ch, "en")
+		cmd2 := pipeline.RunInstall(ctx, tools, ch)
 		require.NotNil(t, cmd2)
 		// cmd2's goroutines will try to send on the closed channel.
 		// This must not panic — sendProgress must handle it gracefully.
@@ -760,7 +758,7 @@ func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -804,7 +802,7 @@ func TestRunInstall_BackupDirGetter(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -850,7 +848,7 @@ func TestRunInstall_BackupDirGetter_EmptyDir(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
@@ -875,7 +873,7 @@ func TestRunInstall_BackupDirGetter_NoInterface(t *testing.T) {
 	defer cancel()
 
 	ch := make(chan model.ProgressMsg, 64)
-	cmd := pipeline.RunInstall(ctx, tools, ch, "en")
+	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()

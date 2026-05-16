@@ -1,12 +1,8 @@
    Configuration 
 
-  Language:
-  ► English
-    Español
-
   Persistence:
-    Engram
+  ► Engram
     Files
     Both
 
-  Tab switch field  ↑/↓/←/→ change option  Enter confirm  Esc back  
+  ↑/↓/←/→ change option  Enter confirm  Esc back  

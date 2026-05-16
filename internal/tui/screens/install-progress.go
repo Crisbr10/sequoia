@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
@@ -53,27 +52,23 @@ type ProgressTool struct {
 // step-by-step progress. completedCount is the number of fully-finished tools;
 // totalCount is the total number of tools being installed.
 // mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
-// lang is the current UI language (e.g., "en", "es").
-func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, mode string, lang string) string {
+func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, mode string) string {
 	var b strings.Builder
 
 	// Resolve labels based on mode.
-	titleKey := i18n.MsgInstallProgressTitleInstall
-	summaryKey := i18n.MsgInstallProgressSummaryInstall
+	titleLabel := "Installing"
+	summaryLabel := fmt.Sprintf("Installing %d of %d tools...", completedCount, totalCount)
 	if mode == "uninstall" {
-		titleKey = i18n.MsgInstallProgressTitleUninstall
-		summaryKey = i18n.MsgInstallProgressSummaryUninstall
+		titleLabel = "Uninstalling"
+		summaryLabel = fmt.Sprintf("Uninstalling %d of %d tools...", completedCount, totalCount)
 	}
 
 	// Title.
-	b.WriteString(styles.Title().Render(i18n.T(titleKey, lang)))
+	b.WriteString(styles.Title().Render(titleLabel))
 	b.WriteString("\n\n")
 
 	// Overall progress summary.
-	summary := fmt.Sprintf("  %s", i18n.T(summaryKey, lang, map[string]interface{}{
-		"Completed": completedCount,
-		"Total":     totalCount,
-	}))
+	summary := fmt.Sprintf("  %s", summaryLabel)
 	b.WriteString(styles.Body().Render(summary))
 	b.WriteString("\n\n")
 
@@ -85,8 +80,8 @@ func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, m
 
 	// Footer hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterQuitKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterQuit, lang)))
+	b.WriteString(styles.Accent().Render("q"))
+	b.WriteString(styles.Muted().Render(" quit"))
 
 	return b.String()
 }

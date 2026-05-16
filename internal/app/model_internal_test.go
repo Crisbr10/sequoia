@@ -26,8 +26,8 @@ func (s *stubAdapter) ID() string                                { return s.id }
 func (s *stubAdapter) Name() string                              { return s.name }
 func (s *stubAdapter) Detect() bool                              { return s.installed }
 func (s *stubAdapter) IsInstalled() bool                         { return s.installed }
-func (s *stubAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Language; return nil }
-func (s *stubAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Language; return nil }
+func (s *stubAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Context; return nil }
+func (s *stubAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Context; return nil }
 func (s *stubAdapter) Status() model.ToolStatus                   { return model.ToolStatus{} }
 
 // Compile-time check: stubAdapter satisfies model.ToolInfo.
@@ -238,7 +238,7 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 
 	m := Model{
 		Tools:            tools,
-		Config:           model.TUIConfig{Language: "en"},
+		Config:           model.TUIConfig{Persistence: "engram"},
 		Progress:         make(chan model.ProgressMsg, 64),
 		InstallCompleted: 5, // Non-zero to verify reset
 		InstallFailed:    3, // Non-zero to verify reset
@@ -285,7 +285,7 @@ func TestStartPipeline_UninstallMode(t *testing.T) {
 
 	m := Model{
 		Tools:            tools,
-		Config:           model.TUIConfig{Language: "es"},
+		Config:           model.TUIConfig{Persistence: "files"},
 		Progress:         make(chan model.ProgressMsg, 64),
 		InstallCompleted: 10,
 		InstallFailed:    5,

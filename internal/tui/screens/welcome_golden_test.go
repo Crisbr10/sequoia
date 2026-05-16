@@ -21,7 +21,7 @@ var updateGolden = os.Getenv("UPDATE_GOLDEN") == "1"
 
 func TestWelcomeView_Golden_Standard(t *testing.T) {
 	version := "v0.1.0"
-	view := screens.WelcomeView(version, 0, "en")
+	view := screens.WelcomeView(version, 0)
 
 	golden := goldenPath("welcome_standard.txt")
 	if updateGolden {
@@ -39,7 +39,7 @@ func TestWelcomeView_Golden_Standard(t *testing.T) {
 
 func TestWelcomeView_Golden_CursorOnStatus(t *testing.T) {
 	version := "v0.1.0"
-	view := screens.WelcomeView(version, screens.WelcomeMenuStatus, "en")
+	view := screens.WelcomeView(version, screens.WelcomeMenuStatus)
 
 	golden := goldenPath("welcome_cursor_status.txt")
 	if updateGolden {

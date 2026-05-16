@@ -11,7 +11,7 @@ const (
 	ScreenWelcome Screen = iota
 	// ScreenToolSelection shows a checkbox list for picking tools to install.
 	ScreenToolSelection
-	// ScreenConfiguration offers language and persistence backend choices.
+	// ScreenConfiguration offers persistence backend choices.
 	ScreenConfiguration
 	// ScreenInstallProgress displays per-tool step-by-step progress during installation.
 	ScreenInstallProgress
@@ -111,16 +111,6 @@ type ProgressMsg struct {
 	Info string
 }
 
-// Language represents a supported UI language.
-type Language string
-
-const (
-	// LangEN is English.
-	LangEN Language = "en"
-	// LangES is Spanish.
-	LangES Language = "es"
-)
-
 // PersistenceBackend represents a supported artifact persistence backend.
 type PersistenceBackend string
 
@@ -135,8 +125,6 @@ const (
 
 // TUIConfig holds the user's choices from the Configuration screen.
 type TUIConfig struct {
-	// Language sets the UI language ("en" or "es").
-	Language string
 	// Persistence selects the artifact storage backend ("engram", "files", or "both").
 	Persistence string
 }

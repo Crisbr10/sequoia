@@ -20,7 +20,7 @@ func TestToolSelectionView_ShowsCheckboxes(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode"}, Selected: true},
 		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI"}, Selected: false},
 	}
-	view := screens.ToolSelectionView(tools, 0, "", "en")
+	view := screens.ToolSelectionView(tools, 0, "", )
 
 	// Check that tools are listed by name.
 	for _, ts := range tools {
@@ -46,7 +46,7 @@ func TestToolSelectionView_ShowsSelectionCount(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode"}, Selected: false},
 		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI"}, Selected: false},
 	}
-	view := screens.ToolSelectionView(tools, 0, "", "en")
+	view := screens.ToolSelectionView(tools, 0, "", )
 
 	assert.Contains(t, view, "1 of 3", "Should show selection count")
 }
@@ -58,7 +58,7 @@ func TestToolSelectionView_ShowsErrorWhenPresent(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
 	}
 	errorMsg := "Select at least one tool to continue"
-	view := screens.ToolSelectionView(tools, 0, errorMsg, "en")
+	view := screens.ToolSelectionView(tools, 0, errorMsg, )
 
 	assert.Contains(t, view, errorMsg, "Should display error message")
 }
@@ -69,7 +69,7 @@ func TestToolSelectionView_ShowsNavigationHints(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
 	}
-	view := screens.ToolSelectionView(tools, 0, "", "en")
+	view := screens.ToolSelectionView(tools, 0, "", )
 
 	// Should show keyboard hints for navigation.
 	hints := []string{"↑/↓", "j/k", "Space", "Enter", "Esc"}
@@ -206,7 +206,7 @@ func TestToolSelectionView_ShowsCorrectTitle(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
 	}
-	view := screens.ToolSelectionView(tools, 0, "", "en")
+	view := screens.ToolSelectionView(tools, 0, "", )
 
 	assert.Contains(t, view, "Select AI Tools", "Title should read 'Select AI Tools'")
 	assert.Contains(t, view, "install Sequoia into", "Instruction should say 'install Sequoia into'")
@@ -231,7 +231,7 @@ func TestToolSelectionView_NonEmptyView(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code"}, Selected: false},
 	}
-	view := screens.ToolSelectionView(tools, 0, "", "en")
+	view := screens.ToolSelectionView(tools, 0, "", )
 
 	assert.NotEmpty(t, view, "Tool Selection view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")

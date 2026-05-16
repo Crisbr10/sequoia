@@ -21,7 +21,7 @@ func TestStatusView_ShowsInstalledToolsWithCheckmark(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.Contains(t, view, "Claude Code", "Status should show tool name")
 	assert.Contains(t, view, "✅", "Status should show installed indicator")
@@ -33,7 +33,7 @@ func TestStatusView_ShowsNotInstalledToolsWithCross(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.Contains(t, view, "OpenCode", "Status should show tool name")
 	assert.Contains(t, view, "❌", "Status should show not-installed indicator")
@@ -45,7 +45,7 @@ func TestStatusView_ShowsVersion(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.Contains(t, view, "v0.1.0", "Status should show version")
 	assert.NotContains(t, view, "/home/user/.claude", "Status should not show install path")
@@ -58,7 +58,7 @@ func TestStatusView_ShowsMixedState(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	// Both checkmark and cross should appear.
 	assert.Contains(t, view, "✅", "Status should show installed indicator")
@@ -71,7 +71,7 @@ func TestStatusView_ShowsEmptyMessageWhenNoAdapters(t *testing.T) {
 	t.Parallel()
 
 	tools := []model.ToolState{}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.Contains(t, view, "No adapters registered", "Status should show empty message when no adapters")
 }
@@ -82,7 +82,7 @@ func TestStatusView_ShowsKeyHints(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.Contains(t, view, "u", "Status should show 'u' key hint")
 	assert.Contains(t, view, "r", "Status should show 'r' key hint")
@@ -96,7 +96,7 @@ func TestStatusView_ShowsNonEmptyView(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	assert.NotEmpty(t, view, "Status view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")
@@ -218,7 +218,7 @@ func TestStatusView_Golden_AllInstalled(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: true, ver: "v0.1.0", path: "/home/user/.config/opencode"}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	golden := goldenPath("status_all_installed.txt")
 	if updateGolden {
@@ -235,7 +235,7 @@ func TestStatusView_Golden_AllInstalled(t *testing.T) {
 
 func TestStatusView_Golden_Empty(t *testing.T) {
 	tools := []model.ToolState{}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	golden := goldenPath("status_empty.txt")
 	if updateGolden {
@@ -255,7 +255,7 @@ func TestStatusView_Golden_Mixed(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0, "en")
+	view := screens.StatusView(tools, 0, )
 
 	golden := goldenPath("status_mixed.txt")
 	if updateGolden {

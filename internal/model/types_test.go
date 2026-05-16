@@ -325,20 +325,10 @@ func TestTUIConfig_Defaults(t *testing.T) {
 	t.Parallel()
 
 	cfg := model.TUIConfig{
-		Language:    "en",
 		Persistence: "engram",
 	}
 
-	assert.Equal(t, "en", cfg.Language)
 	assert.Equal(t, "engram", cfg.Persistence)
-}
-
-func TestLanguage_Constants(t *testing.T) {
-	t.Parallel()
-
-	require.NotEqual(t, model.LangEN, model.LangES)
-	assert.Equal(t, model.Language("en"), model.LangEN)
-	assert.Equal(t, model.Language("es"), model.LangES)
 }
 
 func TestPersistenceBackend_Constants(t *testing.T) {

@@ -5,11 +5,9 @@ package app
 
 import (
 	"context"
-	"log"
 	"os/exec"
 
 	"github.com/Crisbr10/sequoia/adapters"
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
@@ -27,7 +25,7 @@ type Model struct {
 	Screen model.Screen
 	// Tools is a snapshot of registered adapters with their UI state.
 	Tools []model.ToolState
-	// Config holds user choices from the Configuration screen (language, persistence).
+	// Config holds user choices from the Configuration screen (persistence backend).
 	Config model.TUIConfig
 	// Width is the terminal width in characters.
 	Width int
@@ -118,7 +116,7 @@ func NewModel(toolID string, version string) Model {
 		Version:         version,
 		Screen:          model.ScreenWelcome,
 		Tools:           tools,
-		Config:          model.TUIConfig{Language: "en", Persistence: "engram"},
+		Config:          model.TUIConfig{Persistence: "engram"},
 		Progress:        make(chan model.ProgressMsg, 64),
 		EngramAvailable: false,
 		ctx:             ctx,
@@ -134,16 +132,10 @@ func detectEngram() tea.Msg {
 	return EngramDetectedMsg(err == nil)
 }
 
-// Init is the Bubbletea init command. It initializes the i18n engine
-// (loading embedded TOML catalogs) and returns the batched initial commands:
-// detectEngram runs asynchronously to avoid blocking the first TUI render.
-// If i18n.Init() fails (missing/corrupt English catalog), the app quits
-// immediately with a fatal log message.
+// Init is the Bubbletea init command. It returns the batched initial
+// commands: detectEngram runs asynchronously to avoid blocking the first
+// TUI render.
 func (m Model) Init() tea.Cmd {
-	if err := i18n.Init(); err != nil {
-		log.Printf("FATAL: i18n init failed: %v", err)
-		return tea.Quit
-	}
 	return tea.Batch(
 		detectEngram,
 	)

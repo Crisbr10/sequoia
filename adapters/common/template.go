@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"strings"
 	"sync"
 	"text/template"
 )
@@ -46,24 +45,3 @@ func RenderTemplate(fs embed.FS, name string, data interface{}) (string, error) 
 	return buf.String(), nil
 }
 
-// RenderTemplateLang renders a template with language-aware resolution.
-// It first tries the language-specific file ("{name}.{lang}.tmpl"), and if
-// that file does not exist in the embedded FS, falls back to the base name
-// ("{name}.tmpl") for backward compatibility with existing templates that
-// do not have language suffixes.
-//
-// Parsed templates are cached using the same sync.Map cache as RenderTemplate,
-// keyed by (FS pointer, resolved name).
-func RenderTemplateLang(fs embed.FS, name string, lang string, data interface{}) (string, error) {
-	// Build the language-specific template name: "skill.md" + "en" → "skill.md.en.tmpl"
-	langName := fmt.Sprintf("%s.%s.tmpl", name, lang)
-
-	// Check if the language-specific file exists in the embedded FS.
-	if _, err := fs.ReadFile(langName); err == nil {
-		return RenderTemplate(fs, langName, data)
-	}
-
-	// Fall back to the base template (backward compatible).
-	baseName := strings.TrimSuffix(name, ".tmpl") + ".tmpl"
-	return RenderTemplate(fs, baseName, data)
-}

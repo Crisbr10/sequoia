@@ -4,84 +4,47 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// languageOptions lists the selectable UI languages in display order.
-// Each entry has a model value and an i18n message key for its label.
-var languageOptions = []struct {
-	value model.Language
-	key   string
-}{
-	{model.LangEN, i18n.MsgConfigurationLanguageEN},
-	{model.LangES, i18n.MsgConfigurationLanguageES},
-}
-
 // persistenceOptions lists the selectable persistence backends in display order.
-// Each entry has a model value and an i18n message key for its label.
+// Each entry has a model value and its English display label.
 var persistenceOptions = []struct {
 	value model.PersistenceBackend
-	key   string
+	label string
 }{
-	{model.PersistenceEngram, i18n.MsgConfigurationPersistenceEngram},
-	{model.PersistenceFiles, i18n.MsgConfigurationPersistenceFiles},
-	{model.PersistenceBoth, i18n.MsgConfigurationPersistenceBoth},
+	{model.PersistenceEngram, "Engram"},
+	{model.PersistenceFiles, "Files"},
+	{model.PersistenceBoth, "Both"},
 }
 
-// ConfigurationView renders the Configuration screen showing language and
-// persistence selectors. activeField indicates which field is currently
-// focused (0 = language, 1 = persistence). engramAvailable controls whether
-// the Engram persistence option is selectable or greyed out.
-// lang is the current UI language (e.g., "en", "es").
-func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable bool, lang string) string {
+// ConfigurationView renders the Configuration screen showing the persistence
+// backend selector. engramAvailable controls whether the Engram persistence
+// option is selectable or greyed out.
+func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable bool) string {
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(styles.Title().Render(i18n.T(i18n.MsgConfigurationTitle, lang)))
+	b.WriteString(styles.Title().Render("Configuration"))
 	b.WriteString("\n\n")
 
-	// === Language field (visible when i18n is initialized) ===
-	if i18n.Initialized() {
-		b.WriteString(renderFieldLabel(i18n.T(i18n.MsgConfigurationLanguageLabel, lang), activeField == 0))
-		b.WriteString("\n")
-
-		// Render language options.
-		langIdx := languageIndex(config.Language)
-		for i, opt := range languageOptions {
-			cursorMark := "  "
-			if activeField == 0 && i == langIdx {
-				cursorMark = styles.Accent().Render("► ")
-			}
-			highlighted := i == langIdx
-			label := i18n.T(opt.key, lang)
-			if highlighted && activeField == 0 {
-				label = styles.Accent().Render(label)
-			} else if highlighted {
-				label = styles.Success().Render(label)
-			}
-			fmt.Fprintf(&b, "  %s%s\n", cursorMark, label)
-		}
-		b.WriteString("\n")
-	}
-
 	// === Persistence field ===
-	b.WriteString(renderFieldLabel(i18n.T(i18n.MsgConfigurationPersistenceLabel, lang), activeField == 1))
+	b.WriteString(renderFieldLabel("Persistence", activeField == 0))
 	b.WriteString("\n")
 
 	// Render persistence options.
 	persIdx := persistenceIndex(config.Persistence)
 	for i, opt := range persistenceOptions {
 		cursorMark := "  "
-		if activeField == 1 && i == persIdx {
+		if activeField == 0 && i == persIdx {
 			cursorMark = styles.Accent().Render("► ")
 		}
 		highlighted := i == persIdx
-		label := i18n.T(opt.key, lang)
-		if highlighted && activeField == 1 {
+		label := opt.label
+		if highlighted && activeField == 0 {
 			label = styles.Accent().Render(label)
 		} else if highlighted {
 			label = styles.Success().Render(label)
@@ -90,7 +53,7 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 		// Engram unavailable note.
 		extra := ""
 		if opt.value == model.PersistenceEngram && !engramAvailable {
-			extra = styles.Muted().Render(" " + i18n.T(i18n.MsgConfigurationEngramUnavailable, lang))
+			extra = styles.Muted().Render(" (not detected)")
 			if highlighted {
 				label = styles.Muted().Render(label)
 			} else {
@@ -104,14 +67,12 @@ func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable 
 
 	// Footer hints.
 	b.WriteString(styles.Muted().Render("  "))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterTabKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterSwitchField, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterArrowsKeys, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterChangeOption, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterConfirmKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterConfirm, lang)))
-	b.WriteString(styles.Accent().Render(i18n.T(i18n.MsgFooterBackKey, lang)))
-	b.WriteString(styles.Muted().Render(i18n.T(i18n.MsgFooterBack, lang)))
+	b.WriteString(styles.Accent().Render("↑/↓/←/→"))
+	b.WriteString(styles.Muted().Render(" change option  "))
+	b.WriteString(styles.Accent().Render("Enter"))
+	b.WriteString(styles.Muted().Render(" confirm  "))
+	b.WriteString(styles.Accent().Render("Esc"))
+	b.WriteString(styles.Muted().Render(" back  "))
 
 	return b.String()
 }
@@ -126,24 +87,21 @@ func renderFieldLabel(name string, active bool) string {
 }
 
 // ConfigurationUpdate processes key events for the Configuration screen.
-// activeField is 0 (language) or 1 (persistence). config holds current selections.
+// activeField is always 0 (persistence). config holds current selections.
 // Returns new active field, updated config, and action ("confirm", "back", "quit", or "").
 func ConfigurationUpdate(msg tea.KeyMsg, activeField int, config model.TUIConfig, engramAvailable bool) (newActiveField int, newConfig model.TUIConfig, action string) {
 	switch msg.Type {
-	case tea.KeyTab:
-		return toggleField(activeField), config, ""
-
 	case tea.KeyUp:
-		return cycleOption(activeField, config, engramAvailable, -1)
+		return cyclePersistenceOption(activeField, config, engramAvailable, -1)
 
 	case tea.KeyDown:
-		return cycleOption(activeField, config, engramAvailable, 1)
+		return cyclePersistenceOption(activeField, config, engramAvailable, 1)
 
 	case tea.KeyLeft:
-		return cycleOption(activeField, config, engramAvailable, -1)
+		return cyclePersistenceOption(activeField, config, engramAvailable, -1)
 
 	case tea.KeyRight:
-		return cycleOption(activeField, config, engramAvailable, 1)
+		return cyclePersistenceOption(activeField, config, engramAvailable, 1)
 
 	case tea.KeyEnter:
 		return activeField, config, "confirm"
@@ -155,44 +113,17 @@ func ConfigurationUpdate(msg tea.KeyMsg, activeField int, config model.TUIConfig
 	return activeField, config, ""
 }
 
-// toggleField switches activeField between 0 and 1 (language ↔ persistence).
-func toggleField(field int) int {
-	if field == 0 {
-		return 1
-	}
-	return 0
-}
-
-// cycleOption advances or retreats the option within the active field.
-// direction: +1 for right, -1 for left.
-func cycleOption(activeField int, config model.TUIConfig, engramAvailable bool, direction int) (int, model.TUIConfig, string) {
-	switch activeField {
-	case 0:
-		// Language field: cycle between EN and ES.
-		idx := languageIndex(config.Language)
-		idx = (idx + direction + len(languageOptions)) % len(languageOptions)
-		config.Language = string(languageOptions[idx].value)
-	case 1:
-		// Persistence field: cycle through Engram/Files/Both.
-		idx := persistenceIndex(config.Persistence)
+// cyclePersistenceOption advances or retreats the persistence option.
+// direction: +1 for right/down, -1 for left/up.
+func cyclePersistenceOption(activeField int, config model.TUIConfig, engramAvailable bool, direction int) (int, model.TUIConfig, string) {
+	idx := persistenceIndex(config.Persistence)
+	idx = (idx + direction + len(persistenceOptions)) % len(persistenceOptions)
+	// Skip Engram if unavailable.
+	if !engramAvailable && persistenceOptions[idx].value == model.PersistenceEngram {
 		idx = (idx + direction + len(persistenceOptions)) % len(persistenceOptions)
-		// Skip Engram if unavailable.
-		if !engramAvailable && persistenceOptions[idx].value == model.PersistenceEngram {
-			idx = (idx + direction + len(persistenceOptions)) % len(persistenceOptions)
-		}
-		config.Persistence = string(persistenceOptions[idx].value)
 	}
+	config.Persistence = string(persistenceOptions[idx].value)
 	return activeField, config, ""
-}
-
-// languageIndex returns the index of the given language value in languageOptions.
-func languageIndex(lang string) int {
-	for i, opt := range languageOptions {
-		if string(opt.value) == lang {
-			return i
-		}
-	}
-	return 0
 }
 
 // persistenceIndex returns the index of the given persistence value in persistenceOptions.

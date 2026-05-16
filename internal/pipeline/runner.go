@@ -51,10 +51,7 @@ var InstallSteps = []string{"Installing"}
 //
 // The channel is closed when all goroutines complete. Context cancellation
 // stops goroutines gracefully while preserving partial progress.
-//
-// lang is passed to adapter.Install(opts) and adapter.Uninstall(opts)
-// via adapters.InstallOpts{Language: lang} for template localization.
-func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.ProgressMsg, lang string) tea.Cmd {
+func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.ProgressMsg) tea.Cmd {
 	return func() tea.Msg {
 		var wg sync.WaitGroup
 
@@ -75,7 +72,7 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 			wg.Add(1)
 			go func(t model.ToolState) {
 				defer wg.Done()
-				runInstallSteps(ctx, t, ch, lang)
+				runInstallSteps(ctx, t, ch)
 			}(tool)
 		}
 
@@ -97,7 +94,7 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 //  4. On failure: send an error ProgressMsg (Done=true, Error set).
 //
 // fn is either adapter.Install or adapter.Uninstall (both have the same signature).
-func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string, fn func(adapters.InstallOpts) error) {
+func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, fn func(adapters.InstallOpts) error) {
 	adapter := t.Adapter
 	toolID := adapter.ID()
 	step := InstallSteps[0] // "Installing"
@@ -112,7 +109,7 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 	}
 
 	// Perform the actual operation (Install or Uninstall).
-	err := fn(adapters.InstallOpts{Language: lang, Context: ctx})
+	err := fn(adapters.InstallOpts{Context: ctx})
 
 	// Report the result.
 	if err != nil {
@@ -177,16 +174,16 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 
 // runInstallSteps extracts the Install method from the concrete adapter
 // behind model.ToolInfo and calls runSteps.
-func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
+func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg) {
 	a := t.Adapter.(pipelineInstaller)
-	runSteps(ctx, t, ch, lang, a.Install)
+	runSteps(ctx, t, ch, a.Install)
 }
 
 // runUninstallSteps extracts the Uninstall method from the concrete adapter
 // behind model.ToolInfo and calls runSteps.
-func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, lang string) {
+func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg) {
 	a := t.Adapter.(pipelineUninstaller)
-	runSteps(ctx, t, ch, lang, a.Uninstall)
+	runSteps(ctx, t, ch, a.Uninstall)
 }
 
 // RunUninstall returns a tea.Cmd that removes Sequoia from every selected tool.
@@ -199,7 +196,7 @@ func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.P
 //   - error on failure.
 //
 // The channel is closed when all goroutines complete.
-func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.ProgressMsg, lang string) tea.Cmd {
+func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.ProgressMsg) tea.Cmd {
 	return func() tea.Msg {
 		var wg sync.WaitGroup
 
@@ -219,7 +216,7 @@ func RunUninstall(ctx context.Context, tools []model.ToolState, ch chan<- model.
 			wg.Add(1)
 			go func(t model.ToolState) {
 				defer wg.Done()
-				runUninstallSteps(ctx, t, ch, lang)
+				runUninstallSteps(ctx, t, ch)
 			}(tool)
 		}
 

@@ -11,7 +11,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Crisbr10/sequoia/internal/i18n"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
@@ -23,7 +22,7 @@ func TestUninstallView_ShowsInstalledToolsOnly(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	assert.Contains(t, view, "Claude Code", "Uninstall should show installed Claude Code")
 	assert.NotContains(t, view, "OpenCode", "Uninstall should NOT show not-installed OpenCode")
@@ -35,7 +34,7 @@ func TestUninstallView_ShowsEmptyMessageWhenNothingInstalled(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	assert.Contains(t, view, "Nothing to uninstall", "Uninstall should show empty message")
 }
@@ -47,7 +46,7 @@ func TestUninstallView_ShowsCheckboxesForSelection(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI", inst: true}, Selected: true},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	// Selected tool should show [x].
 	assert.Contains(t, view, "[x]", "Uninstall should show selected checkbox")
@@ -62,7 +61,7 @@ func TestUninstallView_ShowsKeyHints(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	assert.Contains(t, view, "Space", "Uninstall should show Space key hint")
 	assert.Contains(t, view, "Enter", "Uninstall should show Enter key hint")
@@ -75,7 +74,7 @@ func TestUninstallView_ZeroInstalledShowsOnlyQHint(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	// When nothing is installed, Enter/Space should NOT be shown.
 	assert.Contains(t, view, "q", "Uninstall should still show 'q' key hint")
@@ -89,7 +88,7 @@ func TestUninstallView_ShowsNonEmptyView(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	assert.NotEmpty(t, view, "Uninstall view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")
@@ -104,12 +103,12 @@ func TestUninstallView_ShowsError(t *testing.T) {
 	}
 
 	// View with error message.
-	view := screens.UninstallView(tools, 0, "Select at least one installed tool to continue", "en")
+	view := screens.UninstallView(tools, 0, "Select at least one installed tool to continue", )
 	assert.Contains(t, view, "Select at least one installed tool to continue",
 		"Uninstall view should render the error message when provided")
 
 	// View without error message should not show placeholder.
-	viewNoErr := screens.UninstallView(tools, 0, "", "en")
+	viewNoErr := screens.UninstallView(tools, 0, "", )
 	assert.NotContains(t, viewNoErr, "Select at least one installed tool",
 		"Uninstall view should not show error when message is empty")
 }
@@ -330,7 +329,7 @@ func TestUninstallView_IteratesFullToolsSkipsNonInstalled(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI", inst: true}, Selected: true},
 	}
-	view := screens.UninstallView(tools, 2, "", "en")
+	view := screens.UninstallView(tools, 2, "", )
 
 	// Should show installed tools only.
 	assert.Contains(t, view, "Claude Code", "installed tool Claude Code should appear")
@@ -351,7 +350,7 @@ func TestUninstallView_ShowsEscBackHint(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	assert.Contains(t, view, "Esc back",
 		"Uninstall view footer should show 'Esc back' hint for back navigation")
@@ -363,7 +362,7 @@ func TestUninstallView_Golden_InstalledTools(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 		{Adapter: &dummyAdapter{id: "gemini", name: "Gemini CLI", inst: true}, Selected: true},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	golden := goldenPath("uninstall_installed_tools.txt")
 	if updateGolden {
@@ -382,7 +381,7 @@ func TestUninstallView_Golden_NothingInstalled(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.UninstallView(tools, 0, "", "en")
+	view := screens.UninstallView(tools, 0, "", )
 
 	golden := goldenPath("uninstall_nothing_installed.txt")
 	if updateGolden {
@@ -398,10 +397,8 @@ func TestUninstallView_Golden_NothingInstalled(t *testing.T) {
 }
 
 func TestRenderConfirmPrompt_ContainsPrompt(t *testing.T) {
-	if err := i18n.Init(); err != nil {
-		t.Fatalf("i18n.Init() failed: %v", err)
-	}
-	result := screens.RenderConfirmPrompt("en")
+	t.Parallel()
+	result := screens.RenderConfirmPrompt()
 	assert.Contains(t, result, "Remove Sequoia", "confirmation should mention Remove Sequoia")
 	assert.Contains(t, result, "y/N", "confirmation should show y/N prompt")
 	assert.NotEmpty(t, result, "confirmation should not be empty")
