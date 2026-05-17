@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/adapters/opencode"
 
 	"github.com/stretchr/testify/assert"
@@ -192,7 +193,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 	versionFile := filepath.Join(opencodeDir, "skills", "sequoia", ".sequoia-version")
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
-	assert.Equal(t, "0.1.0", strings.TrimSpace(string(data)),
+	assert.Equal(t, common.Version, strings.TrimSpace(string(data)),
 		"version file should contain the adapter Version constant")
 }
 
@@ -231,7 +232,7 @@ func TestAdapter_VersionRoundTrip(t *testing.T) {
 	s := a.Status()
 	assert.True(t, s.Installed, "should be installed after Install()")
 	assert.NotEmpty(t, s.Version, "Version should not be empty after install")
-	assert.Equal(t, "0.1.0", s.Version,
+	assert.Equal(t, common.Version, s.Version,
 		"Status().Version should match the adapter Version constant")
 }
 
@@ -246,12 +247,12 @@ func TestAdapter_Reinstall_OverwritesVersion(t *testing.T) {
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
-	assert.Equal(t, "0.1.0", s.Version, "first install should write version 0.1.0")
+	assert.Equal(t, common.Version, s.Version, "first install should write the correct version")
 
-	// Reinstall should overwrite.
+	// Reinstall should overwrite with the same version.
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	s = a.Status()
-	assert.Equal(t, "0.1.0", s.Version, "reinstall should still report 0.1.0")
+	assert.Equal(t, common.Version, s.Version, "reinstall should still report the correct version")
 }
 
 // T-020-06: EvalSymlinks error fallback — base() must not propagate error.

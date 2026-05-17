@@ -1,31 +1,31 @@
 ---
-description: "Revisión de código enfocada en PR/diff. Analiza archivos cambiados, selecciona agentes relevantes automáticamente, detecta impacto en hallazgos previos. Más rápido que audit, más profundo que un linter."
+description: "PR/diff-focused code review. Analyzes changed files, auto-selects relevant agents, detects impact on prior findings. Faster than audit, deeper than a linter."
 argument-hint: "[--diff=HEAD~1..HEAD] [--pr=<number>] [--strict]"
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
 # /sequoia review
 
-Revisión de código tipo PR review. Analiza cambios recientes, selecciona agentes relevantes automáticamente y cruza contra hallazgos previos.
+PR-style code review. Analyzes recent changes, auto-selects relevant agents, and cross-references against prior findings.
 
-## Cuándo usar
+## When to use
 
-- Antes de mergear un PR
-- Después de un batch de cambios
-- Como gate de calidad pre-commit (con `--strict`)
-- Cuando querés feedback rápido sin auditoría completa
+- Before merging a PR
+- After a batch of changes
+- As a pre-commit quality gate (with `--strict`)
+- When you want fast feedback without a full audit
 
-## Flujo de ejecución
+## Execution flow
 
 ```
 /sequoia review
   │
-  ├─ 1. Obtener archivos cambiados
-  │     ├─ --diff=HEAD~3..HEAD → git diff en ese rango
+  ├─ 1. Get changed files
+  │     ├─ --diff=HEAD~3..HEAD → git diff in that range
   │     ├─ --pr=42 → gh pr diff 42
-  │     └─ sin flags → git diff HEAD~1..HEAD (último commit)
+  │     └─ no flags → git diff HEAD~1..HEAD (last commit)
   │
-  ├─ 2. Clasificar archivos cambiados por tipo
+  ├─ 2. Classify changed files by type
   │     ├── {auth,session,token,login} → P1 Security
   │     ├── {component,page,view,jsx,tsx,vue,svelte} → P5 Experience
   │     ├── {api,route,endpoint,controller,handler} → P3 Architecture
@@ -34,114 +34,114 @@ Revisión de código tipo PR review. Analiza cambios recientes, selecciona agent
   │     ├── {Dockerfile,workflow,deploy,.github} → P6 Operations
   │     ├── {package.json,go.mod,Cargo.toml} → P4 Quality (deps)
   │     ├── {config,bundle,build,webpack,vite} → P2 Performance
-  │     └── Todos los archivos → P3 Architecture (siempre)
+  │     └── All files → P3 Architecture (always)
   │
-  ├─ 3. Recuperar hallazgos previos de Engram
-  │     └─ Flag si los cambios tocan áreas con hallazgos abiertos
+  ├─ 3. Retrieve prior findings from Engram
+  │     └─ Flag if changes touch areas with open findings
   │
-  ├─ 4. Ejecutar agentes seleccionados (solo sobre archivos del diff)
+  ├─ 4. Run selected agents (only on diff files)
   │
-  ├─ 5. Generar output focalizado
-  │     ├─ Hallazgos nuevos del diff
-  │     ├─ Hallazgos previos afectados por los cambios
-  │     └─ Veredicto: ✅ PASS | ⚠️ WARN | 🔴 BLOCK
+  ├─ 5. Generate focused output
+  │     ├─ New findings from the diff
+  │     ├─ Prior findings affected by the changes
+  │     └─ Verdict: ✅ PASS | ⚠️ WARN | 🔴 BLOCK
   │
-  └─ 6. Persistir hallazgos en Engram
+  └─ 6. Persist findings in Engram
 ```
 
-## Referencia de flags
+## Flag reference
 
-| Flag | Valor | Default | Descripción |
+| Flag | Value | Default | Description |
 |------|-------|---------|-------------|
-| `--diff` | rango git | `HEAD~1..HEAD` | Rango de commits a revisar |
-| `--pr` | número de PR | — | Obtiene diff del PR vía `gh` CLI |
-| `--strict` | *(flag booleano)* | off | Sin tolerancia para hallazgos medios |
+| `--diff` | git range | `HEAD~1..HEAD` | Commit range to review |
+| `--pr` | PR number | — | Gets PR diff via `gh` CLI |
+| `--strict` | *(boolean flag)* | off | No tolerance for medium findings |
 
 ## `--strict` mode
 
-Con `--strict`:
-- Todos los hallazgos 🟡 ATENCIÓN se reportan (normalmente se omiten en review)
-- Hallazgos que normalmente serían "deuda aceptable" se marcan como `WARN`
-- Si hay cualquier 🟠 RIESGO, el veredicto es `🔴 BLOCK`
-- Útil como gate de merge en branches protegidas
+With `--strict`:
+- All 🟡 ATTENTION findings are reported (normally omitted in review)
+- Findings that would normally be "acceptable debt" are marked as `WARN`
+- If there is any 🟠 RISK, the verdict is `🔴 BLOCK`
+- Useful as a merge gate on protected branches
 
-Sin `--strict`:
-- Solo se reportan 🔴 CRÍTICO y 🟠 RIESGO
-- El veredicto es `⚠️ WARN` si hay riesgos, `✅ PASS` si solo hay atención
+Without `--strict`:
+- Only 🔴 CRITICAL and 🟠 RISK are reported
+- The verdict is `⚠️ WARN` if there are risks, `✅ PASS` if only attention
 
-## Tabla de auto-selección de agentes
+## Agent auto-selection table
 
-| Patrón en archivos cambiados | Agentes activados |
+| Pattern in changed files | Agents activated |
 |------------------------------|-------------------|
-| Archivos de auth/seguridad | P1, P4 |
-| Componentes UI / páginas | P2, P3, P5 |
-| Rutas / endpoints | P3 |
-| Modelos / migraciones | P3, P6 |
+| Auth/security files | P1, P4 |
+| UI components / pages | P2, P3, P5 |
+| Routes / endpoints | P3 |
+| Models / migrations | P3, P6 |
 | Tests | P4 |
 | CI/CD / Docker / deploy | P6 |
-| Manifiestos de deps | P4 |
-| Configuración de build | P2, P3 |
-| **Siempre** | P3 (architecture) |
+| Dependency manifests | P4 |
+| Build configuration | P2, P3 |
+| **Always** | P3 (architecture) |
 
-## Cruce con hallazgos previos
+## Cross-reference with prior findings
 
-Para cada archivo cambiado:
-1. Buscar en Engram si ese archivo tenía hallazgos abiertos
-2. Si los cambios modifican líneas cerca de un hallazgo previo → marcar `📋 HALLAZGO PREVIO AFECTADO`
-3. Si los cambios resuelven un hallazgo previo → marcar `✅ HALLAZGO RESUELTO`
-4. Si los cambios no tocan el hallazgo previo → no mencionar (reducir ruido)
+For each changed file:
+1. Search Engram for open findings on that file
+2. If changes modify lines near a prior finding → mark `📋 PRIOR FINDING AFFECTED`
+3. If changes resolve a prior finding → mark `✅ FINDING RESOLVED`
+4. If changes don't touch the prior finding → do not mention (reduce noise)
 
-## Formato de salida
+## Output format
 
 ```markdown
-## Sequoia Review — [rango o PR]
+## Sequoia Review — [range or PR]
 
-**Archivos revisados**: {N}
-**Agentes ejecutados**: {lista}
+**Files reviewed**: {N}
+**Agents executed**: {list}
 
-### 🔴 Bloqueantes
-{lista de hallazgos críticos, si hay}
+### 🔴 Blocking
+{list of critical findings, if any}
 
-### 🟠 Riesgos
-{lista de hallazgos de riesgo}
+### 🟠 Risks
+{list of risk findings}
 
-### 🟡 Atención {solo con --strict}
-{lista de hallazgos de atención}
+### 🟡 Attention {only with --strict}
+{list of attention findings}
 
-### 📋 Hallazgos previos afectados
-{si los cambios tocan áreas con hallazgos abiertos}
+### 📋 Prior findings affected
+{if changes touch areas with open findings}
 
-### ✅ Hallazgos resueltos
-{si los cambios corrigen hallazgos previos}
+### ✅ Resolved findings
+{if changes fix prior findings}
 
 ---
-**Veredicto**: {✅ PASS | ⚠️ WARN | 🔴 BLOCK}
+**Verdict**: {✅ PASS | ⚠️ WARN | 🔴 BLOCK}
 ```
 
-## Diferencia con `/sequoia audit`
+## Difference from `/sequoia audit`
 
-| Aspecto | audit | review |
+| Aspect | audit | review |
 |---------|-------|--------|
-| Scope | proyecto completo | solo archivos cambiados |
-| Agentes | todos los aplicables | solo los relevantes al diff |
-| Tiempo | 15-45 min | 2-8 min |
-| Profundidad | completa | focalizada en cambios |
-| Correlación | completa entre fases | solo entre hallazgos del diff |
-| Meta-agentes | todos | solo correlator simplificado |
-| Output | reportes completos | hallazgos focalizados + veredicto |
+| Scope | entire project | only changed files |
+| Agents | all applicable | only relevant to diff |
+| Time | 15-45 min | 2-8 min |
+| Depth | complete | focused on changes |
+| Correlation | complete across phases | only between diff findings |
+| Meta-agents | all | only simplified correlator |
+| Output | full reports | focused findings + verdict |
 
-## Ejemplos
+## Examples
 
 ```bash
-# Review del último commit
+# Review last commit
 /sequoia review
 
-# Review de los últimos 3 commits
+# Review last 3 commits
 /sequoia review --diff=HEAD~3..HEAD
 
-# Review de un PR específico
+# Review a specific PR
 /sequoia review --pr=42
 
-# Review estricto como gate de merge
+# Strict review as merge gate
 /sequoia review --pr=42 --strict
 ```

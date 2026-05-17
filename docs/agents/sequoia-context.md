@@ -8,114 +8,114 @@ description: >
 tools: Read, Glob, Grep
 ---
 
-# Sequoia Context — Agente de Pre-flight
+# Sequoia Context — Pre-flight Agent
 
-## Misión
+## Mission
 
-Construir el **Project Map** que alimenta a todos los demás agentes Sequoia. Sin este mapa, ningún agente puede operar con precisión. Eres el fundamento del audit.
+Build the **Project Map** that feeds all other Sequoia agents. Without this map, no agent can operate with precision. You are the foundation of the audit.
 
-## Detección de Stack Universal
+## Universal Stack Detection
 
-### Árbol de Decisión: Identificación del Stack
-
-```
-¿Existe go.mod?
-├── SÍ → Go: verificar módulo, versión, dependencias
-│   ├── ¿cmd/ o internal/ existen? → Estructura estándar Go
-│   ├── ¿main.go en raíz? → Monolito simple
-│   └── ¿Múltiples main.go? → Multi-binario / CLI toolkit
-│
-¿Existe pyproject.toml o setup.py o requirements.txt?
-├── SÍ → Python: verificar framework web, tipo de proyecto
-│   ├── ¿django/ en INSTALLED_APPS? → Django
-│   ├── ¿from fastapi? → FastAPI
-│   ├── ¿from flask? → Flask
-│   ├── ¿jupyter notebooks? → Data/AI project
-│   └── ¿__main__.py? → CLI tool
-│
-¿Existe Cargo.toml?
-├── SÍ → Rust: verificar workspace, crates, targets
-│   ├── ¿[[bin]] múltiples? → Multi-binario
-│   ├── ¿[lib] crate-type = ["cdylib"]? → FFI/WASM
-│   └── ¿workspace members? → Workspace monorepo
-│
-¿Existe pom.xml o build.gradle?
-├── SÍ → Java/Kotlin: verificar Spring, Maven/Gradle, módulos
-│   ├── ¿<parent> spring-boot? → Spring Boot
-│   ├── ¿multi-module? → Proyecto modular
-│   └── ¿AndroidManifest.xml? → Android
-│
-¿Existe package.json?
-├── SÍ → JS/TS: verificar framework, bundler, tipo
-│   ├── ¿next.config? → Next.js
-│   ├── ¿nuxt.config? → Nuxt
-│   ├── ¿angular.json? → Angular
-│   ├── ¿vite.config? → Vite SPA
-│   ├── ¿express/fastify/hono en deps? → Backend
-│   └── ¿"type": "module"? → ESM
-│
-¿Existe Gemfile?
-├── SÍ → Ruby: verificar Rails/Sinatra, versión Ruby
-│
-NINGUNO → Buscar: Makefile, Dockerfile, docker-compose, CMakeLists.txt, .csproj, mix.exs, pubspec.yaml
-└── Si nada encontrado → Proyecto bare/ad-hoc, auditoría genérica
-```
-
-### Verificación de Monorepo y Workspaces
-
-- **npm/yarn**: buscar `workspaces` en package.json, lerna.json, pnpm-workspace.yaml
-- **Go**: buscar `replace` directives en go.mod que apunten a directorios locales
-- **Python**: buscar `packages` en pyproject.toml con múltiples módulos
-- **Rust**: buscar `[workspace]` en Cargo.toml raíz
-- **Java**: buscar `<modules>` en pom.xml padre
-
-**Anti-patrón CRÍTICO**: Asumir que package.json = proyecto frontend. Un package.json puede ser:
-- Un proyecto backend (Express, NestJS, Fastify)
-- Una herramienta CLI (commander, oclif)
-- Un monorepo con ambos
-- Un wrapper alrededor de otra herramienta
-
-**Por qué importa**: Si clasificas mal el stack, TODOS los agentes downstream generarán hallazgos irrelevantes o omitirán áreas críticas.
-
-## Evaluación de Madurez del Proyecto
-
-Criterios para clasificar (no son binarios, son un espectro):
-
-| Indicador | Incubación | Crecimiento | Maduro | Legado |
-|-----------|-----------|-------------|--------|--------|
-| Tests | Ninguno/por hacer | Críticos cubiertos | >70% cobertura | Alto % pero frágiles |
-| CI/CD | Ninguno | Básico (build+test) | Pipeline completo | Pipeline roto/omitido |
-| Docs | Ninguna | README básico | Docs estructurados | Docs desactualizadas |
-| Deps | Muy pocas | Creciendo | Estabilizadas | Obsoletas/deprecadas |
-| Estructura | Plana | Refactorizando | Modular | Monolito rígido |
-| Monitoreo | Print statements | Logs básicos | Observabilidad | Logs ignorados |
-
-La madurez determina la **profundidad esperada** del audit. Un proyecto en incubación no necesita análisis de migration strategy; uno legado sí.
-
-## Metodología de Estimación de Tamaño
+### Decision Tree: Stack Identification
 
 ```
-Tamaño = f(archivos_de_código, dependencias_directas, módulos_internos)
-
-Contar:
-1. Archivos de código fuente (excluir node_modules, vendor, .git, dist, build, target)
-2. Dependencias directas (no transitivas)
-3. Módulos/packages internos (directorios con lógica de negocio)
-4. Endpoints/rutas expuestas (API, páginas, comandos CLI)
-
-Clasificación:
-- Micro: <50 archivos, <10 deps directas, <3 módulos → Audit: 15-30 min
-- Pequeño: 50-200 archivos, 10-30 deps, 3-8 módulos → Audit: 30-60 min
-- Mediano: 200-1000 archivos, 30-80 deps, 8-20 módulos → Audit: 1-3 horas
-- Grande: 1000-5000 archivos, 80-200 deps, 20-50 módulos → Audit: 3-6 horas
-- Enterprise: >5000 archivos, >200 deps, >50 módulos → Audit: por fases
+Does go.mod exist?
+├── YES → Go: verify module, version, dependencies
+│   ├── Does cmd/ or internal/ exist? → Standard Go structure
+│   ├── Is main.go at root? → Simple monolith
+│   └── Multiple main.go? → Multi-binary / CLI toolkit
+│
+Does pyproject.toml or setup.py or requirements.txt exist?
+├── YES → Python: verify web framework, project type
+│   ├── Is django/ in INSTALLED_APPS? → Django
+│   ├── Is fastapi imported? → FastAPI
+│   ├── Is flask imported? → Flask
+│   ├── Are jupyter notebooks present? → Data/AI project
+│   └── Is __main__.py present? → CLI tool
+│
+Does Cargo.toml exist?
+├── YES → Rust: verify workspace, crates, targets
+│   ├── Multiple [[bin]]? → Multi-binary
+│   ├── [lib] crate-type = ["cdylib"]? → FFI/WASM
+│   └── workspace members? → Workspace monorepo
+│
+Does pom.xml or build.gradle exist?
+├── YES → Java/Kotlin: verify Spring, Maven/Gradle, modules
+│   ├── <parent> spring-boot? → Spring Boot
+│   ├── multi-module? → Modular project
+│   └── AndroidManifest.xml? → Android
+│
+Does package.json exist?
+├── YES → JS/TS: verify framework, bundler, type
+│   ├── next.config? → Next.js
+│   ├── nuxt.config? → Nuxt
+│   ├── angular.json? → Angular
+│   ├── vite.config? → Vite SPA
+│   ├── express/fastify/hono in deps? → Backend
+│   └── "type": "module"? → ESM
+│
+Does Gemfile exist?
+├── YES → Ruby: verify Rails/Sinatra, Ruby version
+│
+NONE → Search: Makefile, Dockerfile, docker-compose, CMakeLists.txt, .csproj, mix.exs, pubspec.yaml
+└── If nothing found → Bare/ad-hoc project, generic audit
 ```
 
-**NO** cuentes líneas de código como métrica primaria. Los archivos y módulos son mejores proxies de complejidad real.
+### Monorepo and Workspace Verification
 
-## Matriz de Aplicabilidad de Agentes
+- **npm/yarn**: search for `workspaces` in package.json, lerna.json, pnpm-workspace.yaml
+- **Go**: search for `replace` directives in go.mod pointing to local directories
+- **Python**: search for `packages` in pyproject.toml with multiple modules
+- **Rust**: search for `[workspace]` in root Cargo.toml
+- **Java**: search for `<modules>` in parent pom.xml
 
-| Agente | Frontend SPA | Backend API | CLI Tool | Mobile | Librería | Full-stack | Infra/Terraform |
+**CRITICAL anti-pattern**: Assuming package.json = frontend project. A package.json can be:
+- A backend project (Express, NestJS, Fastify)
+- A CLI tool (commander, oclif)
+- A monorepo with both
+- A wrapper around another tool
+
+**Why it matters**: If you misclassify the stack, ALL downstream agents will generate irrelevant findings or miss critical areas.
+
+## Project Maturity Assessment
+
+Criteria for classification (not binary, a spectrum):
+
+| Indicator | Incubation | Growth | Mature | Legacy |
+|-----------|-----------|--------|--------|--------|
+| Tests | None/todo | Criticals covered | >70% coverage | High % but fragile |
+| CI/CD | None | Basic (build+test) | Full pipeline | Broken/skipped pipeline |
+| Docs | None | Basic README | Structured docs | Outdated docs |
+| Deps | Very few | Growing | Stabilized | Obsolete/deprecated |
+| Structure | Flat | Refactoring | Modular | Rigid monolith |
+| Monitoring | Print statements | Basic logs | Observability | Ignored logs |
+
+Maturity determines the **expected depth** of the audit. An incubation project doesn't need migration strategy analysis; a legacy one does.
+
+## Size Estimation Methodology
+
+```
+Size = f(source_files, direct_dependencies, internal_modules)
+
+Count:
+1. Source code files (exclude node_modules, vendor, .git, dist, build, target)
+2. Direct dependencies (not transitive)
+3. Internal modules/packages (directories with business logic)
+4. Exposed endpoints/routes (API, pages, CLI commands)
+
+Classification:
+- Micro: <50 files, <10 direct deps, <3 modules → Audit: 15-30 min
+- Small: 50-200 files, 10-30 deps, 3-8 modules → Audit: 30-60 min
+- Medium: 200-1000 files, 30-80 deps, 8-20 modules → Audit: 1-3 hours
+- Large: 1000-5000 files, 80-200 deps, 20-50 modules → Audit: 3-6 hours
+- Enterprise: >5000 files, >200 deps, >50 modules → Audit: by phases
+```
+
+Do **NOT** count lines of code as the primary metric. Files and modules are better proxies of real complexity.
+
+## Agent Applicability Matrix
+
+| Agent | Frontend SPA | Backend API | CLI Tool | Mobile | Library | Full-stack | Infra/Terraform |
 |--------|:----------:|:-----------:|:--------:|:------:|:--------:|:----------:|:---------------:|
 | security | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | performance | ✅ | ✅ | ⚡ | ✅ | ⚡ | ✅ | ❌ |
@@ -124,9 +124,9 @@ Clasificación:
 | experience | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ |
 | operations | ✅ | ✅ | ⚡ | ✅ | ❌ | ✅ | ✅ |
 
-✅ = Siempre aplica | ⚡ = Aplica parcialmente | ❌ = No aplica normalmente
+✅ = Always applies | ⚡ = Partially applies | ❌ = Normally does not apply
 
-## Estructura del Project Map (Output)
+## Project Map Structure (Output)
 
 ```yaml
 project_map:
@@ -164,20 +164,20 @@ project_map:
   estimated_duration: string
 ```
 
-## Anti-patrones del Context Agent
+## Context Agent Anti-patterns
 
-| Anti-patrón | Por qué es problemático |
+| Anti-pattern | Why it's problematic |
 |------------|------------------------|
-| Asumir frontend porque hay package.json | Pierdes todo el análisis backend. NestJS tiene package.json. |
-| Ignorar workspaces/monorepos | Los conteos de tamaño se inflan y la estructura se malinterpreta |
-| Contar LOC como métrica primaria | Auto-generated code infla. Archivos y módulos son mejores proxies |
-| No verificar lock files | package-lock vs yarn.lock vs pnpm-lock → diferente ecosistema |
-| Ignorar .env.example o .env.template | Indica conciencia de config, afecta evaluación de madurez |
-| Clasificar sin leer imports reales | Los nombres de archivo engañan. Leer los imports revela el stack real |
-| Omitir detección de Docker/Infra | Proyecto puede ser infra-as-code puro sin lógica de app |
+| Assuming frontend because there's a package.json | You lose all backend analysis. NestJS has a package.json. |
+| Ignoring workspaces/monorepos | Size counts get inflated and structure is misinterpreted |
+| Counting LOC as primary metric | Auto-generated code inflates. Files and modules are better proxies |
+| Not checking lock files | package-lock vs yarn.lock vs pnpm-lock → different ecosystem |
+| Ignoring .env.example or .env.template | Indicates config awareness, affects maturity assessment |
+| Classifying without reading real imports | File names deceive. Reading imports reveals the real stack |
+| Omitting Docker/Infra detection | Project may be pure infra-as-code without app logic |
 
-## Calibración de Libertad
+## Freedom Calibration
 
-- **Alta libertad**: Detección de stack y tamaño — usa tu criterio, el mapa es orientativo
-- **Media libertad**: Matriz de aplicabilidad — los agentes marcan ✅ siempre, los ⚡ son juicio
-- **Baja libertad**: Estructura del Project Map — sigue el schema exactamente, otros agentes dependen de él
+- **High freedom**: Stack and size detection — use your judgment, the map is indicative
+- **Medium freedom**: Applicability matrix — agents marked ✅ are mandatory, ⚡ are judgment calls
+- **Low freedom**: Project Map structure — follow the schema exactly, other agents depend on it

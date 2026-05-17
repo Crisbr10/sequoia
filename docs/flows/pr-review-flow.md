@@ -1,134 +1,134 @@
-# Flujo: PR Review
+# Flow: PR Review
 
-Flujo focalizado para revisión de PRs y diffs.
+Focused flow for PR and diff review.
 
 ## Trigger
 
-El usuario ejecuta `/sequoia review` con flags opcionales.
+The user runs `/sequoia review` with optional flags.
 
-## Diagrama de flujo
+## Flow diagram
 
 ```
 /sequoia review [--diff=X] [--pr=N] [--strict]
   │
-  ├─ 1. OBTENER DIFF
-  │     ├─ --diff=HEAD~3..HEAD → git diff --stat + contenido
+  ├─ 1. GET DIFF
+  │     ├─ --diff=HEAD~3..HEAD → git diff --stat + content
   │     ├─ --pr=42 → gh pr diff 42
   │     └─ default → git diff HEAD~1..HEAD
   │
-  ├─ 2. CLASIFICAR ARCHIVOS
-  │     └─ Mapear cada archivo cambiado a tipos de agentes
+  ├─ 2. CLASSIFY FILES
+  │     └─ Map each changed file to agent types
   │
-  ├─ 3. AUTO-SELECT AGENTES
-  │     ├─ Consultar tabla de mapeo archivo→agente
-  │     └─ Mínimo: P3 Architecture (siempre corre)
+  ├─ 3. AUTO-SELECT AGENTS
+  │     ├─ Consult file→agent mapping table
+  │     └─ Minimum: P3 Architecture (always runs)
   │
-  ├─ 4. RECUPERAR HALLAZGOS PREVIOS
-  │     ├─ Buscar en Engram hallazgos que afecten los archivos del diff
-  │     └─ Marcar hallazgos previos que los cambios podrían resolver o afectar
+  ├─ 4. RETRIEVE PRIOR FINDINGS
+  │     ├─ Search Engram for findings affecting diff files
+  │     └─ Mark prior findings that changes could resolve or affect
   │
-  ├─ 5. EJECUTAR AGENTES (solo sobre archivos del diff)
-  │     ├─ Todos en paralelo (no hay dependencias en review)
-  │     └─ Cada agente solo analiza los archivos cambiados
+  ├─ 5. RUN AGENTS (only on diff files)
+  │     ├─ All in parallel (no dependencies in review)
+  │     └─ Each agent only analyzes changed files
   │
-  ├─ 6. GENERAR OUTPUT FOCALIZADO
-  │     ├─ Hallazgos nuevos del diff
-  │     ├─ Hallazgos previos afectados/resueltos
-  │     └─ Veredicto final
+  ├─ 6. GENERATE FOCUSED OUTPUT
+  │     ├─ New findings from the diff
+  │     ├─ Prior findings affected/resolved
+  │     └─ Final verdict
   │
-  └─ 7. PERSISTIR
-        └─ Guardar hallazgos del review en Engram (separados de audit)
+  └─ 7. PERSIST
+        └─ Save review findings in Engram (separate from audit)
 ```
 
-## Tabla de auto-selección: tipo de archivo → agentes
+## Auto-selection table: file type → agents
 
-| Patrón de archivo | Agentes activados | Justificación |
+| File pattern | Agents activated | Justification |
 |-------------------|-------------------|---------------|
-| `**/auth/**`, `**/session/**`, `**/middleware/**` | P1 | Cambios en autenticación siempre son security-sensitive |
-| `**/*.jsx`, `**/*.tsx`, `**/*.vue`, `**/*.svelte`, `**/*.html` | P2, P5 | Componentes UI: performance + experiencia |
-| `**/api/**`, `**/routes/**`, `**/controllers/**`, `**/handlers/**` | P1, P3 | Endpoints: seguridad + arquitectura + API design |
-| `**/models/**`, `**/schema/**`, `**/migrations/**`, `**/entities/**` | P3, P6 | Datos: arquitectura + operaciones |
-| `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**` | P4 | Tests: calidad |
-| `Dockerfile*`, `**/.github/**`, `**/deploy/**`, `docker-compose.*` | P6 | Infra: operaciones |
-| `package.json`, `go.mod`, `Cargo.toml`, `requirements.txt` | P4 | Deps: siempre revisar cambios en dependencias (parte de calidad) |
-| `vite.config.*`, `webpack.config.*`, `tsconfig.*` | P2, P3 | Build config: performance + arquitectura |
-| `*.css`, `*.scss`, `*.less` | P2, P5 | Estilos: performance + experiencia |
-| `**/*.md` | — | Documentación: no audita (a menos que sea API docs) |
-| **Cualquier otro** | P3 | Architecture siempre tiene algo que decir |
+| `**/auth/**`, `**/session/**`, `**/middleware/**` | P1 | Auth changes are always security-sensitive |
+| `**/*.jsx`, `**/*.tsx`, `**/*.vue`, `**/*.svelte`, `**/*.html` | P2, P5 | UI components: performance + experience |
+| `**/api/**`, `**/routes/**`, `**/controllers/**`, `**/handlers/**` | P1, P3 | Endpoints: security + architecture + API design |
+| `**/models/**`, `**/schema/**`, `**/migrations/**`, `**/entities/**` | P3, P6 | Data: architecture + operations |
+| `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**` | P4 | Tests: quality |
+| `Dockerfile*`, `**/.github/**`, `**/deploy/**`, `docker-compose.*` | P6 | Infra: operations |
+| `package.json`, `go.mod`, `Cargo.toml`, `requirements.txt` | P4 | Deps: always review dependency changes (part of quality) |
+| `vite.config.*`, `webpack.config.*`, `tsconfig.*` | P2, P3 | Build config: performance + architecture |
+| `*.css`, `*.scss`, `*.less` | P2, P5 | Styles: performance + experience |
+| `**/*.md` | — | Documentation: don't audit (unless API docs) |
+| **Any other** | P3 | Architecture always has something to say |
 
-## Reglas de selección
+## Selection rules
 
-1. **P3 Architecture siempre corre** — todo cambio tiene impacto arquitectural
-2. **P4 Quality corre si cambió el manifiesto** — nuevas deps = nuevo riesgo
-3. **P1 Security corre si hay auth, endpoints, o input handling** — seguridad no negocia
-4. **P5 Experience solo si hay UI** — si el diff es solo backend, se salta
-5. **Meta-agentes**: solo correlator simplificado, sin reporter completo
+1. **P3 Architecture always runs** — every change has architectural impact
+2. **P4 Quality runs if the manifest changed** — new deps = new risk
+3. **P1 Security runs if there's auth, endpoints, or input handling** — security is non-negotiable
+4. **P5 Experience only if there's UI** — if the diff is backend-only, skip
+5. **Meta-agents**: only simplified correlator, no full reporter
 
-## Formato de output focalizado
+## Focused output format
 
 ```markdown
 ## Sequoia Review
 
-**Rango**: [diff range o PR #N]
-**Archivos**: {N} archivos cambiados
-**Agentes**: {lista de agentes ejecutados}
+**Range**: [diff range or PR #N]
+**Files**: {N} changed files
+**Agents**: {list of agents executed}
 
 ---
 
-### 🔴 Bloqueantes
-{hallazgos críticos del diff}
+### 🔴 Blocking
+{critical findings from the diff}
 
-### 🟠 Riesgos
-{hallazgos de riesgo del diff}
+### 🟠 Risks
+{risk findings from the diff}
 
-### 🟡 Atención [--strict only]
-{hallazgos medios, solo en modo estricto}
+### 🟡 Attention [--strict only]
+{medium findings, only in strict mode}
 
 ---
 
-### 📋 Hallazgos previos afectados
+### 📋 Prior findings affected
 
-| Hallazgo previo | Estado | Detalle |
+| Prior finding | Status | Detail |
 |----------------|--------|---------|
-| [P1-002] Token sin expiración | 🔸 Parcialmente resuelto | Se agregó expiración pero falta rotation |
-| [P3-005] God module auth | ⏸️ No tocado | El diff no modifica auth/index.ts |
+| [P1-002] Token without expiration | 🔸 Partially resolved | Added expiration but missing rotation |
+| [P3-005] God module auth | ⏸️ Not touched | The diff doesn't modify auth/index.ts |
 
-### ✅ Hallazgos resueltos por este diff
-{si el cambio corrige un hallazgo previo}
+### ✅ Findings resolved by this diff
+{if the change fixes a prior finding}
 
 ---
 
-**Veredicto**: {✅ PASS | ⚠️ WARN | 🔴 BLOCK}
-**Revisión sugerida**: {comentario opcional sobre el cambio en conjunto}
+**Verdict**: {✅ PASS | ⚠️ WARN | 🔴 BLOCK}
+**Suggested review**: {optional comment on the change as a whole}
 ```
 
-## Lógica de veredicto
+## Verdict logic
 
-| Condición | Veredicto |
+| Condition | Verdict |
 |-----------|-----------|
-| Sin hallazgos 🔴 ni 🟠 | ✅ PASS |
-| Solo hallazgos 🟠 y `--strict` no activo | ⚠️ WARN |
-| Hallazgos 🔴 | 🔴 BLOCK |
-| Hallazgos 🟠 y `--strict` activo | 🔴 BLOCK |
-| Sin hallazgos pero hallazgos previos empeorados | ⚠️ WARN |
+| No 🔴 or 🟠 findings | ✅ PASS |
+| Only 🟠 findings and `--strict` not active | ⚠️ WARN |
+| 🔴 findings | 🔴 BLOCK |
+| 🟠 findings and `--strict` active | 🔴 BLOCK |
+| No findings but prior findings worsened | ⚠️ WARN |
 
-## Integración con hallazgos previos
+## Integration with prior findings
 
-1. **Recuperar** de Engram los hallazgos que citan archivos del diff
-2. **Verificar** si las líneas cambiadas están cerca de hallazgos previos
-3. **Marcar** cada hallazgo previo como:
-   - `✅ Posiblemente resuelto` — si el diff toca las líneas citadas en la evidencia
-   - `🔸 Parcialmente afectado` — si el diff toca el archivo pero no las líneas exactas
-   - `🔻 Empeorado` — si el diff agrava el problema
-   - `⏸️ No tocado` — si el diff no relaciona
-4. Solo reportar los marcados como resuelto, afectado o empeorado (reducir ruido)
+1. **Retrieve** from Engram the findings that cite diff files
+2. **Verify** if the changed lines are near prior findings
+3. **Mark** each prior finding as:
+   - `✅ Potentially resolved` — if the diff touches the lines cited in the evidence
+   - `🔸 Partially affected` — if the diff touches the file but not the exact lines
+   - `🔻 Worsened` — if the diff aggravates the problem
+   - `⏸️ Not touched` — if the diff is unrelated
+4. Only report those marked as resolved, affected, or worsened (reduce noise)
 
-## Flags en áreas con hallazgos abiertos
+## Flags in areas with open findings
 
-Si el diff toca archivos con hallazgos 🔴 o 🟠 abiertos, agregar al output:
+If the diff touches files with open 🔴 or 🟠 findings, add to the output:
 
-> ⚠️ **Este diff modifica áreas con hallazgos abiertos:**
-> - `src/auth/handler.ts` tiene [P1-002] 🔴 Token sin expiración
-> - `src/api/routes.ts` tiene [P3-001] 🟠 Endpoints sin paginación
+> ⚠️ **This diff modifies areas with open findings:**
+> - `src/auth/handler.ts` has [P1-002] 🔴 Token without expiration
+> - `src/api/routes.ts` has [P3-001] 🟠 Endpoints without pagination
 >
-> Verificar que los cambios no agraven estos hallazgos.
+> Verify that changes don't worsen these findings.

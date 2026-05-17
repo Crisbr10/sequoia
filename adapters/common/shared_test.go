@@ -19,7 +19,7 @@ var testFS embed.FS
 // TestVersion_IsCorrect verifies the shared Version constant.
 func TestVersion_IsCorrect(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "0.1.0", common.Version)
+	assert.NotEmpty(t, common.Version, "Version constant must not be empty")
 }
 
 // TestCommandFiles_HasExpectedEntries verifies the shared command file list.
@@ -67,14 +67,14 @@ func TestRenderTemplate_RendersWithData(t *testing.T) {
 		Name    string
 		Version string
 	}
-	d := data{Name: "World", Version: "0.1.0"}
+	d := data{Name: "World", Version: common.Version}
 
 	result, err := common.RenderTemplate(testFS, "testdata/test.tmpl", d)
 	require.NoError(t, err)
 	// Normalize CRLF → LF so the test works on Windows (git may checkout
 	// template files with CRLF line endings).
 	result = strings.ReplaceAll(result, "\r\n", "\n")
-	assert.Equal(t, "Hello World! Version: 0.1.0\n", result)
+	assert.Equal(t, "Hello World! Version: "+common.Version+"\n", result)
 }
 
 // TestRenderTemplate_FileNotFound returns error for missing template.

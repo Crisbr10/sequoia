@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/adapters/gemini"
 
 	"github.com/stretchr/testify/assert"
@@ -155,7 +156,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 	versionFile := filepath.Join(geminiDir, "sequoia", ".sequoia-version")
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
-	assert.Equal(t, "0.1.0\n", string(data))
+	assert.Equal(t, common.Version+"\n", string(data))
 }
 
 func TestAdapter_Uninstall_RemovesSequoiaDir(t *testing.T) {
@@ -190,7 +191,7 @@ func TestAdapter_VersionRoundTrip(t *testing.T) {
 
 	s := a.Status()
 	assert.True(t, s.Installed, "should be installed after Install()")
-	assert.Equal(t, "0.1.0", s.Version, "Status().Version should match the adapter Version constant")
+	assert.Equal(t, common.Version, s.Version, "Status().Version should match the adapter Version constant")
 }
 
 func TestAdapter_Reinstall_OverwritesVersion(t *testing.T) {
@@ -203,12 +204,12 @@ func TestAdapter_Reinstall_OverwritesVersion(t *testing.T) {
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	s := a.Status()
-	assert.Equal(t, "0.1.0", s.Version, "first install should write version 0.1.0")
+	assert.Equal(t, common.Version, s.Version, "first install should write the correct version")
 
-	// Reinstall should overwrite.
+	// Reinstall should overwrite with the same version.
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	s = a.Status()
-	assert.Equal(t, "0.1.0", s.Version, "reinstall should still report 0.1.0")
+	assert.Equal(t, common.Version, s.Version, "reinstall should still report the correct version")
 }
 
 func TestAdapter_Install_ValidatesSkillFile(t *testing.T) {
@@ -239,7 +240,7 @@ func TestAdapter_Install_ValidatesGeminiMD(t *testing.T) {
 	data, err := os.ReadFile(geminiMD)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "<!-- sequoia:start -->")
-	assert.Contains(t, string(data), "Sequoia v0.1.0")
+	assert.Contains(t, string(data), "Sequoia v"+common.Version)
 	assert.Contains(t, string(data), "<!-- sequoia:end -->")
 }
 

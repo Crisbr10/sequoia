@@ -2,95 +2,83 @@
 
 ## Purpose
 
-Define the Go code changes to pass the user-selected language from the TUI configuration through the pipeline runner to adapter Install/Uninstall calls, including language-aware template resolution via `RenderTemplateLang`.
+Define the Go wiring between TUI configuration, pipeline runner, and adapter Install/Uninstall calls. The language parameter has been removed; all adapters now use zero-argument signatures and direct template resolution.
 
 ## Requirements
 
-### Requirement: InstallOpts Struct with Language Field
-A new `InstallOpts` struct SHALL be defined in `adapters/interface.go` with a `Language` field of type `string`. The struct MUST be designed for future extension with additional options.
+### Requirement: InstallOpts Struct Without Language
 
-#### Scenario: InstallOpts defined in adapter interface
+`InstallOpts` SHALL be defined in `adapters/interface.go` without any `Language` field. The struct SHALL be designed for future extension with non-language options only.
+
+#### Scenario: InstallOpts lacks Language field
 - GIVEN the `adapters` package
-- WHEN `InstallOpts` is defined
-- THEN it SHALL export a `Language string` field
-- AND the struct SHALL be placed above the `ToolAdapter` interface definition
+- WHEN `InstallOpts` is inspected
+- THEN it SHALL NOT contain a `Language string` field
 
-### Requirement: Install and Uninstall Accept InstallOpts
-The `ToolAdapter` interface methods `Install()` and `Uninstall()` MUST be changed to `Install(opts InstallOpts)` and `Uninstall(opts InstallOpts)`. All 5 adapter implementations (opencode, claude, gemini, cursor, codex) and the `_template` adapter SHALL be updated.
+### Requirement: Install and Uninstall Zero-Parameter Signatures
 
-#### Scenario: Adapter interface updated
+The `ToolAdapter` interface methods `Install()` and `Uninstall()` SHALL use zero-parameter signatures: `Install(ctx context.Context) error` and `Uninstall(ctx context.Context) error`. All 5 adapter implementations (opencode, claude, gemini, cursor, codex) and the `_template` adapter SHALL follow this signature.
+
+#### Scenario: Adapter interface uses zero-param signatures
 - GIVEN the `ToolAdapter` interface
-- WHEN the change is applied
-- THEN `Install() error` SHALL become `Install(opts InstallOpts) error`
-- AND `Uninstall() error` SHALL become `Uninstall(opts InstallOpts) error`
+- WHEN compiled
+- THEN `Install()` and `Uninstall()` accept only `context.Context` — no `InstallOpts` parameter
 
 #### Scenario: All adapter implementations compile
-- GIVEN all 5 adapters updated
+- GIVEN all 5 adapters and `_template`
 - WHEN `go build ./...` runs
 - THEN compilation SHALL succeed with zero errors
 
-### Requirement: Adapters Use Language for Template Selection
-All adapter `Install()` implementations that render templates (BaseAdapter, Codex, `_template`) MUST use `opts.Language` to select language-specific templates via `RenderTemplateLang`. The `_ = opts.Language` discard pattern SHALL be removed from these adapters. Uninstall methods and adapters that do NOT render templates MAY keep the language parameter but MUST NOT discard it with `_ = opts.Language`.
+### Requirement: Direct Template Resolution Without Language
 
-#### Scenario: BaseAdapter passes language to template rendering
-- GIVEN `BaseAdapter.Install()` with `opts.Language = "es"`
+Adapter `Install()` implementations SHALL render templates via `RenderTemplate(fs embed.FS, name string, data interface{}) (string, error)` without any language resolution. The `RenderTemplateLang` function SHALL be deleted. Templates SHALL be resolved from a single `templates/` directory with no language subdirectory.
+
+#### Scenario: BaseAdapter uses RenderTemplate
+- GIVEN `BaseAdapter.Install()` is called
 - WHEN the skill and system prompt templates are rendered
-- THEN `RenderTemplateLang(fs, name, "es", data)` SHALL be called
-- AND the function SHALL attempt to load `{name}.es.tmpl` before falling back to `{name}.tmpl`
+- THEN `RenderTemplate(fs, "templates/skill.md.tmpl", data)` SHALL be called
+- AND no language parameter is involved
 
-#### Scenario: Codex adapter uses language for skill template
-- GIVEN `codex.Adapter.Install()` with `opts.Language = "en"`
+#### Scenario: Codex adapter uses RenderTemplate
+- GIVEN `codex.Adapter.Install()` is called
 - WHEN the skill template is rendered
-- THEN `RenderTemplateLang(templateFS, "templates/skill.md", "en", data)` SHALL be called
+- THEN `RenderTemplate(fs, "templates/skill.md.tmpl", data)` SHALL be called
 
-#### Scenario: Default to English when language is empty
-- GIVEN `opts.Language = ""` (empty string)
-- WHEN any adapter renders templates
-- THEN the language SHALL default to `"en"`
+### Requirement: Pipeline Runner Without Language Options
 
-### Requirement: Language-Aware Template Resolution
-`adapters/common/template.go` MUST provide a `RenderTemplateLang(fs embed.FS, name, lang string, data interface{}) (string, error)` function. The function SHALL first attempt to load `{name}.{lang}.tmpl` from the embedded FS. If the language-specific file does not exist, it SHALL fall back to `{name}.tmpl` for backward compatibility.
+`internal/pipeline/runner.go` SHALL NOT construct `InstallOpts` with a `Language` field. `RunInstall(ctx, tools, ch)` and `RunUninstall(ctx, tools, ch)` SHALL NOT accept a `lang string` parameter. The internal helper functions `runSteps`, `runInstallSteps`, and `runUninstallSteps` SHALL NOT accept `lang`.
 
-#### Scenario: Lang-resolved template found
-- GIVEN `name = "skill.md"`, `lang = "en"`, and `skill.md.en.tmpl` exists in the FS
-- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
-- THEN `skill.md.en.tmpl` SHALL be loaded and rendered
-
-#### Scenario: Fallback when lang file missing
-- GIVEN `name = "skill.md"`, `lang = "es"`, and `skill.md.es.tmpl` does NOT exist
-- WHEN `RenderTemplateLang(fs, "skill.md", "es", data)` is called
-- THEN `skill.md.tmpl` SHALL be loaded as fallback
-- AND no error SHALL be returned
-
-#### Scenario: Unknown language falls back
-- GIVEN `name = "skill.md"`, `lang = "zh"`, and `skill.md.zh.tmpl` does NOT exist
-- WHEN `RenderTemplateLang(fs, "skill.md", "zh", data)` is called
-- THEN `skill.md.tmpl` SHALL be loaded as fallback
-- AND existing behavior SHALL be preserved
-
-### Requirement: Pipeline Runner Passes Language
-`internal/pipeline/runner.go` MUST construct `InstallOpts{Language: lang}` from the `lang string` parameter and pass it to `adapter.Install()` and `adapter.Uninstall()`. The `_ = lang` placeholder SHALL be removed.
-
-#### Scenario: Runner passes language to Install
-- GIVEN `RunInstall(ctx, tools, ch, "es")` is called
+#### Scenario: Runner calls Install without language
+- GIVEN `RunInstall(ctx, tools, ch)` is called
 - WHEN the install goroutine executes
-- THEN `adapter.Install(InstallOpts{Language: "es"})` SHALL be called
+- THEN `adapter.Install(ctx)` SHALL be called with no InstallOpts
 
-#### Scenario: Runner passes language to Uninstall
-- GIVEN `RunUninstall(ctx, tools, ch, "en")` is called
+#### Scenario: Runner calls Uninstall without language
+- GIVEN `RunUninstall(ctx, tools, ch)` is called
 - WHEN the uninstall goroutine executes
-- THEN `adapter.Uninstall(InstallOpts{Language: "en"})` SHALL be called
+- THEN `adapter.Uninstall(ctx)` SHALL be called with no InstallOpts
 
-### Requirement: All 312+ Tests Remain Green
-After all wiring changes, `go test -race -count=1 ./...` MUST pass with zero failures.
+### Requirement: go.mod i18n-Free
 
-#### Scenario: Test suite passes after wiring
+`go.mod` SHALL NOT depend on `github.com/nicksnyder/go-i18n/v2`. `golang.org/x/text` SHALL be absent from direct dependencies. `github.com/BurntSushi/toml` SHALL remain as it is used by the Codex adapter for TOML configuration merging.
+
+#### Scenario: Dependencies verified
+- GIVEN `go.mod` after `go mod tidy`
+- WHEN inspected
+- THEN `go-i18n/v2` absent; `BurntSushi/toml` present
+
+### Requirement: Test Suite Green
+
+After all wiring changes, `go test -race -count=1 ./...` MUST pass with zero failures attributable to i18n removal.
+
+#### Scenario: Test suite passes
 - GIVEN all interface and implementation changes applied
 - WHEN `go test -race -count=1 ./...` runs
-- THEN all existing tests SHALL pass
+- THEN all core package tests SHALL pass
 - AND no race conditions SHALL be detected
 
 ### Requirement: Backup File and Directory Isolation
+
 The system SHALL ensure that backup files and directories created during install and upgrade operations use owner-only permissions to prevent information leaks on multi-user Unix systems.
 
 #### Scenario: Backup directory permissions

@@ -1,83 +1,83 @@
-# Flujo: Proyecto Simple
+# Flow: Simple Project
 
-Flujo simplificado para proyectos pequeños o en etapas tempranas.
+Simplified flow for small projects or early-stage projects.
 
-## Cuándo usar este flujo
+## When to use this flow
 
-Aplica cuando el proyecto cumple AL MENOS UNO de estos criterios:
-- Menos de 50 archivos de código fuente
-- Desarrollador único (no team)
-- Etapa de prototipo o MVP
-- Sin CI/CD configurado
-- Sin capa de datos persistente
-- Librería o CLI simple
+Applies when the project meets AT LEAST ONE of these criteria:
+- Fewer than 50 source code files
+- Single developer (no team)
+- Prototype or MVP stage
+- No CI/CD configured
+- No persistent data layer
+- Simple library or CLI
 
-Si el proyecto cumple 3 o más → flujo simple obligatorio.
-Si cumple 1-2 → se puede elegir simple o completo según preferencia.
+If the project meets 3 or more → simple flow mandatory.
+If it meets 1-2 → can choose simple or complete based on preference.
 
-## Flujo simplificado
+## Simplified flow
 
 ```
 /sequoia init
   │
-  └─► Detecta: proyecto simple
-        ├─ Agentes reducidos: P1, P3, P4
-        ├─ Opcionales: P2 (si hay bundle/API), P6 (si hay CI/deploy)
-        ├─ Skip: P5 (no hay UI), P6 (sin infra)
-        └─ Mode: quick por defecto
+  └─► Detects: simple project
+        ├─ Reduced agents: P1, P3, P4
+        ├─ Optional: P2 (if bundle/API), P6 (if CI/deploy)
+        ├─ Skip: P5 (no UI)
+        └─ Mode: quick by default
 
 /sequoia audit --mode=quick
   │
-  ├─ 1. Batch único (todos en paralelo)
-  │     ├─ P1 Security  → hallazgos críticos y riesgos
-  │     ├─ P3 Architecture → hallazgos críticos y riesgos
-  │     ├─ P4 Quality → hallazgos críticos y riesgos (incluye deps)
-  │     └─ [P6 Operations → solo si hay CI/deploy]
+  ├─ 1. Single batch (all in parallel)
+  │     ├─ P1 Security  → critical and risk findings
+  │     ├─ P3 Architecture → critical and risk findings
+  │     ├─ P4 Quality → critical and risk findings (includes deps)
+  │     └─ [P6 Operations → only if CI/deploy exists]
   │
-  ├─ 2. Meta-agentes (simplificados)
-  │     ├─ M1 Correlator → solo correlación directa, sin mapa de causas raíz
-  │     └─ M2 Reporter → scores + output abreviado
+  ├─ 2. Meta-agents (simplified)
+  │     ├─ M1 Correlator → direct correlation only, no root cause map
+  │     └─ M2 Reporter → scores + abbreviated output
   │
-  └─ 3. Output único
-        └─ sequoia-simple.md (todo en un archivo)
+  └─ 3. Single output
+        └─ sequoia-simple.md (everything in one file)
 ```
 
-## Agentes reducidos: qué se salta
+## Reduced agents: what's skipped
 
-| Agente | Incluir | Motivo de exclusión |
+| Agent | Include | Exclusion reason |
 |--------|---------|---------------------|
-| P1 Security | ✅ | Siempre relevante |
-| P2 Performance | ✅/❌ | Solo si hay bundle o API; si es CLI simple, skip |
-| P3 Architecture | ✅ | Siempre relevante (incluye API design) |
-| P4 Quality | ✅ | Siempre relevante (incluye deps) |
-| P5 Experience | ❌ | Solo si hay interfaz de usuario real |
-| P6 Operations | ✅/❌ | Versión reducida: scripts, env, CI básico; skip si no hay infra |
+| P1 Security | ✅ | Always relevant |
+| P2 Performance | ✅/❌ | Only if bundle or API; simple CLI → skip |
+| P3 Architecture | ✅ | Always relevant (includes API design) |
+| P4 Quality | ✅ | Always relevant (includes deps) |
+| P5 Experience | ❌ | Only if real user interface exists |
+| P6 Operations | ✅/❌ | Reduced version: scripts, env, basic CI; skip if no infra |
 
-## Qué se omite en modo simple
+## What's omitted in simple mode
 
-| Elemento | Completo | Simple |
+| Element | Complete | Simple |
 |----------|----------|--------|
-| Matriz de superficie de ataque | Sí | No |
-| Presupuesto de performance | Sí | No |
-| Mapa de dependencias de módulos | Sí | No |
-| Correlación profunda de causas raíz | Sí | Solo directa |
-| Breaking Change Risk Map | Sí | No |
-| Risk Score de dependencias | Sí | Versión reducida |
-| Documentos por fase separados | Sí | Un solo archivo |
-| Plan de tareas detallado | Sí | Solo bloqueantes |
-| Scorecard con tendencia | Sí | Score actual nada más |
+| Attack surface matrix | Yes | No |
+| Performance budget | Yes | No |
+| Module dependency map | Yes | No |
+| Deep root cause correlation | Yes | Direct only |
+| Breaking Change Risk Map | Yes | No |
+| Dependency Risk Score | Yes | Reduced version |
+| Separate phase documents | Yes | Single file |
+| Detailed task plan | Yes | Blocking only |
+| Scorecard with trend | Yes | Current score only |
 
-## Formato de output: `sequoia-simple.md`
+## Output format: `sequoia-simple.md`
 
 ```markdown
-# Sequoia Simple Audit — [Proyecto]
+# Sequoia Simple Audit — [Project]
 
-**Fecha**: [fecha]
-**Stack**: [detectado]
-**Madurez**: [del mapa]
+**Date**: [date]
+**Stack**: [detected]
+**Maturity**: [from map]
 
 ## Health Score
-| Fase | Score |
+| Phase | Score |
 |------|-------|
 | Security | {emoji} |
 | Architecture | {emoji} |
@@ -85,43 +85,43 @@ Si cumple 1-2 → se puede elegir simple o completo según preferencia.
 | Operations | {emoji} |
 | **Global** | **{emoji}** |
 
-## Hallazgos bloqueantes 🔴
-{solo críticos, formato estándar de hallazgo}
+## Blocking findings 🔴
+{critical only, standard finding format}
 
-## Hallazgos de riesgo 🟠
-{solo riesgos altos}
+## Risk findings 🟠
+{high risks only}
 
 ## Quick wins
-{3-5 acciones de mayor impacto con menor esfuerzo}
+{3-5 highest-impact, lowest-effort actions}
 
-## Próximos pasos
-1. [acción concreta más urgente]
-2. [segunda más urgente]
-3. [tercera]
+## Next steps
+1. [most urgent concrete action]
+2. [second most urgent]
+3. [third]
 
 ---
-Generado por Sequoia (flujo simple)
+Generated by Sequoia (simple flow)
 ```
 
-## Fast path: init + audit en uno
+## Fast path: init + audit in one
 
-Para proyectos simples, se puede ejecutar init + audit en secuencia directa:
+For simple projects, you can run init + audit in direct sequence:
 
 ```bash
-/sequoia init    # detecta proyecto simple
-/sequoia audit   # auto-selecciona flujo simple
+/sequoia init    # detects simple project
+/sequoia audit   # auto-selects simple flow
 ```
 
-Si el init detecta que es simple, el audit sugiere automáticamente `--mode=quick`.
+If init detects it's simple, audit automatically suggests `--mode=quick`.
 
-## Cuándo escalar a flujo completo
+## When to scale to full flow
 
-El flujo simple recomienda escalar cuando:
-- El proyecto creció más de 50 archivos desde el init
-- Se agregó CI/CD o infraestructura de deployment
-- Se agregó base de datos o API pública
-- El equipo creció a más de un desarrollador
-- El proyecto pasó de prototipo a producción
+The simple flow recommends scaling when:
+- The project grew beyond 50 files since init
+- CI/CD or deployment infrastructure was added
+- A database or public API was added
+- The team grew beyond one developer
+- The project moved from prototype to production
 
-En esos casos, el reporte simple incluye una nota:
-> 📈 Este proyecto ha crecido. Considerá ejecutar `/sequoia audit --mode=full` para un análisis completo.
+In those cases, the simple report includes a note:
+> 📈 This project has grown. Consider running `/sequoia audit --mode=full` for a complete analysis.

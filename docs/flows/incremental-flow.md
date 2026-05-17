@@ -1,161 +1,161 @@
-# Flujo: Auditoría Incremental
+# Flow: Incremental Audit
 
-Flujo para re-auditoría y tracking de evolución del proyecto.
+Flow for re-audit and tracking of project evolution.
 
-## Cuándo usar
+## When to use
 
-| Situación | Comando |
+| Situation | Command |
 |-----------|---------|
-| Después de implementar fixes de auditoría previa | `/sequoia diff` |
-| Health check periódico semanal/quincenal | `/sequoia diff` |
-| Post-merge de feature grande | `/sequoia diff` → si hay sorpresas, `audit` |
-| Cambios significativos en el proyecto | `/sequoia audit` (nueva completa) |
-| Más de 30 días desde la última auditoría | `/sequoia audit` (nueva completa) |
+| After implementing fixes from previous audit | `/sequoia diff` |
+| Weekly/biweekly periodic health check | `/sequoia diff` |
+| Post-merge of large feature | `/sequoia diff` → if there are surprises, `audit` |
+| Significant changes in the project | `/sequoia audit` (new complete) |
+| More than 30 days since last audit | `/sequoia audit` (new complete) |
 
-## Flujo de diff incremental
+## Incremental diff flow
 
 ```
 /sequoia diff
   │
-  ├─ 1. RECUPERAR AUDITORÍA ANTERIOR
-  │     ├─ Hallazgos de Engram (más reciente)
+  ├─ 1. RETRIEVE PREVIOUS AUDIT
+  │     ├─ Findings from Engram (most recent)
   │     ├─ Health scores
-  │     └─ Snapshot del estado (commit hash, estructura)
+  │     └─ State snapshot (commit hash, structure)
   │
-  ├─ 2. DETECTAR STALENESS
-  │     ├─ ¿Cuántos commits desde la última auditoría?
-  │     ├─ ¿Cuántos archivos cambiaron?
-  │     └─ ¿Cambió el stack o estructura significativamente?
+  ├─ 2. DETECT STALENESS
+  │     ├─ How many commits since last audit?
+  │     ├─ How many files changed?
+  │     └─ Did the stack or structure change significantly?
   │
-  ├─ 3. RE-VERIFICAR HALLAZGOS ANTERIORES
-  │     ├─ Para cada hallazgo previo:
-  │     │   ├─ Leer archivos citados en la evidencia
-  │     │   ├─ Comparar estado actual vs snapshot
-  │     │   └─ Clasificar: ✅ | 🔸 | ⏸️ | 🔻
-  │     └─ Generar tabla de clasificación
+  ├─ 3. RE-VERIFY PREVIOUS FINDINGS
+  │     ├─ For each prior finding:
+  │     │   ├─ Read files cited in evidence
+  │     │   ├─ Compare current state vs snapshot
+  │     │   └─ Classify: ✅ | 🔸 | ⏸️ | 🔻
+  │     └─ Generate classification table
   │
-  ├─ 4. SCAN RÁPIDO DE HALLAZGOS NUEVOS
-  │     ├─ Solo en áreas cambiadas desde la última auditoría
-  │     ├─ Solo 🔴 CRÍTICO y 🟠 RIESGO
-  │     └─ No es auditoría completa: es barrido rápido
+  ├─ 4. QUICK SCAN FOR NEW FINDINGS
+  │     ├─ Only in areas changed since last audit
+  │     ├─ Only 🔴 CRITICAL and 🟠 RISK
+  │     └─ Not a full audit: quick sweep
   │
-  ├─ 5. CALCULAR EVOLUCIÓN
-  │     ├─ Score anterior vs score actual (estimado)
-  │     ├─ Tendencia: ↗️ Mejorando | → Estable | ↘️ Degradando
-  │     └─ Velocidad de resolución (hallazgos resueltos / tiempo)
+  ├─ 5. CALCULATE EVOLUTION
+  │     ├─ Previous score vs current score (estimated)
+  │     ├─ Trend: ↗️ Improving | → Stable | ↘️ Degrading
+  │     └─ Resolution velocity (findings resolved / time)
   │
-  └─ 6. GENERAR REPORTE DE EVOLUCIÓN
-        └─ Formato diff (ver sequoia-diff.md)
+  └─ 6. GENERATE EVOLUTION REPORT
+        └─ Diff format (see sequoia-diff.md)
 ```
 
-## Detección de staleness
+## Staleness detection
 
 ```markdown
-| Indicador | Verde | Amarillo | Rojo |
+| Indicator | Green | Yellow | Red |
 |-----------|-------|----------|------|
-| Días desde última auditoría | < 14 | 14-30 | > 30 |
-| Commits desde última auditoría | < 20 | 20-50 | > 50 |
-| Archivos cambiados | < 15% | 15-40% | > 40% |
-| Cambios en deps | 0 | 1-3 | > 3 |
-| Cambio de estructura | No | Menor | Significativo |
+| Days since last audit | < 14 | 14-30 | > 30 |
+| Commits since last audit | < 20 | 20-50 | > 50 |
+| Files changed | < 15% | 15-40% | > 40% |
+| Dep changes | 0 | 1-3 | > 3 |
+| Structure change | No | Minor | Significant |
 ```
 
-- **Todo verde**: diff incremental es suficiente
-- **Alguna amarilla**: diff + atención a esas áreas
-- **Alguna roja**: recomendar auditoría completa nueva
+- **All green**: incremental diff is sufficient
+- **Any yellow**: diff + attention to those areas
+- **Any red**: recommend new full audit
 
-## Scope incremental
+## Incremental scope
 
-El scan rápido solo re-audita áreas que cambiaron:
+The quick scan only re-audits areas that changed:
 
-1. **Obtener diff de archivos** desde el commit de la última auditoría
-2. **Filtrar** a archivos de código fuente (excluir generated, vendor, lockfiles)
-3. **Para cada archivo cambiado**, ejecutar solo los agentes relevantes al tipo de archivo
-4. **No re-ejecutar** agentes sobre archivos sin cambios
+1. **Get file diff** from the last audit commit
+2. **Filter** to source code files (exclude generated, vendor, lockfiles)
+3. **For each changed file**, run only the agents relevant to that file type
+4. **Do not re-run** agents on unchanged files
 
-Esto reduce el tiempo de scan de ~15-30 min a ~3-8 min.
+This reduces scan time from ~15-30 min to ~3-8 min.
 
-## Scoring de evolución
+## Evolution scoring
 
-### Score por fase
+### Phase scoring
 
-Comparar score anterior con estimación actual:
-
-```
-🟢 → 🟢 = → Estable (mantiene salud)
-🟡 → 🟢 = ↗️ Mejorando (resolvió deuda)
-🟠 → 🟢 = ↗️↗️ Mejora significativa
-🟠 → 🟡 = ↗️ Mejorando
-🟢 → 🟡 = ↘️ Degradando levemente
-🟡 → 🟠 = ↘️ Degradando
-🟢 → 🟠 = ↘️↘️ Degradación significativa
-🟢 → 🔴 = 🔻 Crítico (requiere acción inmediata)
-```
-
-### Trend global
+Compare previous score with current estimate:
 
 ```
-Improvement rate = (resueltos + parciales) / total_hallazgos_previos
+🟢 → 🟢 = → Stable (maintains health)
+🟡 → 🟢 = ↗️ Improving (resolved debt)
+🟠 → 🟢 = ↗️↗️ Significant improvement
+🟠 → 🟡 = ↗️ Improving
+🟢 → 🟡 = ↘️ Slightly degrading
+🟡 → 🟠 = ↘️ Degrading
+🟢 → 🟠 = ↘️↘️ Significant degradation
+🟢 → 🔴 = 🔻 Critical (requires immediate action)
+```
+
+### Global trend
+
+```
+Improvement rate = (resolved + partial) / total_prior_findings
 
 📈 Improving:  rate > 30%
 ➡️ Stable:     rate 10-30%
-📉 Degrading:  rate < 10%  O  nuevos > resueltos
+📉 Degrading:  rate < 10%  OR  new > resolved
 ```
 
 ### Velocity score
 
 ```markdown
-| Métrica | Fórmula | Interpretación |
+| Metric | Formula | Interpretation |
 |---------|---------|----------------|
-| Resolución rate | resueltos / hallazgos_previos | % de progreso |
-| Nueva deuda rate | nuevos / semanas_transcurridas | velocidad de aparición |
-| Net trend | (resueltos - nuevos) / semanas | balance neto |
+| Resolution rate | resolved / prior_findings | % progress |
+| New debt rate | new / weeks_elapsed | appearance velocity |
+| Net trend | (resolved - new) / weeks | net balance |
 ```
 
-## Cuándo auditar completo vs incremental
+## Complete vs incremental audit
 
 ```
                  ┌──────────────────────────────┐
-                 │  ¿Cuánto cambió desde la      │
-                 │  última auditoría?             │
+                 │  How much changed since the   │
+                 │  last audit?                   │
                  └──────────┬───────────────────┘
                             │
                  ┌──────────▼───────────────────┐
-                 │  ¿Cambió el stack o la        │
-              ┌──┤  estructura significativamente?│
+                 │  Did stack or structure       │
+              ┌──┤  change significantly?        │
               │  └──────────┬───────────────────┘
               │             │
-         Sí   │        No   │
+         Yes  │        No   │
               │             │
     ┌─────────▼──┐   ┌─────▼──────────┐
-    │ AUDITORÍA  │   │ ¿Staleness     │
-    │ COMPLETA   │   │ rojo?          │
-    │ NUEVA      │   └───┬──────┬─────┘
-    └────────────┘       │      │
-                     Sí  │   No │
+    │ NEW FULL   │   │ Is staleness   │
+    │ AUDIT      │   │ red?           │
+    └────────────┘   └───┬──────┬─────┘
+                         │      │
+                    Yes  │   No │
                     ┌────▼──┐ ┌─▼──────────┐
+                    |FULL   │ │ INCREMENTAL │
                     |AUDIT  │ │ DIFF        │
-                    |COMPLETO│ │ INCREMENTAL │
                     └───────┘ └─────────────┘
 ```
 
-## Persistencia del diff
+## Diff persistence
 
-Cada diff se guarda en Engram con:
-- **title**: "Sequoia Diff — {proyecto} — {fecha}"
-- **topic_key**: `sequoia/{proyecto}/diff-{timestamp}`
+Each diff is saved in Engram with:
+- **title**: "Sequoia Diff — {project} — {date}"
+- **topic_key**: `sequoia/{project}/diff-{timestamp}`
 - **type**: `architecture`
-- **content**: resultado completo del diff
+- **content**: complete diff result
 
-Esto permite construir un historial de evolución. El scorecard puede mostrar tendencias a lo largo de múltiples diffs.
+This enables building an evolution history. The scorecard can show trends across multiple diffs.
 
-## Integración con audit completo
+## Integration with full audit
 
-Los diffs NO reemplazan auditorías completas. Son complementarios:
+Diffs do NOT replace complete audits. They are complementary:
 
-- **Audit completo**: baseline, descubrimiento exhaustivo, correlación profunda
-- **Diff incremental**: tracking, verificación de fixes, detección temprana de degradación
+- **Complete audit**: baseline, exhaustive discovery, deep correlation
+- **Incremental diff**: tracking, fix verification, early degradation detection
 
-Cadencia sugerida:
-- Audit completo: mensual o ante cambios grandes
-- Diff incremental: semanal o post-fix
+Suggested cadence:
+- Complete audit: monthly or after major changes
+- Incremental diff: weekly or post-fix

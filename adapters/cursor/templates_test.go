@@ -61,7 +61,6 @@ func TestTemplates_RulesMDHasAllAgents(t *testing.T) {
 		"sequoia-quality",
 		"sequoia-experience",
 		"sequoia-operations",
-		"sequoia-i18n",
 		"sequoia-correlator",
 		"sequoia-reporter",
 	}

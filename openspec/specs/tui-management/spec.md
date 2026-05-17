@@ -55,6 +55,35 @@ The Status screen MUST show per-tool: cursor indicator, installed marker (‚úÖ/‚ù
 | 4 | Reinstall action | Installed tools present | User presses `r` | ProgressTools built from all installed tools; counters reset; install pipeline started; polling begins; navigates to InstallProgress |
 | 5 | No tools detected | 0 adapters registered | Status renders | "No adapters registered" message |
 
+### Requirement: English-Only Screen Rendering
+
+All management screens SHALL render hardcoded English text without any `i18n.T()` calls. Spanish translations and language-dependent labels SHALL NOT be used.
+
+**Scenario: Welcome screen English**
+- GIVEN the Welcome screen
+- WHEN rendered
+- THEN menu options, subtitle, and footer are hardcoded English
+
+**Scenario: Status screen English**
+- GIVEN the Status screen
+- WHEN rendered
+- THEN title, empty message, and footer hints are English-only
+
+**Scenario: Complete screen English**
+- GIVEN the Complete screen
+- WHEN rendered
+- THEN headings, item counts, and try-command hint are English-only
+
+**Scenario: Error screen English**
+- GIVEN the Error screen
+- WHEN rendered
+- THEN headings are English-only
+
+**Scenario: Uninstall screen English**
+- GIVEN the Uninstall screen
+- WHEN rendered
+- THEN title, confirm prompt, and empty message are English-only
+
 ### Requirement: Uninstall Screen
 
 The Uninstall screen MUST show a checkbox list of installed tools, a confirmation step before execution, and reuse the Install Progress screen. `Enter` on confirmation triggers the uninstall pipeline; `n` cancels. During confirmation mode, Esc SHALL exit confirmation (same as 'n'). Pressing Esc or Left from Uninstall selection SHALL navigate back to the source screen (Status if arrived via 'd', Welcome if arrived from Welcome menu). Hardcoded return to Welcome is PROHIBITED.

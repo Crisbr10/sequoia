@@ -1,677 +1,561 @@
-# Sequoia — Framework de Auditoría y Revisión de Código
+# Sequoia — Code Audit and Review Framework
 
-> "Un árbol sequoia no crece con prisas. Crece con raíces profundas."
-> Sequoia no audita para sonar inteligente. Audita para que el proyecto sea intervenable.
-
----
-
-## Visión
-
-Sequoia es un framework de auditoría técnica integral diseñado como plugin de Claude Code. Funciona como un equipo de arquitectos especializados que inspeccionan un proyecto desde múltiples ángulos en paralelo o en fases, sin asumir tecnología específica, sin relleno enterprise, y con evidencia concreta del repositorio como única fuente de verdad.
-
-**Principio fundamental**: cada hallazgo debe trazarse a un archivo real, una línea real, o una ausencia documentable. Lo que no se puede verificar, se declara explícitamente como no verificable.
+> "A sequoia tree doesn't grow in haste. It grows with deep roots."
+> Sequoia doesn't audit to sound smart. It audits so the project can be intervened.
 
 ---
 
-## Filosofía de Diseño
+## Vision
 
-| Principio | Descripción |
+Sequoia is a comprehensive technical audit framework designed as a Claude Code plugin. It works as a team of specialized architects inspecting a project from multiple angles in parallel or in phases, without assuming specific technology, without enterprise filler, and with concrete evidence from the repository as the sole source of truth.
+
+**Core principle**: every finding must be traceable to a real file, a real line, or a documentable absence. What cannot be verified is explicitly declared as unverifiable.
+
+---
+
+## Design Philosophy
+
+| Principle | Description |
 |-----------|-------------|
-| **Evidencia sobre opinión** | Ningún hallazgo sin cita al repo. Ni una. |
-| **Contexto sobre dogma** | Sequoia detecta el stack y adapta el análisis. No aplica reglas de React a un proyecto Go. |
-| **Causa raíz sobre síntoma** | Distingue entre lo que se ve y lo que lo genera. |
-| **Accionabilidad absoluta** | Cada recomendación tiene un responsable, un criterio de aceptación y un riesgo estimado. |
-| **Separación de agentes** | Cada dominio tiene su propio agente. No hay un agente que sepa todo medianamente; hay agentes que saben un dominio profundamente. |
-| **Deuda priorizable** | No toda deuda es igual. Sequoia clasifica: bloqueante, alto leverage, backlog, aceptable. |
+| **Evidence over opinion** | No finding without a repo citation. Not one. |
+| **Context over dogma** | Sequoia detects the stack and adapts the analysis. It doesn't apply React rules to a Go project. |
+| **Root cause over symptom** | Distinguishes between what is seen and what causes it. |
+| **Absolute actionability** | Every recommendation has an owner, an acceptance criterion, and an estimated risk. |
+| **Agent separation** | Each domain has its own agent. There's no agent that knows everything moderately; there are agents that know one domain deeply. |
+| **Prioritizable debt** | Not all debt is equal. Sequoia classifies: blocking, high leverage, backlog, acceptable. |
 
 ---
 
-## Arquitectura del Sistema
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    SEQUOIA ORCHESTRATOR                      │
-│         Detecta contexto · Coordina agentes · Sintetiza      │
+│         Detects context · Coordinates agents · Synthesizes   │
 └────────────────────────┬────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
 ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
 │ Context Agent│ │ Phase Agents │ │ Meta Agents  │
-│  (pre-flight)│ │  (1-10)      │ │  (post-run)  │
+│  (pre-flight)│ │  (1-6)       │ │  (post-run)  │
 └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
-### Capa 0 — Agente de Contexto (Pre-flight)
+### Layer 0 — Context Agent (Pre-flight)
 
-Antes de cualquier auditoría, `sequoia-context` corre automáticamente y construye el **Mapa de Proyecto**:
+Before any audit, `sequoia-context` runs automatically and builds the **Project Map**:
 
-- Stack detectado (lenguaje, framework, runtime, bundler)
-- Paradigma dominante (SPA, SSR, API, CLI, monolito, microservicio, etc.)
-- Tamaño del proyecto (LOC, módulos, dependencias)
-- Presencia de tests, CI/CD, documentación
-- Estado de salud de dependencias
-- Madurez estimada del proyecto (prototipo / en desarrollo / producción)
+- Detected stack (language, framework, runtime, bundler)
+- Dominant paradigm (SPA, SSR, API, CLI, monolith, microservice, etc.)
+- Project size (LOC, modules, dependencies)
+- Presence of tests, CI/CD, documentation
+- Dependency health status
+- Estimated project maturity (prototype / in development / production)
 
-Este mapa es pasado como contexto a TODOS los agentes subsiguientes. Cada agente adapta sus criterios según el mapa.
+This map is passed as context to ALL subsequent agents. Each agent adapts its criteria according to the map.
 
-### Capa 1 — Agentes de Fase
+### Layer 1 — Phase Agents
 
-Diez agentes especializados, cada uno dueño de un dominio:
+Six specialized agents, each owning a domain:
 
-| ID | Agente | Dominio |
+| ID | Agent | Domain |
 |----|--------|---------|
-| A1 | `sequoia-security` | Seguridad, autenticación, superficie de ataque |
-| A2 | `sequoia-performance` | Rendimiento, bundles, métricas, cargas |
-| A3 | `sequoia-architecture` | Arquitectura, escalabilidad, patrones, límites |
-| A4 | `sequoia-ux` | Experiencia de usuario, accesibilidad, flujos |
-| A5 | `sequoia-quality` | Testing, cobertura, calidad de código, contratos |
-| A6 | `sequoia-product` | Conversión, SEO, funnel, coherencia producto-código |
-| A7 | `sequoia-devops` | CI/CD, observabilidad, operaciones, releases |
-| A8 | `sequoia-api` | Diseño de API, contratos, versionado, documentación |
-| A9 | `sequoia-data` | Modelos de datos, esquemas, migraciones, integridad |
-| A10 | `sequoia-deps` | Dependencias, CVEs, licencias, salud del ecosistema |
-| A11 | `sequoia-i18n` | Internacionalización: strings hardcodeados, locale formatting, RTL, translation keys |
+| P1 | `sequoia-security` | Security, authentication, attack surface |
+| P2 | `sequoia-performance` | Performance, bundles, metrics, load |
+| P3 | `sequoia-architecture` | Architecture, scalability, patterns, boundaries |
+| P4 | `sequoia-quality` | Testing, coverage, code quality, contracts |
+| P5 | `sequoia-experience` | User experience, accessibility, flows |
+| P6 | `sequoia-operations` | CI/CD, observability, operations, releases |
 
-### Capa 2 — Agentes Meta (Post-run)
+### Layer 2 — Meta Agents (Post-run)
 
-| Agente | Rol |
+| Agent | Role |
 |--------|-----|
-| `sequoia-correlator` | Cruza hallazgos entre fases. Detecta causas raíz que generan problemas en múltiples agentes. |
-| `sequoia-reporter` | Genera el documento maestro y los markdowns por fase con plantilla uniforme. |
-| `sequoia-scorecard` | Calcula el Health Score por fase y global. Produce el semáforo de estado del proyecto. |
+| `sequoia-correlator` | Cross-references findings across phases. Detects root causes that generate problems in multiple agents. |
+| `sequoia-reporter` | Generates the master document and phase markdowns with uniform template. Calculates the Health Score by phase and globally. |
 
 ---
 
-## Comandos
+## Commands
 
-### Comandos Principales
+### Main Commands
 
 ```bash
 /sequoia init
 ```
-Inicializa Sequoia en el proyecto actual. Corre `sequoia-context`, construye el mapa del proyecto, detecta qué agentes son relevantes (no todos aplican a todos los proyectos), y persiste el contexto en Engram.
+Initializes Sequoia in the current project. Runs `sequoia-context`, builds the project map, detects which agents are relevant (not all apply to all projects), and persists the context in Engram.
 
 ---
 
 ```bash
 /sequoia audit
 ```
-Auditoría completa. Corre los 10 agentes de fase en paralelo (donde no hay dependencias) y luego los 3 meta-agentes. Genera todos los entregables.
+Full audit. Runs the 6 phase agents in parallel (where there are no dependencies) and then the 2 meta-agents. Generates all deliverables.
 
 **Flags**:
-- `--phase=security|performance|architecture|ux|quality|product|devops|api|data|deps` — Audita solo una fase
-- `--scope=changed` — Solo audita archivos modificados desde el último commit/PR
-- `--scope=module=<path>` — Audita un módulo específico
-- `--mode=full|quick` — Full: análisis profundo. Quick: solo bloqueantes y hallazgos críticos
-- `--output=report|tasks|both` — Qué tipo de entregable generar
+- `--phase=security|performance|architecture|quality|experience|operations` — Audits only one phase
+- `--scope=changed` — Only audits files modified since last commit/PR
+- `--scope=module=<path>` — Audits a specific module
+- `--mode=full|quick` — Full: deep analysis. Quick: blocking and critical findings only
+- `--output=report|tasks|both` — Type of deliverable to generate
 
 ---
 
 ```bash
 /sequoia review
 ```
-Modo revisión de código. Diseñado para PR review o revisión de un diff específico. Corre un subconjunto de agentes relevantes según los archivos cambiados. Más rápido que audit, más profundo que un linter.
+Code review mode. Designed for PR review or specific diff review. Runs a subset of relevant agents based on changed files. Faster than audit, deeper than a linter.
 
 **Flags**:
-- `--diff=HEAD~1..HEAD` — Rango de commits a revisar
-- `--pr=<number>` — Revisar un PR específico (requiere gh CLI)
-- `--strict` — Sin tolerancia para hallazgos medios
+- `--diff=HEAD~1..HEAD` — Commit range to review
+- `--pr=<number>` — Review a specific PR (requires gh CLI)
+- `--strict` — No tolerance for medium findings
 
 ---
 
 ```bash
 /sequoia score
 ```
-Genera el Health Scorecard del proyecto. Requiere haber corrido al menos una auditoría previa. Muestra evolución si hay historial.
+Generates the project Health Scorecard. Requires at least one prior audit. Shows evolution if history exists.
 
 ---
 
 ```bash
 /sequoia report
 ```
-Regenera los documentos desde hallazgos cacheados. No re-ejecuta agentes.
+Regenerates documents from cached findings. Does not re-run agents.
 
 ---
 
 ```bash
 /sequoia fix <phase> [--task=<id>]
 ```
-Genera plan de tareas accionables desde los hallazgos de una fase, optimizado para que otro agente lo implemente. Incluye: contexto mínimo necesario, archivos candidatos, criterio de aceptación, riesgo.
+Generates an actionable task plan from a phase's findings, optimized for another agent to implement. Includes: minimum necessary context, candidate files, acceptance criteria, risk.
 
 ---
 
 ```bash
 /sequoia diff
 ```
-Compara el estado actual del proyecto contra la última auditoría registrada. Muestra qué mejoró, qué empeoró, qué aparece nuevo.
+Compares current project state against the last recorded audit. Shows what improved, what worsened, what's new.
 
 ---
 
-## Agentes en Detalle
+## Agents in Detail
 
 ---
 
-### A0 · sequoia-context (Pre-flight)
+### C1 · sequoia-context (Pre-flight)
 
-**Propósito**: Construir el mapa de proyecto que informará a todos los demás agentes.
+**Purpose**: Build the project map that will inform all other agents.
 
 **Inputs**:
-- Estructura de directorios
-- Archivos de configuración (cualquier formato detectado)
-- Manifiestos de dependencias
-- README y documentación interna
-- Workflows CI/CD presentes
+- Directory structure
+- Configuration files (any detected format)
+- Dependency manifests
+- README and internal documentation
+- CI/CD workflows present
 
-**Outputs: Mapa de Proyecto**
+**Outputs: Project Map**
 
 ```markdown
 ## Project Map
-- Stack: [detectado]
-- Runtime: [detectado]
-- Paradigma: [SPA / SSR / API REST / API GraphQL / CLI / Library / Fullstack / ...]
-- Bundler/Build: [detectado o ausente]
-- Test infra: [presente / parcial / ausente]
-- CI/CD: [presente / parcial / ausente]
-- Madurez estimada: [prototipo / desarrollo activo / producción]
-- Módulos principales: [lista]
-- Dependencias de riesgo: [lista preliminar]
-- Agentes aplicables: [lista de A1-A10 que aplican al contexto]
-- Agentes no aplicables: [lista con motivo — ej: A9 no aplica, no hay capa de datos]
+- Stack: [detected]
+- Runtime: [detected]
+- Paradigm: [SPA / SSR / API REST / API GraphQL / CLI / Library / Fullstack / ...]
+- Bundler/Build: [detected or absent]
+- Test infra: [present / partial / absent]
+- CI/CD: [present / partial / absent]
+- Estimated maturity: [prototype / active development / production]
+- Main modules: [list]
+- Risk dependencies: [preliminary list]
+- Applicable agents: [list of P1-P6 that apply to the context]
+- Non-applicable agents: [list with reason — e.g. P5 does not apply, no user interface]
 ```
 
-**Mejora clave sobre el original**: El prompt original asume frontend (menciona package.json, vite, hooks, stores). Sequoia-context elimina esa suposición y hace que cada agente adapte sus preguntas al stack real.
+**Key improvement over the original**: The original prompt assumes frontend (mentions package.json, vite, hooks, stores). Sequoia-context removes that assumption and makes each agent adapt its questions to the real stack.
 
 ---
 
-### A1 · sequoia-security
+### P1 · sequoia-security
 
-**Dominio**: Seguridad, autenticación, autorización, superficie de ataque, manejo de secretos.
+**Domain**: Security, authentication, authorization, attack surface, secrets handling.
 
-**Adaptación por contexto**:
-- Frontend SPA: foco en tokens, XSS, CSRF, storage inseguro, redirects
-- API/Backend: foco en autenticación de endpoints, injection, rate limiting, RBAC
-- Fullstack: ambos
-- CLI tool: foco en manejo de credenciales, permisos de sistema
+**Context adaptation**:
+- Frontend SPA: focus on tokens, XSS, CSRF, insecure storage, redirects
+- API/Backend: focus on endpoint authentication, injection, rate limiting, RBAC
+- Fullstack: both
+- CLI tool: focus on credential handling, system permissions
 
-**Inspecciones específicas**:
-- Manejo de tokens: dónde se guardan, cómo expiran, cómo se rotan
-- Persistencia de PII: qué datos se loguean, cachean o exponen en errores
-- Logout real vs cosmético (solo UI vs invalidación real de sesión/token)
-- Redirects: ¿pueden ser manipulados externamente?
-- Superficie XSS: interpolación sin sanitizar, dangerouslySetInnerHTML equivalentes
-- Secretos en código: keys, tokens, passwords hardcodeados o en archivos trackeados
-- Headers de seguridad si hay servidor propio
-- Contratos front/back necesarios para hardening real
+**Specific inspections**:
+- Token handling: where stored, how expired, how rotated
+- PII persistence: what data is logged, cached, or exposed in errors
+- Real vs cosmetic logout (UI only vs real session/token invalidation)
+- Redirects: externally manipulable?
+- XSS surface: unsanitized interpolation, dangerouslySetInnerHTML equivalents
+- Secrets in code: hardcoded keys, tokens, passwords in tracked files
+- Security headers if there's a custom server
+- Front/back contracts needed for real hardening
 - CORS, CSP, cookies (httpOnly, Secure, SameSite)
-- Dependencias con CVEs conocidos (coordinado con A10)
+- Dependencies with known CVEs
 
-**Entregable adicional nuevo**: Matriz de superficie de ataque — tabla de vectores de entrada × estado de mitigación actual.
+**Additional deliverable**: Attack surface matrix — table of input vectors × current mitigation state.
 
 ---
 
-### A2 · sequoia-performance
+### P2 · sequoia-performance
 
-**Dominio**: Rendimiento, tiempos de carga, render, memoria, bundles, assets.
+**Domain**: Performance, load times, render, memory, bundles, assets.
 
-**Adaptación por contexto**:
-- Frontend: Core Web Vitals, bundle splitting, lazy loading, renders innecesarios
-- Backend/API: latencia de endpoints, N+1 queries, caché, concurrencia
-- Fullstack: ambos
-- CLI: tiempo de arranque, uso de memoria
+**Context adaptation**:
+- Frontend: Core Web Vitals, bundle splitting, lazy loading, unnecessary renders
+- Backend/API: endpoint latency, N+1 queries, cache, concurrency
+- Fullstack: both
+- CLI: startup time, memory usage
 
-**Inspecciones específicas**:
-- Peso de dependencias: ¿qué entra en el bundle que no debería?
-- Imports innecesarios o completos cuando solo se usa una función
-- Eager vs lazy: ¿qué se carga al inicio que podría diferirse?
-- Assets sobredimensionados: imágenes, fuentes, JSON estáticos
-- Trabajo de render evitable: cómputos en el render path que podrían cachearse
-- Cargas percibidas vs reales: skeletons, optimistic UI, streaming
-- Consultas costosas sin índices
-- Operaciones bloqueantes en el critical path
+**Specific inspections**:
+- Dependency weight: what enters the bundle that shouldn't?
+- Unnecessary or full imports when only one function is used
+- Eager vs lazy: what loads at startup that could be deferred?
+- Oversized assets: images, fonts, static JSON
+- Avoidable render work: computations in the render path that could be cached
+- Perceived vs real loads: skeletons, optimistic UI, streaming
+- Expensive queries without indexes
+- Blocking operations on the critical path
 
-**Entregable adicional nuevo**: Presupuesto de performance — tabla con métricas objetivo medibles y forma de verificación:
+**Additional deliverable**: Performance budget — table with measurable target metrics and verification method:
 
-| Métrica | Objetivo | Cómo medir | Estado actual |
+| Metric | Target | How to measure | Current state |
 |---------|----------|------------|---------------|
-| LCP | < 2.5s | Lighthouse / WebVitals | [verificado] |
-| TTI | < 3.5s | Lighthouse | [verificado] |
-| Bundle JS | < 300kb gzip | build output | [verificado] |
+| LCP | < 2.5s | Lighthouse / WebVitals | [verified] |
+| TTI | < 3.5s | Lighthouse | [verified] |
+| Bundle JS | < 300kb gzip | build output | [verified] |
 
 ---
 
-### A3 · sequoia-architecture
+### P3 · sequoia-architecture
 
-**Dominio**: Diseño de sistema, escalabilidad, patrones, límites de módulos, deuda estructural.
+**Domain**: System design, scalability, patterns, module boundaries, structural debt.
 
-**Adaptación por contexto**:
+**Context adaptation**:
 - SPA: stores, routing, state management, service layer
-- Backend: capas de dominio, repositorios, servicios, controllers
-- Fullstack: integración entre capas, contratos internos
-- Library: API pública, encapsulamiento, composabilidad
+- Backend: domain layers, repositories, services, controllers
+- Fullstack: integration between layers, internal contracts
+- Library: public API, encapsulation, composability
 
-**Inspecciones específicas**:
-- Duplicación funcional: misma lógica en múltiples lugares
-- Límites de módulos: ¿cada módulo tiene responsabilidad clara?
-- Acoplamiento innecesario: ¿quién sabe demasiado de quién?
-- Validación runtime ausente: ¿se confía ciegamente en tipos estáticos en runtime?
-- Convenciones inconsistentes: ¿el mismo problema se resuelve de 3 formas distintas?
-- Superficie pública innecesaria: APIs internas expuestas sin necesidad
-- Puntos de escalado peligroso: ¿qué se rompe primero si el proyecto crece 10x?
-- God objects/modules: componentes o módulos que saben demasiado
-- Antipatrones específicos del stack detectado
+**Specific inspections**:
+- Functional duplication: same logic in multiple places
+- Module boundaries: does each module have clear responsibility?
+- Unnecessary coupling: who knows too much about whom?
+- Missing runtime validation: blind trust in static types at runtime?
+- Inconsistent conventions: is the same problem solved 3 different ways?
+- Unnecessary public surface: internal APIs exposed without need
+- Dangerous scaling points: what breaks first if the project grows 10x?
+- God objects/modules: components or modules that know too much
+- Stack-specific antipatterns detected
 
-**Entregable adicional nuevo**: Mapa de dependencias de módulos — diagrama textual de quién depende de quién, con flechas de acoplamiento identificadas.
-
----
-
-### A4 · sequoia-ux
-
-**Dominio**: Experiencia de usuario, accesibilidad, flujos, responsive, onboarding, interacciones.
-
-**Adaptación por contexto**:
-- Solo aplica a proyectos con interfaz de usuario (web, mobile, desktop, CLI interactivo)
-- Para APIs puras: aplica a la experiencia del desarrollador (DX) como "UX de la API"
-
-**Inspecciones específicas**:
-- Bloqueos de flujo: pasos donde el usuario puede quedar atascado sin salida
-- Errores sin mensaje de recuperación o sin acción posible
-- Estados de carga pobres: spinners eternos, ausencia de feedback
-- Accesibilidad real: roles ARIA, contraste, navegación por teclado, screen reader
-- Responsive/mobile: ¿el layout se rompe en viewports reales?
-- Fricción en onboarding: ¿cuántos pasos hasta el primer valor percibido?
-- Modales, tablas, formularios, menús, tabs: ¿cada uno tiene estado de error, vacío y carga?
-- Formularios: ¿validación en tiempo real? ¿mensajes claros? ¿recovery de errores?
-
-**Nueva inspección**: Developer Experience (DX) para proyectos tipo biblioteca o API — ¿qué tan difícil es empezar a usar este código?
+**Additional deliverable**: Module dependency map — textual diagram of who depends on whom, with identified coupling arrows.
 
 ---
 
-### A5 · sequoia-quality
+### P4 · sequoia-quality
 
-**Dominio**: Testing, cobertura, calidad de código, deuda técnica medible.
+**Domain**: Testing, coverage, code quality, measurable technical debt.
 
-**Adaptación por contexto**:
-- Detecta el framework de testing presente (o su ausencia)
-- Adapta las recomendaciones según el tipo de proyecto y su madurez
+**Context adaptation**:
+- Detects the testing framework present (or its absence)
+- Adapts recommendations based on project type and maturity
 
-**Inspecciones específicas**:
-- Estado real de tests: ¿cuántos existen? ¿pasan? ¿cubren qué?
-- Infraestructura ausente: ¿hay test runner, fixtures, mocks, factories?
-- Módulos de mayor riesgo sin cobertura (identificados junto con A3)
-- Calidad de tests existentes: ¿testean comportamiento o implementación?
-- Tests de contrato: ¿hay validación de que el contrato API se cumple?
-- Smoke tests mínimos: ¿hay algo que verifique que el proyecto arranca?
-- Deuda de código: complejidad ciclomática alta, funciones largas, duplicación
-- Lint/format: ¿está configurado? ¿corre en CI? ¿tiene reglas serias?
+**Specific inspections**:
+- Real test status: how many exist? do they pass? what do they cover?
+- Missing infrastructure: test runner, fixtures, mocks, factories?
+- Highest-risk modules without coverage (identified together with P3)
+- Quality of existing tests: do they test behavior or implementation?
+- Contract tests: is there validation that the API contract is fulfilled?
+- Minimum smoke tests: is there something that verifies the project starts?
+- Code debt: high cyclomatic complexity, long functions, duplication
+- Lint/format: configured? runs in CI? has serious rules?
 
-**Nueva inspección**: Mutation testing readiness — ¿los tests detectarían si se cambia un operador lógico? No pedir implementación; evaluar si los tests tienen esa capacidad.
-
-**Estrategia incremental obligatoria**: No proponer "llegar al 80% de cobertura". Proponer el camino mínimo viable: primero smoke, luego módulos críticos, luego integración.
+**Mandatory incremental strategy**: Don't propose "reach 80% coverage." Propose the minimum viable path: first smoke, then critical modules, then integration.
 
 ---
 
-### A6 · sequoia-product
+### P5 · sequoia-experience
 
-**Dominio**: Conversión, SEO, coherencia producto-código, funnel, metadatos, rutas legales.
+**Domain**: User experience, accessibility, flows, responsive, onboarding, interactions.
 
-**Adaptación por contexto**:
-- Solo aplica a proyectos con presencia pública (web, SaaS, e-commerce, landing)
-- Para apps internas o APIs: aplica como coherencia entre documentación y funcionalidad real
+**Context adaptation**:
+- Only applies to projects with user interface (web, mobile, desktop, interactive CLI)
+- For pure APIs: applies to developer experience (DX) as "API UX"
 
-**Inspecciones específicas**:
-- Coherencia entre lo que promete el producto y lo que el código implementa
-- CTAs: ¿funcionan? ¿llevan a donde dicen llevar? ¿tienen tracking?
-- Funnel real: ¿se puede rastrear el camino desde "llega" hasta "convierte"?
-- Callejones sin salida: páginas o estados desde los que el usuario no puede avanzar ni volver
-- SEO técnico: meta tags, Open Graph, robots.txt, sitemap, canonical
-- Rutas legales: privacidad, términos, cookies — ¿existen? ¿son alcanzables?
-- Performance de landing: separado de la app (el primero es conversión, el segundo es uso)
-- Instrumentación mínima: ¿hay algún mecanismo para saber si alguien convierte?
+**Specific inspections**:
+- Flow blocking: steps where the user can get stuck without an exit
+- Errors without recovery message or actionable next step
+- Poor loading states: eternal spinners, absence of feedback
+- Real accessibility: ARIA roles, contrast, keyboard navigation, screen reader
+- Responsive/mobile: does the layout break in real viewports?
+- Onboarding friction: how many steps until the first perceived value?
+- Modals, tables, forms, menus, tabs: does each have error, empty, and loading states?
+- Forms: real-time validation? clear messages? error recovery?
 
-**Nueva inspección**: Content-code drift — ¿el copy en el código coincide con la propuesta de valor real del producto? Detectar promesas que el producto no cumple.
-
----
-
-### A7 · sequoia-devops
-
-**Dominio**: CI/CD, operaciones, releases, monitoring, observabilidad, guardrails del repo.
-
-**Adaptación por contexto**:
-- Para proyectos pequeños/personales: foco en lo mínimo viable (lint en CI, env contract, básico de monitoring)
-- Para producción: foco en staging, previews, rollback, alertas, postmortem capability
-
-**Inspecciones específicas**:
-- Scripts faltantes: start, build, test, lint, typecheck — ¿todos existen y funcionan?
-- Env contract: ¿hay `.env.example` o similar? ¿están documentadas todas las variables requeridas?
-- `.env` trackeado: ¿hay archivos de entorno con secretos reales en el repo?
-- Hooks de Git: pre-commit, pre-push — ¿existen? ¿tienen guardrails serios?
-- CI/CD: ¿existe? ¿corre tests? ¿bloquea el merge si falla?
-- Staging/previews: ¿hay entorno de validación antes de producción?
-- Monitoring básico: ¿hay uptime monitoring? ¿se sabe cuándo cae?
-- Logger: ¿hay logging estructurado? ¿los errores son observables?
-- Observabilidad: ¿hay error tracking (Sentry equivalente)?
-- Documentación operativa: ¿hay runbook mínimo? ¿cómo se despliega? ¿cómo se rollbackea?
-- Política de releases: ¿hay semver? ¿changelog? ¿tags?
-- Salud de dependencias: ¿se actualiza regularmente? ¿hay scanning de CVEs?
-
-**Entregable adicional nuevo**: Ownership mínimo — tabla de quién es responsible de qué en operaciones (aunque sea una sola persona).
+**New inspection**: Developer Experience (DX) for library or API type projects — how hard is it to start using this code?
 
 ---
 
-### A8 · sequoia-api (NUEVO)
+### P6 · sequoia-operations
 
-**Dominio**: Diseño de API, contratos, versionado, documentación de interfaz, DX para consumidores.
+**Domain**: CI/CD, operations, releases, monitoring, observability, repo guardrails.
 
-**Cuándo aplica**: Proyectos con APIs REST, GraphQL, RPC, SDKs, o cualquier interfaz programática pública o entre servicios.
+**Context adaptation**:
+- For small/personal projects: focus on minimum viable (lint in CI, env contract, basic monitoring)
+- For production: focus on staging, previews, rollback, alerts, postmortem capability
 
-**Inspecciones específicas**:
-- Consistencia de naming: ¿snake_case, camelCase, kebab-case? ¿es consistente?
-- Verbos HTTP correctos: ¿se usa POST donde debería ser PUT/PATCH?
-- Estructura de respuestas: ¿errores y éxitos tienen estructura predecible?
-- Manejo de errores: ¿los errores incluyen código, mensaje, y contexto útil?
-- Versionado: ¿hay estrategia? ¿hay breaking changes sin versión?
-- Documentación: ¿hay OpenAPI/Swagger, GraphQL schema, o equivalente?
-- Autenticación de endpoints: ¿todos los endpoints privados están protegidos?
-- Rate limiting y throttling: ¿hay protección contra abuso?
-- Paginación: ¿los endpoints que devuelven listas tienen paginación?
-- Contratos internos: ¿servicios que se llaman entre sí tienen contrato documentado?
+**Specific inspections**:
+- Missing scripts: start, build, test, lint, typecheck — do they all exist and work?
+- Env contract: is there `.env.example` or similar? are all required variables documented?
+- Tracked `.env`: are there environment files with real secrets in the repo?
+- Git hooks: pre-commit, pre-push — do they exist? do they have serious guardrails?
+- CI/CD: does it exist? does it run tests? does it block merge if it fails?
+- Staging/previews: is there a validation environment before production?
+- Basic monitoring: is there uptime monitoring? is it known when it goes down?
+- Logger: is there structured logging? are errors observable?
+- Observability: is there error tracking (Sentry equivalent)?
+- Operational docs: is there a minimum runbook? how to deploy? how to rollback?
+- Release policy: semver? changelog? tags?
+- Dependency health: regularly updated? CVE scanning?
 
-**Entregable nuevo**: Breaking Change Risk Map — lista de endpoints o contratos que, si cambian, romperían consumidores conocidos.
-
----
-
-### A9 · sequoia-data (NUEVO)
-
-**Dominio**: Modelos de datos, esquemas, migraciones, integridad, privacidad de datos.
-
-**Cuándo aplica**: Proyectos con base de datos, esquemas definidos, ORMs, migraciones, o modelos de dominio explícitos.
-
-**Inspecciones específicas**:
-- Normalización: ¿hay duplicación de datos que podría generar inconsistencias?
-- Índices: ¿las consultas frecuentes tienen índices apropiados?
-- Migraciones: ¿el proceso de migración es reversible? ¿hay riesgo de pérdida de datos?
-- Validación de integridad: ¿hay constraints a nivel de base de datos, no solo en aplicación?
-- Soft delete vs hard delete: ¿la estrategia es explícita y consistente?
-- PII y datos sensibles: ¿se guardan datos personales? ¿con qué nivel de protección?
-- Backups: ¿hay estrategia documentada?
-- Schema drift: ¿el esquema en código coincide con el esquema real en producción?
-- Queries N+1: ¿hay carga de relaciones sin optimizar?
-
----
-
-### A10 · sequoia-deps (NUEVO)
-
-**Dominio**: Dependencias, seguridad del ecosistema, licencias, salud a largo plazo.
-
-**Cuándo aplica**: Siempre. Todo proyecto con dependencias externas.
-
-**Inspecciones específicas**:
-- CVEs conocidos: dependencias con vulnerabilidades públicas
-- Versiones desactualizadas: major versions atrás con cambios de seguridad relevantes
-- Dependencias abandonadas: sin mantenimiento en 2+ años
-- Licencias incompatibles: ¿hay dependencias GPL en un proyecto comercial privado?
-- Dependencias no utilizadas: código muerto en el manifiesto
-- Lock file presente: ¿hay lockfile? ¿está commiteado?
-- Dependencias duplicadas: misma funcionalidad resuelta con dos librerías
-- Dependencias de un solo contribuyente: riesgo de bus factor externo
-
-**Entregable nuevo**: Risk Score de dependencias — tabla con columnas: nombre, versión actual, versión latest, CVEs conocidos, mantenimiento, acción recomendada.
-
----
-
-### A11 · sequoia-i18n (NUEVO)
-
-**Dominio**: Internacionalización (i18n) — strings hardcodeados, locale formatting, RTL support, translation keys.
-
-**Cuándo aplica**: Siempre. Todo proyecto con interfaz de usuario tiene deuda de i18n latente.
-
-**Inspecciones específicas**:
-- Strings hardcodeadas user-facing sin framework de i18n (distinguiendo de developer-facing)
-- Formateo de fechas, números, monedas sin APIs locale-aware (Intl.DateTimeFormat, toLocaleString)
-- Ausencia de soporte RTL (CSS logical properties, dir attributes, inversión de iconos)
-- Translation keys inconsistentes entre archivos de locale (faltantes, extras, vacías, colisiones de tipo)
-- Validación de ICU MessageFormat para plurales y género
-- Anti-patrones: string concatenation, locale hardcodeado, split sentences
-
-**Entregable nuevo**: Matrix de preparación i18n — tabla con columnas: locale, strings pendientes, formato por corregir, RTL readiness, translation key health.
+**Additional deliverable**: Minimum ownership — table of who is responsible for what in operations (even if it's one person).
 
 ---
 
 ### M1 · sequoia-correlator (Meta)
 
-**Propósito**: Encontrar causas raíz transversales. Muchos síntomas en fases distintas tienen la misma causa.
+**Purpose**: Find cross-cutting root causes. Many symptoms in different phases have the same cause.
 
-**Ejemplo real**:
-- A3 detecta: "no hay validación runtime"
-- A1 detecta: "datos del usuario no se sanitizan antes de usar"
-- A5 detecta: "no hay tests de los módulos de entrada de datos"
-- **Correlación**: la causa raíz es una sola — ausencia de una capa de validación de inputs
+**Real example**:
+- P3 detects: "no runtime validation"
+- P1 detects: "user data is not sanitized before use"
+- P4 detects: "no tests for data input modules"
+- **Correlation**: the root cause is a single one — absence of an input validation layer
 
-**Output**: Lista de causas raíz con sus síntomas en múltiples fases, priorizada por impacto agregado.
+**Output**: List of root causes with their symptoms in multiple phases, prioritized by aggregate impact.
 
 ---
 
 ### M2 · sequoia-reporter (Meta)
 
-**Propósito**: Generar los entregables finales con plantilla uniforme.
+**Purpose**: Generate final deliverables with uniform template. Calculate project health metrics by phase and globally.
 
-**Entregables**:
-- `sequoia-master.md` — Documento maestro con resumen ejecutivo, severidades por fase, roadmap
-- `sequoia-phases/01-security.md` ... `10-deps.md` — Un markdown por fase
+**Deliverables**:
+- `sequoia-master.md` — Master document with executive summary, severities by phase, roadmap
+- `sequoia-phases/01-security.md` ... `06-operations.md` — One markdown per phase
 - `sequoia-score.md` — Health scorecard
 
----
-
-### M3 · sequoia-scorecard (Meta)
-
-**Propósito**: Calcular métricas de salud del proyecto por fase y globalmente.
-
-**Health Score por fase**:
+**Health Score by phase**:
 
 ```
-🔴 CRÍTICO    — Bloqueantes de producción o seguridad
-🟠 RIESGO     — Problemas serios sin solución activa
-🟡 ATENCIÓN   — Deuda técnica priorizable
-🟢 SALUDABLE  — Bajo nivel de hallazgos serios
-⚪ N/A         — Fase no aplica al proyecto
+🔴 CRITICAL   — Production or security blockers
+🟠 RISK       — Serious problems without active solution
+🟡 ATTENTION  — Prioritizable technical debt
+🟢 HEALTHY    — Low level of serious findings
+⚪ N/A         — Phase does not apply to the project
 ```
 
-**Health Score global**: promedio ponderado (seguridad y devops pesan más).
+**Global Health Score**: weighted average (security and operations carry more weight).
 
 ---
 
-## Reglas Innegociables (heredadas y extendidas)
+## Non-Negotiable Rules (inherited and extended)
 
-Estas reglas aplican a TODOS los agentes sin excepción:
+These rules apply to ALL agents without exception:
 
-1. **No asumir**. Si algo no está en el repo, declararlo como ausente, no inventarlo.
-2. **No confirmar claims sin verificar**. Ni los del usuario, ni los de documentación interna.
-3. **Si no es verificable, decirlo explícitamente** con el label `[NO VERIFICABLE]`.
-4. **Citar archivos reales**. Si mencionás un archivo, tiene que existir con ese path.
-5. **No teoría genérica**. Evidencia del repo o silencio.
-6. **No checklists decorativos**. Cada ítem debe ser verificable y accionable.
-7. **No soluciones mágicas**. Cada recomendación incluye impacto, dependencias y riesgo.
-8. **Si repo y documentación previa se contradicen, prevalece el repo**.
-9. **No cambios destructivos salvo instrucción explícita**.
-10. **Adaptar al contexto real del proyecto**. No aplicar criterios enterprise a un prototipo.
+1. **Do not assume**. If something is not in the repo, declare it as absent, not invent it.
+2. **Do not confirm claims without verifying**. Neither the user's nor internal documentation's.
+3. **If not verifiable, say so explicitly** with the `[NOT VERIFIABLE]` label.
+4. **Cite real files**. If you mention a file, it must exist with that path.
+5. **No generic theory**. Repo evidence or silence.
+6. **No decorative checklists**. Each item must be verifiable and actionable.
+7. **No magic solutions**. Each recommendation includes impact, dependencies, and risk.
+8. **If repo and prior documentation contradict, the repo prevails**.
+9. **No destructive changes unless explicitly instructed**.
+10. **Adapt to the project's real context**. Don't apply enterprise criteria to a prototype.
 
-**Nueva regla 11**: Si un agente no puede verificar algo porque requiere acceso externo (infra, DB en producción, logs de Sentry), lo declara como `[REQUIERE ACCESO EXTERNO]` y describe qué verificar y cómo.
+**New rule 11**: If an agent cannot verify something because it requires external access (infra, production DB, Sentry logs), it declares it as `[REQUIRES EXTERNAL ACCESS]` and describes what to verify and how.
 
-**Nueva regla 12**: Si una recomendación solo aplica si el proyecto crece (futura escala), marcarlo con `[SOLO SI ESCALA]`. No mezclarlo con recomendaciones para el estado actual.
+**New rule 12**: If a recommendation only applies if the project grows (future scale), mark it with `[ONLY IF SCALING]`. Don't mix it with recommendations for the current state.
 
 ---
 
-## Formato Estándar de Hallazgo
+## Standard Finding Format
 
-Todos los agentes usan exactamente esta estructura:
+All agents use exactly this structure:
 
 ```markdown
-### [FASE-ID] · [Título del hallazgo]  [🔴 CRÍTICO | 🟠 RIESGO | 🟡 ATENCIÓN]
+### [PHASE-ID] · [Finding title]  [🔴 CRITICAL | 🟠 RISK | 🟡 ATTENTION]
 
-**Estado**: Confirmado | Parcial | No verificable | Desactualizado
+**Status**: Confirmed | Partial | Not verifiable | Outdated
 
-**Evidencia**:
-- `path/real/al/archivo.ext:línea` — descripción de lo observado
-- Comportamiento o ausencia detectada
+**Evidence**:
+- `path/to/real/file.ext:line` — description of what was observed
+- Detected behavior or absence
 
-**Problema**:
-Qué está mal y por qué técnicamente importa. Sin generalidades.
+**Problem**:
+What is wrong and why it matters technically. No generalities.
 
-**Impacto real**:
-Qué puede pasar en producción si esto sigue así.
+**Real Impact**:
+What can happen in production if this continues.
 
-**Recomendación mínima de alto leverage**:
-Qué cambio concreto conviene hacer primero y por qué ese específicamente.
+**Minimum High-Leverage Recommendation**:
+What concrete change to make first and why specifically that one.
 
-**Dependencias / bloqueos**:
-Backend, infra, contrato de API, otros módulos, equipo externo, etc.
+**Dependencies / Blockers**:
+Backend, infra, API contract, other modules, external team, etc.
 
-**Riesgo de implementación**: Bajo | Medio | Alto
-Motivo del riesgo estimado.
+**Implementation Risk**: Low | Medium | High
+Reason for the estimated risk.
 
-**Criterio de aceptación**:
-Cómo verificar que el hallazgo fue resuelto.
+**Acceptance Criteria**:
+How to verify that the finding was resolved.
 ```
 
 ---
 
-## Plantilla Obligatoria por Fase
+## Mandatory Phase Template
 
-Cada documento de fase generado por `sequoia-reporter` usa exactamente esta estructura:
+Each phase document generated by `sequoia-reporter` uses exactly this structure:
 
 ```markdown
-# Fase [N] — [Nombre]
+# Phase [N] — [Name]
 
-**Agente**: sequoia-[nombre]
-**Proyecto**: [nombre]
-**Fecha de auditoría**: [fecha]
-**Stack detectado**: [del mapa de proyecto]
+**Agent**: sequoia-[name]
+**Project**: [name]
+**Audit date**: [date]
+**Detected stack**: [from project map]
 
-## 1. Objetivo de la fase
+## 1. Phase objective
 
-## 2. Scope de inspección
-Qué archivos, directorios y configuraciones fueron revisados.
-Qué quedó fuera del scope y por qué.
+## 2. Inspection scope
+What files, directories and configurations were reviewed.
+What was left out of scope and why.
 
-## 3. Estado actual verificado
-### Qué dice la documentación interna (si existe)
-### Qué se confirmó en código
-### Qué quedó desactualizado, ambiguo o no verificable
+## 3. Verified current state
+### What internal documentation says (if it exists)
+### What was confirmed in code
+### What was outdated, ambiguous, or not verifiable
 
-## 4. Hallazgos consolidados
-Ordenados por severidad. Sin duplicados. Sin relleno.
+## 4. Consolidated findings
+Ordered by severity. No duplicates. No filler.
 
-## 5. Faltantes de alto leverage
-Solo mejoras justificadas técnicamente. Con impacto esperado.
+## 5. High-leverage missing items
+Only technically justified improvements. With expected impact.
 
-## 6. Plan de tareas
-Cada tarea con: contexto, archivos, impacto, dependencias, riesgo, criterio de aceptación, prioridad.
+## 6. Task plan
+Each task with: context, files, impact, dependencies, risk, acceptance criteria, priority.
 
-## 7. Orden de implementación recomendado
-Secuencia que minimiza riesgo y maximiza impacto.
+## 7. Recommended implementation order
+Sequence that minimizes risk and maximizes impact.
 
-## 8. Riesgos y bloqueos de la fase
+## 8. Phase risks and blockers
 
-## 9. Checklist de cierre de fase
-Lista verificable de qué debe ser verdad cuando esta fase esté "done".
+## 9. Phase closure checklist
+Verifiable list of what must be true when this phase is "done."
 ```
 
 ---
 
-## Entregables Finales
+## Final Deliverables
 
-### Documento Maestro: `sequoia-master.md`
+### Master Document: `sequoia-master.md`
 
 ```markdown
-# Sequoia Audit Report — [Proyecto]
+# Sequoia Audit Report — [Project]
 
-**Fecha**: [fecha]
-**Modo**: Full | Quick | Phase | Review
-**Stack**: [detectado]
-**Madurez estimada**: [del mapa de contexto]
+**Date**: [date]
+**Mode**: Full | Quick | Phase | Review
+**Stack**: [detected]
+**Estimated maturity**: [from context map]
 
-## Resumen Ejecutivo
-Estado general del proyecto en 5-10 líneas. Sin exageración.
+## Executive Summary
+Overall project state in 5-10 lines. No exaggeration.
 
 ## Health Scorecard
-| Fase | Agente | Score | Bloqueantes | Alto Leverage | Backlog |
+| Phase | Agent | Score | Blocking | High Leverage | Backlog |
 |------|--------|-------|-------------|---------------|---------|
-| Seguridad | A1 | 🟠 | 2 | 3 | 1 |
+| Security | P1 | 🟠 | 2 | 3 | 1 |
 | ... | | | | | |
 
-## Top 10 Hallazgos Globales
-Los más críticos, sin importar la fase. Priorizados por impacto × urgencia.
+## Top 10 Global Findings
+The most critical, regardless of phase. Prioritized by impact × urgency.
 
-## Causas Raíz Transversales
-Output del sequoia-correlator.
+## Cross-Cutting Root Causes
+Output from sequoia-correlator.
 
-## Roadmap Sugerido
-Ordenado por: bloquea producción → alto leverage → backlog → aceptable.
+## Suggested Roadmap
+Ordered by: blocks production → high leverage → backlog → acceptable.
 
-## Fases No Aplicables
-Lista con motivo (del mapa de contexto).
+## Non-Applicable Phases
+List with reason (from context map).
 ```
 
 ---
 
-## Flujos de Trabajo
+## Workflows
 
-### Flujo 1: Auditoría Completa Nueva
+### Flow 1: New Full Audit
 
 ```
 /sequoia init
   └─► sequoia-context → Project Map
 
 /sequoia audit
-  ├─► A1-A10 en paralelo (donde no hay dependencias)
-  │     Cada agente recibe: Project Map + instrucción de su dominio
-  ├─► M1 (sequoia-correlator) — después de todos los agentes
-  ├─► M3 (sequoia-scorecard)
-  └─► M2 (sequoia-reporter) — genera todos los documentos
+  ├─► P1-P6 in parallel (where there are no dependencies)
+  │     Each agent receives: Project Map + domain instruction
+  ├─► M1 (sequoia-correlator) — after all agents
+  └─► M2 (sequoia-reporter) — generates all documents + scores
 ```
 
-### Flujo 2: Revisión de PR / Diff
+### Flow 2: PR / Diff Review
 
 ```
 /sequoia review --diff=HEAD~1..HEAD
-  └─► sequoia-context (solo archivos cambiados)
-        └─► Selección automática de agentes relevantes
-              (basado en qué tipos de archivos cambiaron)
-        └─► Hallazgos solo sobre el diff
-        └─► Flag si el cambio toca áreas con hallazgos previos abiertos
+  └─► sequoia-context (changed files only)
+        └─► Automatic selection of relevant agents
+              (based on what types of files changed)
+        └─► Findings only on the diff
+        └─► Flag if the change touches areas with open prior findings
 ```
 
-### Flujo 3: Auditoría Incremental (Re-run)
+### Flow 3: Incremental Audit (Re-run)
 
 ```
 /sequoia diff
-  └─► Compara estado actual vs última auditoría en Engram
-        └─► Muestra: resuelto / nuevo / empeorado / sin cambio
+  └─► Compares current state vs last audit in Engram
+        └─► Shows: resolved / new / worsened / unchanged
 ```
 
-### Flujo 4: Generar Tareas para Agente Implementador
+### Flow 4: Generate Tasks for Implementing Agent
 
 ```
 /sequoia fix security
-  └─► sequoia-reporter genera plan de tareas de A1
-        Formato: cada tarea autosuficiente, con contexto mínimo para otro agente
-        Sin necesidad de releer toda la auditoría
+  └─► sequoia-reporter generates task plan from P1
+        Format: each task self-sufficient, with minimum context for another agent
+        No need to re-read the entire audit
 ```
 
 ---
 
-## Configuración: `sequoia.config.json`
+## Configuration: `sequoia.config.json`
 
-Archivo opcional en la raíz del proyecto:
+Optional file at the project root:
 
 ```json
 {
-  "project": "nombre-del-proyecto",
+  "project": "project-name",
   "maturity": "prototype | development | production",
   "agents": {
-    "disabled": ["A6", "A9"],
-    "focus": ["A1", "A7"]
+    "disabled": ["P5"],
+    "focus": ["P1", "P6"]
   },
   "thresholds": {
     "security": "strict",
@@ -692,16 +576,16 @@ Archivo opcional en la raíz del proyecto:
 }
 ```
 
-**Niveles de umbral por fase**:
-- `strict` — tolerancia cero para hallazgos medios
-- `standard` — solo reporta medios+ (default)
-- `relaxed` — solo reporta críticos y riesgos altos
+**Threshold levels by phase**:
+- `strict` — zero tolerance for medium findings
+- `standard` — only reports medium+ (default)
+- `relaxed` — only reports critical and high risks
 
 ---
 
-## Integración con Claude Code
+## Integration with Claude Code
 
-### Hooks Sugeridos
+### Suggested Hooks
 
 ```json
 {
@@ -711,7 +595,7 @@ Archivo opcional en la raíz del proyecto:
         "matcher": "Bash",
         "hooks": [{
           "type": "command",
-          "command": "echo 'Sequoia: operación de escritura detectada'"
+          "command": "echo 'Sequoia: write operation detected'"
         }]
       }
     ]
@@ -721,61 +605,59 @@ Archivo opcional en la raíz del proyecto:
 
 ### Slash Commands (Skills)
 
-| Comando | Skill | Descripción |
+| Command | Skill | Description |
 |---------|-------|-------------|
-| `/sequoia` | `sequoia:orchestrator` | Entry point principal |
-| `/sequoia-security` | `sequoia:security` | Auditoría de seguridad |
-| `/sequoia-review` | `sequoia:review` | Revisión de PR/diff |
+| `/sequoia` | `sequoia:orchestrator` | Main entry point |
+| `/sequoia-security` | `sequoia:security` | Security audit |
+| `/sequoia-review` | `sequoia:review` | PR/diff review |
 | `/sequoia-score` | `sequoia:scorecard` | Health scorecard |
-| `/sequoia-fix` | `sequoia:fix` | Genera plan de tareas |
+| `/sequoia-fix` | `sequoia:fix` | Generates task plan |
 
-### Integración con Engram (Memoria Persistente)
+### Integration with Engram (Persistent Memory)
 
-Sequoia persiste en Engram:
-- El Project Map de cada proyecto
-- Los hallazgos de cada auditoría con timestamp
-- El historial de Health Scores para ver evolución
-- Las tareas generadas y su estado
+Sequoia persists in Engram:
+- The Project Map for each project
+- The findings of each audit with timestamp
+- The Health Score history to see evolution
+- The generated tasks and their status
 
-Esto permite:
-- `sequoia diff`: comparar estado actual vs auditoría anterior
-- Que el agente implementador recuerde hallazgos de sesiones anteriores
-- Evolución de la salud del proyecto a lo largo del tiempo
+This enables:
+- `sequoia diff`: compare current state vs previous audit
+- The implementing agent remembers findings from previous sessions
+- Project health evolution over time
 
 ---
 
-## Mejoras sobre el Prompt Original
+## Improvements Over the Original Prompt
 
-| Aspecto | Original | Sequoia |
+| Aspect | Original | Sequoia |
 |---------|----------|---------|
-| **Stack** | Asume frontend (package.json, vite, hooks) | Auto-detect: cualquier stack |
-| **Fases** | 7 fases | 11 agentes de fase + 3 meta |
-| **Nuevas áreas** | — | API Design, Data/Schema, Dependency Health, i18n |
-| **Modo revisión** | Solo auditoría completa | Audit + Review (PR/diff) + Incremental |
-| **Correlación** | No existe | sequoia-correlator: causas raíz transversales |
-| **Scoring** | No existe | Health Scorecard por fase y global |
-| **Persistencia** | No existe | Engram: historial, diff, evolución |
-| **Configuración** | No existe | sequoia.config.json: umbrales, agentes, outputs |
-| **DX de API** | No existe | A8 incluye DX para consumidores de API |
-| **PII/Data** | Mencionado en seguridad | A9 dedicado a datos, integridad, privacidad |
-| **Deps** | Mencionado en DevOps | A10 dedicado con CVEs, licencias, risk score |
-| **i18n** | No existe | A11: hardcoded strings, locale formatting, RTL, translation keys |
-| **Tareas para agente** | Formato estático | /sequoia fix: output optimizado para implementador |
-| **Madurez del proyecto** | Ignora contexto | Adapta criterios según madurez (prototipo vs producción) |
-| **Hallazgos futuros** | Mezclados con actuales | `[SOLO SI ESCALA]` los separa explícitamente |
-| **Acceso externo** | No contemplado | `[REQUIERE ACCESO EXTERNO]` declara límites verificables |
+| **Stack** | Assumes frontend (package.json, vite, hooks) | Auto-detect: any stack |
+| **Phases** | 7 phases | 6 phase agents + 2 meta |
+| **Review mode** | Full audit only | Audit + Review (PR/diff) + Incremental |
+| **Correlation** | Does not exist | sequoia-correlator: cross-cutting root causes |
+| **Scoring** | Does not exist | Health Scorecard by phase and global |
+| **Persistence** | Does not exist | Engram: history, diff, evolution |
+| **Configuration** | Does not exist | sequoia.config.json: thresholds, agents, outputs |
+| **API DX** | Does not exist | P3 includes DX for API consumers |
+| **PII/Data** | Mentioned in security | Dedicated data integrity checks in P6 |
+| **Deps** | Mentioned in DevOps | Dedicated CVE, license, risk score checks |
+| **Tasks for agent** | Static format | /sequoia fix: output optimized for implementer |
+| **Project maturity** | Ignores context | Adapts criteria based on maturity (prototype vs production) |
+| **Future findings** | Mixed with current | `[ONLY IF SCALING]` separates them explicitly |
+| **External access** | Not considered | `[REQUIRES EXTERNAL ACCESS]` declares verifiable limits |
 
 ---
 
-## Principio de Cierre
+## Closing Principle
 
-Sequoia no es una checklist. Es un equipo de agentes que razonan, correlacionan y priorizan.
+Sequoia is not a checklist. It is a team of agents that reason, correlate, and prioritize.
 
-Un proyecto auditado por Sequoia debe quedar con:
-1. Un mapa de estado real — no aspiracional
-2. Una lista de hallazgos trazables a evidencia real
-3. Un roadmap que cualquier arquitecto firmaría
-4. Tareas que cualquier agente implementador puede ejecutar sin ambigüedad
-5. Un score que evoluciona con el proyecto
+A project audited by Sequoia should end up with:
+1. A map of real state — not aspirational
+2. A list of findings traceable to real evidence
+3. A roadmap any architect would sign off on
+4. Tasks any implementing agent can execute without ambiguity
+5. A score that evolves with the project
 
-El objetivo no es encontrar problemas. El objetivo es dejar el proyecto entendido, priorizado y listo para intervenir.
+The goal is not to find problems. The goal is to leave the project understood, prioritized, and ready to intervene.

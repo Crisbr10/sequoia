@@ -16,12 +16,16 @@
     Opt-in flag for air-gapped environments where checksums.txt is unreachable.
     Without this flag, checksum verification is MANDATORY — the installer
     will abort if checksums.txt cannot be downloaded.
-.PARAMETER AddToPath
-    Add INSTALL_DIR to the user-level PATH environment variable.
+.PARAMETER NoPath
+    Skip adding INSTALL_DIR to the user-level PATH environment variable.
+    By default, the installer adds INSTALL_DIR to PATH so 'sequoia' is
+    available globally from any terminal. Use -NoPath to opt out.
 .EXAMPLE
     irm https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.ps1 | iex
 .EXAMPLE
-    .\install.ps1 -Version v0.2.0 -InstallDir "C:\tools\sequoia" -AddToPath
+    .\install.ps1 -Version v0.2.0 -InstallDir "C:\tools\sequoia"
+.EXAMPLE
+    .\install.ps1 -NoPath
 #>
 
 param(
@@ -29,7 +33,7 @@ param(
     [string]$Version = "latest",
     [string]$InstallDir = "$env:LOCALAPPDATA\sequoia",
     [switch]$SkipChecksum,
-    [switch]$AddToPath
+    [switch]$NoPath
 )
 
 # -- Configuration ------------------------------------------------------------
@@ -172,11 +176,10 @@ try {
                 Write-Err "  $ChecksumUrl"
                 Write-Err ""
                 Write-Err "Checksum verification is mandatory. The binary cannot be verified."
-                Write-Err "To bypass this check (air-gapped environments), use -SkipChecksum:"
+                Write-Err "To bypass this check (air-gapped environments), download the script"
+                Write-Err "and run it with -SkipChecksum:"
                 Write-Err ""
                 Write-Err "  .\install.ps1 -SkipChecksum"
-                Write-Err ""
-                Write-Err "  Or: irm https://.../install.ps1 | iex; install-sequoia -SkipChecksum"
                 exit $EXIT_CHECKSUM
             }
         }
@@ -232,19 +235,44 @@ try {
 
     Write-Info "Installed sequoia -> $targetPath"
 
-    # -- Add to PATH (optional) -----------------------------------------------
-    if ($AddToPath) {
-        Write-Info "Adding $InstallDir to user PATH..."
+    # -- Add to PATH (always, unless -NoPath is passed) -----------------------
+    if (-not $NoPath) {
+        Write-Info "Ensuring $InstallDir is in user PATH..."
+
+        # Read the persistent user PATH from registry
         $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        if ($currentPath -notlike "*$InstallDir*") {
-            $newPath = "$currentPath;$InstallDir"
+
+        # Split on ';' and filter empty entries to check for duplicates
+        $entries = if ($currentPath) {
+            $currentPath -split ';' | Where-Object { $_ }
+        } else {
+            @()
+        }
+
+        if ($InstallDir -notin $entries) {
+            # Build the new PATH string
+            if (-not $currentPath) {
+                $newPath = $InstallDir
+            } else {
+                $newPath = "$currentPath;$InstallDir"
+            }
+
+            # Write to registry (persists across terminal sessions and reboots)
             [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-            # Also update the current session
-            $env:Path = "$env:Path;$InstallDir"
-            Write-Info "Added to PATH. Restart your terminal for full effect."
+            Write-Info "Added to user PATH (persistent across sessions)."
+
+            # Also update current session so 'sequoia' works immediately
+            $sessionEntries = $env:Path -split ';' | Where-Object { $_ }
+            if ($InstallDir -notin $sessionEntries) {
+                $env:Path = "$env:Path;$InstallDir"
+                Write-Info "Also available in current terminal session."
+            }
         } else {
             Write-Info "$InstallDir is already in PATH."
         }
+    } else {
+        Write-Warn "PATH not modified (-NoPath was specified)."
+        Write-Host "  Run 'sequoia' from: $InstallDir"
     }
 
     # -- Run sequoia install -------------------------------------------------
@@ -265,14 +293,10 @@ try {
     Write-Host "==============================================" -ForegroundColor Green
     Write-Host ""
 
-    if (-not $AddToPath -and (Get-Command $Binary -ErrorAction SilentlyContinue)) {
-        Write-Host "Run 'sequoia status' to verify your installation."
-    } elseif (-not $AddToPath) {
+    if ($NoPath) {
         Write-Warn "$InstallDir is not in your PATH."
-        Write-Host "  Run with -AddToPath to add it automatically, or add it manually:"
-        Write-Host ""
-        Write-Host "    `$env:Path += `";$InstallDir`""
-        Write-Host ""
+        Write-Host "  Run 'sequoia' directly from: $targetPath"
+        Write-Host "  Or add it manually: `$env:Path += `";$InstallDir`""
     } else {
         Write-Host "Run 'sequoia status' to verify your installation."
     }

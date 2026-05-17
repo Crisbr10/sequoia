@@ -1,150 +1,150 @@
 ---
-description: "Genera plan de tareas accionables desde hallazgos de auditoría. Output optimizado para que otro agente implementador pueda ejecutar sin ambigüedad. Incluye contexto mínimo, archivos, criterio de aceptación."
+description: "Generates an actionable task plan from audit findings. Output optimized so another implementing agent can execute without ambiguity. Includes minimum context, files, acceptance criteria."
 argument-hint: "<phase|all> [--task=<id>]"
 allowed-tools: Read, Glob, Grep
 ---
 
 # /sequoia fix
 
-Genera tareas implementables desde los hallazgos de una auditoría. Cada tarea es autosuficiente: un agente implementador puede ejecutarla sin releer la auditoría completa.
+Generates implementable tasks from audit findings. Each task is self-contained: an implementing agent can execute it without re-reading the full audit.
 
-## Precondición
+## Precondition
 
-Debe existir al menos una auditoría previa en Engram (ejecutada via `/sequoia audit` o `/sequoia review`).
+There must be at least one prior audit in Engram (run via `/sequoia audit` or `/sequoia review`).
 
-## Qué hace
+## What it does
 
-1. Recupera hallazgos de la auditoría más reciente
-2. Filtra por fase (si se especifica) o toma todas
-3. Convierte cada hallazgo en una tarea implementable
-4. Ordena por dependencias y prioridad
-5. Genera el documento de tareas
+1. Retrieves findings from the most recent audit
+2. Filters by phase (if specified) or takes all
+3. Converts each finding into an implementable task
+4. Orders by dependencies and priority
+5. Generates the task document
 
-## Uso
+## Usage
 
 ```bash
-# Tareas de una fase específica
+# Tasks for a specific phase
 /sequoia fix security
 
-# Tareas de todas las fases
+# Tasks for all phases
 /sequoia fix all
 
-# Una tarea específica por ID
+# A specific task by ID
 /sequoia fix security --task=P1-003
 ```
 
-## Formato de cada tarea
+## Per-task format
 
-Cada tarea generada sigue esta estructura obligatoria:
+Each generated task follows this mandatory structure:
 
 ```markdown
-### [TASK-ID] · [Título accionable]
+### [TASK-ID] · [Actionable title]
 
-**Prioridad**: 🔴 Bloqueante | 🟠 Alto leverage | 🟡 Backlog
-**Fase origen**: [P1-P6 | M1-M2]
-**Hallazgo(s) origen**: [ID(s) del hallazgo que genera esta tarea]
+**Priority**: 🔴 Blocking | 🟠 High leverage | 🟡 Backlog
+**Source phase**: [P1-P6 | M1-M2]
+**Source finding(s)**: [ID(s) of the finding that generates this task]
 
-**Contexto mínimo**:
-Una explicación de QUÉ está mal y POR QUÉ importa, en 3-5 líneas.
-Suficiente para entender el problema sin leer la auditoría completa.
+**Minimum context**:
+An explanation of WHAT is wrong and WHY it matters, in 3-5 lines.
+Enough to understand the problem without reading the full audit.
 
-**Archivos involucrados**:
-- `path/al/archivo.ext` — qué papel cumple en esta tarea
-- `path/otro/archivo.ext` — qué hay que modificar
+**Files involved**:
+- `path/to/file.ext` — what role it plays in this task
+- `path/to/other.ext` — what needs to be modified
 
-**Qué hacer**:
-Paso a paso concreto. No "mejorar X". Sino:
-1. Agregar función Y en archivo Z
-2. Modificar la llamada en archivo W para usar la nueva función
-3. Actualizar el test en archivo T
+**What to do**:
+Concrete step by step. Not "improve X." But:
+1. Add function Y in file Z
+2. Modify the call in file W to use the new function
+3. Update the test in file T
 
-**Impacto esperado**:
-Qué cambia al implementar esto. Métrica observable si es posible.
+**Expected impact**:
+What changes when implementing this. Observable metric if possible.
 
-**Dependencias**:
-- Requiere que [TASK-ID] esté completa primero
-- Bloqueado por: [factor externo, si aplica]
+**Dependencies**:
+- Requires [TASK-ID] to be completed first
+- Blocked by: [external factor, if applicable]
 
-**Riesgo de implementación**: Bajo | Medio | Alto
-Motivo del riesgo.
+**Implementation risk**: Low | Medium | High
+Reason for the risk.
 
-**Criterio de aceptación**:
-- [ ] Condición verificable 1
-- [ ] Condición verificable 2
-- [ ] Test que debe pasar (si aplica)
+**Acceptance criteria**:
+- [ ] Verifiable condition 1
+- [ ] Verifiable condition 2
+- [ ] Test that must pass (if applicable)
 
-**Verificación**:
-Cómo confirmar que la tarea está realmente hecha.
-Comando o paso manual concreto.
+**Verification**:
+How to confirm the task is really done.
+Concrete command or manual step.
 ```
 
-## Principio: tarea autosuficiente
+## Principle: self-contained task
 
-Una tarea bien generada cumple estas reglas:
+A well-generated task meets these rules:
 
-1. **No requiere leer la auditoría completa** — todo el contexto está en la tarea
-2. **No es ambigua** — un desarrollador (o agente) puede implementar sin preguntas
-3. **Tiene criterio de aceptación verificable** — no "mejorar X", sino "el test Y pasa"
-4. **Declara dependencias explícitas** — sabe qué tareas deben ir antes
-5. **Declara riesgo honestamente** — no todo es "riesgo bajo"
+1. **Does not require reading the full audit** — all context is in the task
+2. **Is not ambiguous** — a developer (or agent) can implement without questions
+3. **Has verifiable acceptance criteria** — not "improve X," but "test Y passes"
+4. **Declares explicit dependencies** — knows which tasks must go first
+5. **Declares risk honestly** — not everything is "low risk"
 
-## Generación por fase vs todas
+## Generation by phase vs all
 
-### Por fase (`/sequoia fix security`)
-- Toma solo hallazgos de la fase indicada
-- Ordena por severidad dentro de la fase
-- Genera dependencias solo dentro de la fase
+### By phase (`/sequoia fix security`)
+- Takes only findings from the indicated phase
+- Orders by severity within the phase
+- Generates dependencies only within the phase
 
-### Todas las fases (`/sequoia fix all`)
-- Toma hallazgos de todas las fases
-- Usa la correlación del M1 correlator para agrupar causas raíz
-- Ordena globalmente: bloqueantes primero, luego alto leverage
-- Genera dependencias cross-fase cuando la causa raíz es compartida
+### All phases (`/sequoia fix all`)
+- Takes findings from all phases
+- Uses M1 correlator results to group root causes
+- Orders globally: blocking first, then high leverage
+- Generates cross-phase dependencies when the root cause is shared
 
-## Optimización del orden de implementación
+## Implementation order optimization
 
-Las tareas se ordenan siguiendo estos criterios:
+Tasks are ordered following these criteria:
 
-1. **Bloqueantes de producción** → primero (sin excepción)
-2. **Causas raíz** → antes que sus síntomas (del correlator)
-3. **Dependencias técnicas** → si la tarea B requiere que A esté hecha
-4. **Alto leverage** → máximo impacto con mínimo cambio
-5. **Riesgo de implementación** → las de bajo riesgo antes (quick wins)
+1. **Production blockers** → first (without exception)
+2. **Root causes** → before their symptoms (from correlator)
+3. **Technical dependencies** → if task B requires A to be done
+4. **High leverage** → maximum impact with minimum change
+5. **Implementation risk** → low risk first (quick wins)
 
-## Regla de deduplicación
+## Deduplication rule
 
-Si múltiples hallazgos apuntan a la misma causa raíz (detectado por el correlator), se genera UNA tarea que resuelve todos los hallazgos relacionados. Se listan los IDs de hallazgo como origen.
+If multiple findings point to the same root cause (detected by the correlator), ONE task is generated that resolves all related findings. The finding IDs are listed as source.
 
 ## Output
 
-Se genera `sequoia-fix.md` con la lista ordenada de tareas:
+Generates `sequoia-fix.md` with the ordered task list:
 
 ```markdown
-# Plan de Implementación — [Proyecto]
+# Implementation Plan — [Project]
 
-**Generado desde**: Auditoría del [fecha]
-**Total tareas**: {N}
-**Bloqueantes**: {N} | **Alto leverage**: {N} | **Backlog**: {N}
+**Generated from**: Audit dated [date]
+**Total tasks**: {N}
+**Blocking**: {N} | **High leverage**: {N} | **Backlog**: {N}
 
-## Orden de implementación
-{tareas ordenadas por prioridad y dependencias}
+## Implementation order
+{tasks ordered by priority and dependencies}
 
-## Dependencias entre tareas
-{diagrama o lista de qué bloquea qué}
+## Task dependencies
+{diagram or list of what blocks what}
 
-## Estimación de riesgo global
-{evaluación del conjunto de cambios}
+## Global risk estimate
+{assessment of the change set}
 ```
 
-## Ejemplo
+## Example
 
 ```bash
-# Generar tareas de seguridad
+# Generate security tasks
 /sequoia fix security
 
-# Generar todas las tareas
+# Generate all tasks
 /sequoia fix all
 
-# Implementar una tarea específica
+# Implement a specific task
 /sequoia fix security --task=P1-003
 ```

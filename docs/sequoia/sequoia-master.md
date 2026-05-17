@@ -1,10 +1,10 @@
 # Sequoia Audit — Master Report
 
-**Proyecto**: sequoia-ai (Sequoia CLI v0.1.0)
+**Project**: sequoia-ai (Sequoia CLI v0.1.0)
 **Stack**: Go 1.24.2, Cobra CLI, Bubbletea TUI, Lipgloss
-**Tipo**: CLI Tool + Plugin Framework
-**Fecha**: 2026-05-12
-**Modo**: Full · 6 fases · 59 hallazgos
+**Type**: CLI Tool + Plugin Framework
+**Date**: 2026-05-12
+**Mode**: Full · 6 phases · 59 findings
 **Health Score**: **28 / 100 (F)**
 
 ---
@@ -35,25 +35,25 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-## Hallazgos Críticos (6)
+## Critical Findings (6)
 
-### 🔴 P3-001 / P4-001 — Duplicación Masiva de Código en 5 Adaptadores
-**Causa raíz**: R1 — Sin capa común de adaptador
-**Impacto**: ~700 líneas duplicadas. Cada bug fix requiere tocar 5 archivos. Cada nuevo adapter copia 150 líneas de boilerplate.
-**Fix**: Extraer `BaseAdapter` en `adapters/common/` y mover `InjectSection`/`GenerateRulesMD`/`RemoveRulesMD` a `adapters/common/strategy.go`.
-**Esfuerzo**: 4-6h · **Prioridad**: P0
+### 🔴 P3-001 / P4-001 — Massive Code Duplication in 5 Adapters
+**Root cause**: R1 — No common adapter layer
+**Impact**: ~700 duplicated lines. Each bug fix requires touching 5 files. Each new adapter copies 150 lines of boilerplate.
+**Fix**: Extract `BaseAdapter` in `adapters/common/` and move `InjectSection`/`GenerateRulesMD`/`RemoveRulesMD` to `adapters/common/strategy.go`.
+**Effort**: 4-6h · **Priority**: P0
 
-### 🔴 P3-002 — Funciones de Estrategia Duplicadas Byte-por-Byte
-**Causa raíz**: R1 — Sin capa común de adaptador
-**Impacto**: `InjectSection`/`RemoveSection` duplicado en 2 paquetes; `GenerateRulesMD`/`RemoveRulesMD` duplicado en 3 paquetes. Fix en lógica de backup requiere 3 cambios.
-**Fix**: Mover las 4 funciones a `adapters/common/strategy.go`. Eliminar `adapters/{claude,gemini,cursor,opencode,codex}/installer.go`.
-**Esfuerzo**: 2h · **Prioridad**: P0
+### 🔴 P3-002 — Byte-by-Byte Duplicated Strategy Functions
+**Root cause**: R1 — No common adapter layer
+**Impact**: `InjectSection`/`RemoveSection` duplicated in 2 packages; `GenerateRulesMD`/`RemoveRulesMD` duplicated in 3 packages. Fix in backup logic requires 3 changes.
+**Fix**: Move the 4 functions to `adapters/common/strategy.go`. Delete `adapters/{claude,gemini,cursor,opencode,codex}/installer.go`.
+**Effort**: 2h · **Priority**: P0
 
-### 🔴 P4-002 — `_template` se Compila y Auto-Registra en Producción
-**Causa raíz**: R6 — Paquete `_template` en producción
-**Impacto**: El adapter "Template Tool" aparece en `DefaultRegistry`. Si alguien lo importa, contamina `sequoia status` y la TUI.
-**Fix**: Agregar `//go:build ignore` a todos los archivos en `adapters/_template/`.
-**Esfuerzo**: 5 min · **Prioridad**: P0
+### 🔴 P4-002 — `_template` Compiles and Auto-Registers in Production
+**Root cause**: R6 — `_template` package in production
+**Impact**: The "Template Tool" adapter appears in `DefaultRegistry`. If anyone imports it, it contaminates `sequoia status` and the TUI.
+**Fix**: Add `//go:build ignore` to all files in `adapters/_template/`.
+**Effort**: 5 min · **Priority**: P0
 
 ### 🔴 P2-001 — 248 KB de Plantillas Embebidas Duplicadas
 **Causa raíz**: R1 (parcial) — Comandos duplicados en 6 `embed.FS`
@@ -69,7 +69,7 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-## Hallazgos Altos (15) — Resumen
+## High Findings (15) — Summary
 
 | ID | Título | Causa Raíz |
 |----|--------|------------|
@@ -91,24 +91,24 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-## Causas Raíz (6)
+## Root Causes (6)
 
-| ID | Causa | Hallazgos | Fix Prioritario |
+| ID | Cause | Findings | Priority Fix |
 |----|-------|-----------|-----------------|
-| R1 | Sin capa común de adaptador | P3-001, P3-002, P4-001, P2-001, P4-005 | `BaseAdapter` + `common/strategy.go` |
-| R2 | CI mínimo sin automatización | P6-001, P6-002, P6-003, P6-004, P6-005, P6-006, P6-007, P4-004 | Lint + coverage + Dependabot |
-| R3 | i18n muerta (plumbing sin implementación) | P1-006, P4-003, P7-001, P7-002, P7-005, P7-006 | Wire or hide language selector |
-| R4 | Sin taxonomía de errores | P1-004, P3-010, P7-006 | `ErrInstallFailed`, `ErrUninstallFailed` |
-| R5 | Pipeline sobre-diseñado (3 pasos vs 1 real) | P2-007, P3-006, P3-012 | Simplificar a 1-step o wirear real |
-| R6 | `_template` compilable en producción | P2-008, P4-002, P4-011 | `//go:build ignore` |
+| R1 | No common adapter layer | P3-001, P3-002, P4-001, P2-001, P4-005 | `BaseAdapter` + `common/strategy.go` |
+| R2 | Minimal CI without automation | P6-001, P6-002, P6-003, P6-004, P6-005, P6-006, P6-007, P4-004 | Lint + coverage + Dependabot |
+| R3 | Dead i18n (plumbing without implementation) | P1-006, P4-003, P7-001, P7-002, P7-005, P7-006 | Wire or hide language selector |
+| R4 | No error taxonomy | P1-004, P3-010, P7-006 | `ErrInstallFailed`, `ErrUninstallFailed` |
+| R5 | Over-designed pipeline (3 steps vs 1 real) | P2-007, P3-006, P3-012 | Simplify to 1-step or wire real |
+| R6 | `_template` compilable in production | P2-008, P4-002, P4-011 | `//go:build ignore` |
 
 ---
 
-## Plan de Acción Priorizado
+## Prioritized Action Plan
 
-### Inmediato (Sprint actual — 1-3 días)
+### Immediate (Current sprint — 1-3 days)
 
-| Orden | Acción | Hallazgos | Esfuerzo |
+| Order | Action | Findings | Effort |
 |-------|--------|-----------|----------|
 | 1 | `//go:build ignore` en `_template/` | P4-002, P2-008, P4-011 | 5 min |
 | 2 | Fix CI: `go-version-file: go.mod` | P6-001, P6-006 | 10 min |
@@ -120,7 +120,7 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 | 8 | Agregar `-coverprofile` y upload a CI | P6-003, P4-004 | 30 min |
 | 9 | Crear `.github/dependabot.yml` | P6-004 | 15 min |
 
-### Corto Plazo (Próximo sprint — 1-2 semanas)
+### Short Term (Next sprint — 1-2 weeks)
 
 | Orden | Acción | Hallazgos | Esfuerzo |
 |-------|--------|-----------|----------|
@@ -136,7 +136,7 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 | 19 | CI badge dinámico en README | P6-007 | 5 min |
 | 20 | Cosign artifact signing | P6-005 | 2h |
 
-### Largo Plazo (Backlog)
+### Long Term (Backlog)
 
 | Acción | Hallazgos |
 |--------|-----------|
@@ -155,7 +155,7 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-## Positivos Detectados
+## Positives Detected
 
 - ✅ **Zero hardcoded secrets** — no API keys, tokens, o credenciales en el código
 - ✅ **Sin command injection** — `exec.LookPath` solo para detección, sin `exec.Command` con input de usuario
@@ -171,7 +171,7 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-## Fases del Reporte
+## Report Phases
 
 | Fase | Archivo | Hallazgos |
 |------|---------|-----------|
@@ -184,4 +184,4 @@ Sequoia CLI is a Go-based tool that installs AI audit framework skills into mult
 
 ---
 
-*Auditoría generada por Sequoia v0.1.0 · Orquestador C0 · 2026-05-12*
+*Audit generated by Sequoia v0.1.0 · Orchestrator C0 · 2026-05-12*

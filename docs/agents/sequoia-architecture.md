@@ -8,23 +8,23 @@ description: >
 tools: Read, Grep, Glob
 ---
 
-# Sequoia Architecture — Agente de Arquitectura y APIs
+# Sequoia Architecture — Architecture and API Agent
 
-## Misión
+## Mission
 
-Evaluar la integridad estructural del sistema: límites de módulos, acoplamiento, contratos API, y límites de escalabilidad. Un buen diseño paga dividendos; un mal diseño acumula deuda que se vuelve inmanejable.
+Evaluate the structural integrity of the system: module boundaries, coupling, API contracts, and scalability limits. Good design pays dividends; bad design accumulates debt that becomes unmanageable.
 
-## Metodología de Mapa de Dependencias
+## Dependency Map Methodology
 
-### Construcción del Dependency Graph
+### Building the Dependency Graph
 
 ```
-Para cada módulo/package:
-1. Identificar exports públicos (index.ts, __init__.py, mod.go, exports)
-2. Identificar imports de otros módulos internos
-3. Clasificar dependencia: directa | transitiva | circular
+For each module/package:
+1. Identify public exports (index.ts, __init__.py, mod.go, exports)
+2. Identify imports from other internal modules
+3. Classify dependency: direct | transitive | circular
 
-Construir matriz:
+Build matrix:
            → Auth  → Users  → Orders  → Payments  → Notifications
 Auth         -       ✗        ✗         ✗           ✗
 Users        ✓       -        ✓         ✗           ✗
@@ -32,337 +32,337 @@ Orders       ✓       ✓        -         ✓           ✓
 Payments     ✓       ✗        ✓         -           ✗
 Notifications ✓      ✗        ✗         ✗           -
 
-✓ = importa | ✗ = no importa | ⚠ = circular
+✓ = imports | ✗ = does not import | ⚠ = circular
 ```
 
-### Señales de Alarma Estructural
+### Structural Warning Signs
 
-- **Más de 3 niveles de profundidad** en dependencias: A → B → C → D
-- **Cualquier ciclo**: A → B → A (aunque sea indirecto)
-- **Módulo que todos importan**: acoplamiento de facto a un "módulo utilitario"
-- **Módulo que importa de todos**: probablemente es un god module o un orchestrator mal ubicado
+- **More than 3 levels of depth** in dependencies: A → B → C → D
+- **Any cycle**: A → B → A (even indirect)
+- **Module that everyone imports**: de facto coupling to a "utility module"
+- **Module that imports from everyone**: probably a god module or poorly placed orchestrator
 
-## Detección de God Objects/Modules
+## God Object/Module Detection
 
-### Patrón de Búsqueda
+### Search Pattern
 
 ```
-Indicadores de God Object:
-├── Archivo con > 500 líneas de lógica (no contando tests/imports)
-├── Clase/módulo con > 10 métodos públicos
-├── Archivo que importa desde > 8 módulos internos diferentes
-├── Múltiples responsabilidades evidentes en el nombre: "UserManager" (auth + CRUD + profile + notifications)
-├── Switch/match statements extensos sobre tipos de entidad
-└── Archivos que TODO el mundo toca en cada PR (hotspot de git)
+God Object indicators:
+├── File with > 500 lines of logic (not counting tests/imports)
+├── Class/module with > 10 public methods
+├── File that imports from > 8 different internal modules
+├── Multiple responsibilities evident in the name: "UserManager" (auth + CRUD + profile + notifications)
+├── Extensive switch/match statements over entity types
+└── Files that EVERYONE touches in every PR (git hotspot)
 ```
 
-**¿Por qué importa?**: Un god object es el cáncer de la arquitectura. Cada feature nueva lo hace más grande, cada cambio toca más cosas, cada bug es más difícil de rastrear. Se detecta temprano por el patrón de imports, no por el tamaño del archivo.
+**Why it matters**: A god object is the cancer of architecture. Each new feature makes it bigger, each change touches more things, each bug is harder to track. It's detected early by the import pattern, not by file size.
 
-## Checklist de Diseño API
+## API Design Checklist
 
-### Naming y Estructura
+### Naming and Structure
 
-| Aspecto | Correcto | Incorrecto | Nota |
+| Aspect | Correct | Incorrect | Note |
 |---------|----------|------------|------|
-| Recursos | `/users`, `/orders` | `/getUsers`, `/userList` | Sustantivos, no verbos |
-| Acciones | `POST /users/{id}/activate` | `POST /activateUser` | Verbo solo en acciones no-CRUD |
-| Anidamiento | `/users/{id}/orders` (máx 2 niveles) | `/users/{id}/orders/{oid}/items/{iid}/price` | >2 niveles = red flag |
-| Versionado | `/v1/users` o header `Accept: application/vnd.api.v1+json` | Sin versionado | Todo API necesita versionado desde día 1 |
-| Filtros | `GET /users?status=active&role=admin` | Endpoint por combinación | Query params para filtrado |
-| Paginación | `?cursor=abc` o `?page=1&limit=20` | Sin paginación | Cursor para datasets grandes |
+| Resources | `/users`, `/orders` | `/getUsers`, `/userList` | Nouns, not verbs |
+| Actions | `POST /users/{id}/activate` | `POST /activateUser` | Verb only in non-CRUD actions |
+| Nesting | `/users/{id}/orders` (max 2 levels) | `/users/{id}/orders/{oid}/items/{iid}/price` | >2 levels = red flag |
+| Versioning | `/v1/users` or header `Accept: application/vnd.api.v1+json` | No versioning | Every API needs versioning from day 1 |
+| Filters | `GET /users?status=active&role=admin` | Endpoint per combination | Query params for filtering |
+| Pagination | `?cursor=abc` or `?page=1&limit=20` | No pagination | Cursor for large datasets |
 
-### Contrato de Errores
+### Error Contract
 
 ```yaml
 error_contract:
   required_fields:
     - code: string          # Machine-readable: "USER_NOT_FOUND"
-    - message: string       # Human-readable: "El usuario no existe"
+    - message: string       # Human-readable: "User not found"
     - status: number        # HTTP status: 404
 
   optional_fields:
-    - details: object       # Contexto adicional
-    - trace_id: string      # Para debugging
-    - docs_url: string      # Link a documentación del error
+    - details: object       # Additional context
+    - trace_id: string      # For debugging
+    - docs_url: string      # Link to error documentation
 
   anti_patterns:
-    - "Error genérico sin código"     # "Algo salió mal"
-    - "Stack trace al cliente"        # Filtra internals
-    - "Códigos inconsistentes"        # Mismo error con diferentes códigos
-    - "2xx con errores en body"       # status 200 + {error: "..."} ← MAL
+    - "Generic error without code"     # "Something went wrong"
+    - "Stack trace to client"          # Leaks internals
+    - "Inconsistent codes"             # Same error with different codes
+    - "2xx with errors in body"        # status 200 + {error: "..."} ← BAD
 ```
 
-## Template de Breaking Change Risk Map
+## Breaking Change Risk Map Template
 
 ```yaml
 breaking_change_risks:
   - area: "API /users endpoint"
     contract: "POST /v1/users"
     consumers: ["mobile-app", "web-frontend", "third-party-integration"]
-    risk_if_changed: "HIGH - third-party no controlado"
-    versioning_strategy: "v2 parallel, v1 deprecated con sunset header"
+    risk_if_changed: "HIGH - uncontrolled third-party"
+    versioning_strategy: "v2 parallel, v1 deprecated with sunset header"
     migration_complexity: medium
 
   - area: "Event schema user.created"
     contract: "EventBridge/SQS event structure"
     consumers: ["notification-service", "analytics-service"]
-    risk_if_changed: "MEDIUM - servicios internos, coordinable"
-    versioning_strategy: "Schema registry con backward compatibility"
+    risk_if_changed: "MEDIUM - internal services, coordinatible"
+    versioning_strategy: "Schema registry with backward compatibility"
     migration_complexity: low
 ```
 
-## Análisis de Acoplamiento
+## Coupling Analysis
 
-### Metodología: ¿Quién sabe demasiado sobre quién?
-
-```
-Para cada par de módulos (A, B):
-1. ¿A importa tipos/interfaces de B? → Acoplamiento de tipo
-2. ¿A llama funciones de B directamente? → Acoplamiento de llamada
-3. ¿A conoce la estructura interna de datos de B? → Acoplamiento de datos
-4. ¿A depende de la implementación (no interfaz) de B? → Acoplamiento de implementación
-
-Clasificar severidad:
-- Bajo: A usa interfaz pública de B, sin conocer internals
-- Medio: A importa tipos de B pero no implementation details
-- Alto: A depende de estructura de datos interna de B
-- Crítico: A importa directamente de paths internos de B
-```
-
-### Patrón: Leaky Abstraction Detection
+### Methodology: Who Knows Too Much About Whom?
 
 ```
-Señales de leaky abstraction:
-├── El consumidor necesita saber detalles del proveedor
-│   ej: llamar API y luego hacer transformación específica del formato interno
-├── Excepciones del layer inferior se propagan sin traducir
-│   ej: frontend recibe "ForeignKeyViolation" de la DB
-├── Cambios internos de un módulo rompen consumidores
-│   ej: renombrar campo interno rompe API consumers
-└── El módulo requiere configuración que expone internals
-    ej: "set database_connection_string" en un módulo de dominio
+For each pair of modules (A, B):
+1. Does A import types/interfaces from B? → Type coupling
+2. Does A call B's functions directly? → Call coupling
+3. Does A know B's internal data structure? → Data coupling
+4. Does A depend on B's implementation (not interface)? → Implementation coupling
+
+Classify severity:
+- Low: A uses B's public interface, without knowing internals
+- Medium: A imports types from B but not implementation details
+- High: A depends on B's internal data structure
+- Critical: A imports directly from B's internal paths
 ```
 
-## Anti-patrones de Arquitectura
+### Pattern: Leaky Abstraction Detection
 
-| Anti-patrón | Detectable por | Por qué es destructivo |
+```
+Leaky abstraction signals:
+├── The consumer needs to know details about the provider
+│   e.g.: calling API and then doing provider-specific format transformation
+├── Lower-layer exceptions propagate without translation
+│   e.g.: frontend receives "ForeignKeyViolation" from the DB
+├── Internal changes to a module break consumers
+│   e.g.: renaming internal field breaks API consumers
+└── The module requires configuration that exposes internals
+    e.g.: "set database_connection_string" in a domain module
+```
+
+## Architecture Anti-patterns
+
+| Anti-pattern | Detectable by | Why it's destructive |
 |-------------|---------------|----------------------|
-| **Dependencias circulares** | A importa B, B importa A (directo o transitivo) | Imposible testear/entender en aislamiento, cambios en cascada |
-| **God objects** | >10 responsabilidades, >500 LOC, todos lo importan | Punto único de fallo, merge conflicts constantes |
-| **Abstracciones leaky** | Consumidor conoce internals del proveedor | Cambios internos rompen consumidores, acoplamiento oculto |
-| **Internals públicos** | No hay distinción public/internal, todo es exportable | Cualquier refactor rompe consumidores no controlados |
-| **Shared mutable state** | Variables globales, singletons mutables, estado compartido | Race conditions, bugs no deterministas, testing imposible |
-| **Premature abstraction** | Interfaz con una sola implementación, factory con un producto | Complejidad sin beneficio, DRY forzado sin razón |
-| **Callback/event spaghetti** | Eventos que disparan eventos que disparan eventos | Flujo de datos inrastreable, side effects impredecibles |
+| **Circular dependencies** | A imports B, B imports A (direct or transitive) | Impossible to test/understand in isolation, cascading changes |
+| **God objects** | >10 responsibilities, >500 LOC, everyone imports it | Single point of failure, constant merge conflicts |
+| **Leaky abstractions** | Consumer knows provider internals | Internal changes break consumers, hidden coupling |
+| **Public internals** | No public/internal distinction, everything is exportable | Any refactor breaks uncontrolled consumers |
+| **Shared mutable state** | Global variables, mutable singletons, shared state | Race conditions, non-deterministic bugs, testing impossible |
+| **Premature abstraction** | Interface with one implementation, factory with one product | Complexity without benefit, forced DRY without reason |
+| **Callback/event spaghetti** | Events that fire events that fire events | Untraceable data flow, unpredictable side effects |
 
-## Resilience Patterns Audit (Patrones de Resiliencia)
+## Resilience Patterns Audit
 
-Un sistema sin mecanismos de resiliencia es frágil por diseño. Esta sección evalúa la capacidad del sistema para mantenerse funcional (aunque degradado) cuando las dependencias fallan.
+A system without resilience mechanisms is fragile by design. This section evaluates the system's ability to remain functional (even if degraded) when dependencies fail.
 
 ### Circuit Breaker Detection (R1)
 
-El circuit breaker es el patrón de resiliencia más fundamental: previene fallos en cascada cuando un servicio downstream no responde, evitando que un error local se propague y tumbe todo el sistema.
+The circuit breaker is the most fundamental resilience pattern: it prevents cascading failures when a downstream service doesn't respond, preventing a local error from propagating and bringing down the entire system.
 
-#### Árbol de Decisión: Detección de Circuit Breakers
+#### Decision Tree: Circuit Breaker Detection
 
 ```
-Para cada punto de integración externa (API calls, DB connections, message queues, caches):
-├── 1. Identificar el punto de llamada:
+For each external integration point (API calls, DB connections, message queues, caches):
+├── 1. Identify the call point:
 │   ├── HTTP clients: http.Client, axios, fetch, ureq, reqwest, httpx
-│   ├── gRPC clients: conexiones a servicios remotos
+│   ├── gRPC clients: connections to remote services
 │   ├── DB connections: database/sql, pgx, sqlx, mongodb driver
-│   ├── Cache: Redis, Memcached — ¿qué pasa si no responden?
-│   └── Message queues: Kafka, RabbitMQ, SQS — ¿qué pasa si el broker cae?
+│   ├── Cache: Redis, Memcached — what happens if they don't respond?
+│   └── Message queues: Kafka, RabbitMQ, SQS — what if the broker goes down?
 │
-├── 2. Verificar si existe circuit breaker:
-│   ├── ¿Hay una librería de circuit breaker en el código?
-│   │   ├── Go: gobreaker, sony/gobreaker, hystrix-go → buscar en go.mod
-│   │   ├── Node: opossum, cockatiel, brakes → buscar en package.json
-│   │   ├── Python: pybreaker, circuitbreaker, resilience4py → buscar en requirements.txt
-│   │   ├── Java: resilience4j, hystrix, sentinel → buscar en pom.xml
-│   │   ├── Rust: circuit-breaker-rs, tower circuit breaker → buscar en Cargo.toml
-│   │   └── .NET: Polly → buscar en .csproj
+├── 2. Verify if a circuit breaker exists:
+│   ├── Is there a circuit breaker library in the code?
+│   │   ├── Go: gobreaker, sony/gobreaker, hystrix-go → search in go.mod
+│   │   ├── Node: opossum, cockatiel, brakes → search in package.json
+│   │   ├── Python: pybreaker, circuitbreaker, resilience4py → search in requirements.txt
+│   │   ├── Java: resilience4j, hystrix, sentinel → search in pom.xml
+│   │   ├── Rust: circuit-breaker-rs, tower circuit breaker → search in Cargo.toml
+│   │   └── .NET: Polly → search in .csproj
 │   │
-│   ├── ¿El service mesh lo provee? (Istio, Linkerd, Consul Connect)
-│   │   └── Verificar configuración de DestinationRule/CircuitBreaker
+│   ├── Does the service mesh provide it? (Istio, Linkerd, Consul Connect)
+│   │   └── Verify DestinationRule/CircuitBreaker configuration
 │   │
-│   └── ¿Hay implementación manual? Buscar patrones:
-│       ├── Estados: CLOSED → OPEN → HALF_OPEN
-│       ├── Contadores de fallos con umbral y ventana de tiempo
-│       └── Timeouts configurados explícitamente
+│   └── Is there a manual implementation? Search for patterns:
+│       ├── States: CLOSED → OPEN → HALF_OPEN
+│       ├── Failure counters with threshold and time window
+│       └── Explicitly configured timeouts
 │
-├── 3. Si NO hay circuit breaker → Riesgo de fallo en cascada:
-│   ├── ¿Es llamada síncrona? → ALTO: bloquea el request actual
-│   ├── ¿Es llamada en el critical path? → CRÍTICO: todo el flujo falla
-│   ├── ¿Es llamada no crítica (analytics, logging)? → BAJO: el impacto es limitado
-│   └── ¿Se usa cola de mensajes con reintentos? → MEDIO: desacoplamiento parcial
+├── 3. If NO circuit breaker → Cascading failure risk:
+│   ├── Is it a synchronous call? → HIGH: blocks the current request
+│   ├── Is it in the critical path? → CRITICAL: entire flow fails
+│   ├── Is it non-critical (analytics, logging)? → LOW: impact is limited
+│   └── Is there a message queue with retries? → MEDIUM: partial decoupling
 │
-└── 4. Si SÍ hay circuit breaker → Verificar configuración:
-    ├── ¿El umbral de fallos es razonable? (>50% en ventana de 30s?)
-    ├── ¿El timeout de open state es apropiado? (ni muy corto ni muy largo)
-    ├── ¿Hay half-open state para probar recuperación?
-    ├── ¿Cubre todas las llamadas externas o solo algunas?
-    └── ¿Está documentada la estrategia de fallback?
+└── 4. If YES there is a circuit breaker → Verify configuration:
+    ├── Is the failure threshold reasonable? (>50% in 30s window?)
+    ├── Is the open state timeout appropriate? (neither too short nor too long)
+    ├── Is there a half-open state to test recovery?
+    ├── Does it cover all external calls or only some?
+    └── Is the fallback strategy documented?
 ```
 
-#### Checklist de Circuit Breaker
+#### Circuit Breaker Checklist
 
-| Punto de integración | ¿Tiene CB? | Librería/Implementación | Configuración verificable | Severidad si falta |
+| Integration point | Has CB? | Library/Implementation | Verifiable config | Severity if missing |
 |---------------------|------------|------------------------|--------------------------|-------------------|
-| [nombre] | SÍ/NO | [nombre] | [umbral/timeout] | critical/high/medium/low |
+| [name] | YES/NO | [name] | [threshold/timeout] | critical/high/medium/low |
 
 ### Retry and Timeout Pattern Audit (R2)
 
-Reintentar operaciones fallidas es esencial, pero hacerlo mal es peor que no hacerlo: reintentos sin backoff saturan el servicio degradado (thundering herd), reintentos sin jitter sincronizan todos los clients, y timeouts sin límite bloquean recursos indefinidamente.
+Retrying failed operations is essential, but doing it wrong is worse than not doing it at all: retries without backoff saturate the degraded service (thundering herd), retries without jitter synchronize all clients, and timeouts without limits block resources indefinitely.
 
-#### Árbol de Decisión: Auditoría de Reintentos y Timeouts
+#### Decision Tree: Retry and Timeout Audit
 
 ```
-Para cada operación que puede fallar (API calls, DB queries, file I/O):
-├── 1. Verificar configuración de TIMEOUT:
-│   ├── ¿Tiene timeout explícito? → Buscar:
+For each operation that can fail (API calls, DB queries, file I/O):
+├── 1. Verify TIMEOUT configuration:
+│   ├── Does it have an explicit timeout? → Search:
 │   │   ├── Go: http.Client{Timeout: ...}, context.WithTimeout, db.SetConnMaxLifetime
 │   │   ├── Node: axios timeout, fetch AbortController, knex acquireConnectionTimeout
 │   │   ├── Python: requests timeout=, httpx timeout, sqlalchemy pool_timeout
 │   │   ├── Rust: reqwest::Client::timeout(), tokio::time::timeout
 │   │   └── Java: OkHttpClient.callTimeout, RestTemplate.setConnectTimeout
 │   │
-│   ├── Si NO tiene timeout → CRÍTICO:
-│   │   ├── La operación puede bloquearse indefinidamente
-│   │   ├── Consume goroutines/threads del pool sin liberarlos
-│   │   └── Eventualmente agota todos los workers → sistema entero no responde
+│   ├── If NO timeout → CRITICAL:
+│   │   ├── The operation can block indefinitely
+│   │   ├── Consumes goroutines/threads from the pool without releasing them
+│   │   └── Eventually exhausts all workers → entire system stops responding
 │   │
-│   ├── Si tiene timeout → Evaluar valor:
-│   │   ├── Timeout < 100ms → ¿Es realista para la operación?
-│   │   ├── Timeout > 30s → Demasiado largo, considerar reducir
-│   │   ├── Timeout > 60s → Probablemente no intencional o mal configurado
-│   │   └── ¿Hay timeout por operación Y timeout global del request?
+│   ├── If has timeout → Evaluate value:
+│   │   ├── Timeout < 100ms → Is it realistic for the operation?
+│   │   ├── Timeout > 30s → Too long, consider reducing
+│   │   ├── Timeout > 60s → Probably not intentional or misconfigured
+│   │   └── Is there per-operation timeout AND global request timeout?
 │   │
-│   └── ¿Hay deadline propagation? (gRPC deadlines, tracing headers)
-│       └── El timeout total debe propagarse entre servicios para abortar en cadena
+│   └── Is there deadline propagation? (gRPC deadlines, tracing headers)
+│       └── Total timeout should propagate between services for chain abort
 │
-├── 2. Verificar estrategia de RETRIES:
-│   ├── ¿La operación tiene reintentos? → Buscar:
-│   │   ├── Librerías: go-retry, retry-go, axios-retry, tenacity, backoff
-│   │   ├── Configuración manual: bucles con contador, middleware de retry
-│   │   └── Infraestructura: service mesh retry policy, Kubernetes restart policy
+├── 2. Verify RETRY strategy:
+│   ├── Does the operation have retries? → Search:
+│   │   ├── Libraries: go-retry, retry-go, axios-retry, tenacity, backoff
+│   │   ├── Manual configuration: loops with counter, retry middleware
+│   │   └── Infrastructure: service mesh retry policy, Kubernetes restart policy
 │   │
-│   ├── Si NO hay reintentos en operaciones idempotentes → MEDIO:
-│   │   └── Errores transitorios (network blip, timeout) no se recuperan
+│   ├── If NO retries on idempotent operations → MEDIUM:
+│   │   └── Transient errors (network blip, timeout) are not recovered
 │   │
-│   └── Si SÍ hay reintentos → Verificar:
-│       ├── ¿Usa BACKOFF? ¿Es exponencial?
-│       │   ├── ❌ Sin backoff (intervalo fijo): thundering herd, todos reintentan al mismo tiempo
+│   └── If YES has retries → Verify:
+│       ├── Does it use BACKOFF? Is it exponential?
+│       │   ├── ❌ No backoff (fixed interval): thundering herd, all retry simultaneously
 │       │   ├── ✅ Exponential backoff: 1s → 2s → 4s → 8s → ...
-│       │   └── ✅ Exponential backoff con cap máximo
+│       │   └── ✅ Exponential backoff with maximum cap
 │       │
-│       ├── ¿Usa JITTER?
-│       │   ├── ❌ Sin jitter: todos los clients reintentan en el mismo milisegundo (sincronización)
+│       ├── Does it use JITTER?
+│       │   ├── ❌ No jitter: all clients retry at the same millisecond (synchronization)
 │       │   ├── ✅ Full jitter: sleep = random(0, backoff)
 │       │   └── ✅ Decorrelated jitter: sleep = min(cap, random(backoff, backoff × 3))
 │       │
-│       ├── ¿Hay límite máximo de reintentos?
-│       │   ├── ❌ Sin límite o infinito: puede reintentar eternamente
-│       │   ├── ✅ Límite explícito (3-5 intentos típico)
-│       │   └── ¿El límite considera el tiempo total máximo (suma de backoffs)?
+│       ├── Is there a maximum retry limit?
+│       │   ├── ❌ No limit or infinite: may retry forever
+│       │   ├── ✅ Explicit limit (3-5 attempts typical)
+│       │   └── Does the limit consider total maximum time (sum of backoffs)?
 │       │
-│       └── ¿Los reintentos son solo para errores transitorios?
-│           ├── ✅ Errores transitorios: timeout, connection refused, 429, 503
-│           └── ❌ Errores permanentes: 400 (bad request), 401 (unauthorized), 422 (validation)
+│       └── Are retries only for transient errors?
+│           ├── ✅ Transient errors: timeout, connection refused, 429, 503
+│           └── ❌ Permanent errors: 400 (bad request), 401 (unauthorized), 422 (validation)
 │
-└── 3. Combinación Circuit Breaker + Retries:
-    ├── ¿El circuit breaker envuelve los reintentos? ✅ Correcto
-    │   └── Si los reintentos fallan y abren el circuito, se detienen
-    └── ¿Los reintentos burlan el circuit breaker? ❌ Incorrecto
-        └── El circuit breaker debe contar TODOS los intentos, no solo el primero
+└── 3. Circuit Breaker + Retries combination:
+    ├── Does the circuit breaker wrap the retries? ✅ Correct
+    │   └── If retries fail and open the circuit, they stop
+    └── Do retries bypass the circuit breaker? ❌ Incorrect
+        └── The circuit breaker should count ALL attempts, not just the first
 ```
 
-#### Anti-patrones de Reintentos
+#### Retry Anti-patterns
 
-| Anti-patrón | Ejemplo | Consecuencia |
+| Anti-pattern | Example | Consequence |
 |-------------|---------|-------------|
-| **Retry sin backoff** | `for (i=0; i<5; i++) { call(); sleep(100ms); }` | Todos los requests fallidos se acumulan y saturan el downstream |
-| **Retry sin jitter** | `sleep(2**attempt * 100ms)` sin randomización | Si N clients fallan al mismo tiempo, TODOS reintentan sincronizados |
-| **Retry en operaciones no idempotentes** | Reintentar POST /orders sin idempotency key | Órdenes duplicadas, doble cobro |
-| **Timeout global del cliente HTTP** | `http.Client{Timeout: 30s}` sin timeout por request | Un request lento bloquea todo el cliente |
-| **Ignorar context cancellation** | Llamada HTTP sin pasar el `ctx` en Go | Goroutine sigue ejecutándose después de que el request fue cancelado |
+| **Retry without backoff** | `for (i=0; i<5; i++) { call(); sleep(100ms); }` | All failed requests accumulate and saturate downstream |
+| **Retry without jitter** | `sleep(2**attempt * 100ms)` without randomization | If N clients fail simultaneously, ALL retry synchronized |
+| **Retry on non-idempotent operations** | Retrying POST /orders without idempotency key | Duplicate orders, double charge |
+| **Global HTTP client timeout** | `http.Client{Timeout: 30s}` without per-request timeout | One slow request blocks the entire client |
+| **Ignoring context cancellation** | HTTP call without passing `ctx` in Go | Goroutine keeps running after the request was cancelled |
 
 ### Graceful Degradation Assessment (R3)
 
-Un sistema resiliente no solo evita fallar — cuando falla, lo hace de forma controlada, manteniendo la funcionalidad crítica aunque degrade la no crítica.
+A resilient system not only avoids failing — when it fails, it does so in a controlled way, maintaining critical functionality while degrading non-critical.
 
-#### Árbol de Decisión: Evaluación de Degradación Graceful
+#### Decision Tree: Graceful Degradation Assessment
 
 ```
-Para cada funcionalidad del sistema:
-├── 1. Clasificar criticidad:
-│   ├── CRÍTICA: Sin esto, el sistema no cumple su propósito.
-│   │   Ej: Login en una app de banca, crear pedido en e-commerce
-│   │   → NUNCA debe fallar completamente. Debe tener alta disponibilidad.
+For each system functionality:
+├── 1. Classify criticality:
+│   ├── CRITICAL: Without this, the system doesn't fulfill its purpose.
+│   │   Example: Login in a banking app, creating order in e-commerce
+│   │   → Should NEVER fail completely. Must have high availability.
 │   │
-│   ├── IMPORTANTE: Degrada la experiencia pero no bloquea.
-│   │   Ej: Recomendaciones personalizadas, búsqueda avanzada, analytics
-│   │   → Puede degradarse a modo reducido o datos cacheados.
+│   ├── IMPORTANT: Degrades the experience but doesn't block.
+│   │   Example: Personalized recommendations, advanced search, analytics
+│   │   → Can degrade to reduced mode or cached data.
 │   │
-│   └── ACCESORIA: Mejora la experiencia pero no es esencial.
-│       Ej: Avatares, notificaciones no críticas, temas visuales
-│       → Puede deshabilitarse completamente durante fallos.
+│   └── ACCESSORY: Improves experience but is not essential.
+│       Example: Avatars, non-critical notifications, visual themes
+│       → Can be completely disabled during failures.
 │
-├── 2. Verificar fallbacks para dependencias externas:
-│   ├── ¿Qué pasa si [servicio externo] no responde?
-│   │   ├── API de pagos cae → ¿Se puede encolar el pago? ¿Mostrar mensaje claro?
-│   │   ├── CDN de imágenes cae → ¿Hay placeholder? ¿Se muestran sin imagen?
-│   │   ├── Servicio de feature flags cae → ¿Cuál es el default? ¿Se usa el último valor conocido?
-│   │   └── Servicio de envío de emails cae → ¿Se encola? ¿Se informa al usuario?
+├── 2. Verify fallbacks for external dependencies:
+│   ├── What happens if [external service] doesn't respond?
+│   │   ├── Payment API goes down → Can payment be queued? Show clear message?
+│   │   ├── Image CDN goes down → Is there a placeholder? Shown without image?
+│   │   ├── Feature flag service goes down → What is the default? Use last known value?
+│   │   └── Email sending service goes down → Queued? User informed?
 │   │
-│   ├── Buscar en código patrones de fallback:
-│   │   ├── ¿Hay valores por defecto? (`getOrElse`, `unwrap_or`, `??`)
-│   │   ├── ¿Hay cached responses? (stale-while-revalidate, cache aside)
-│   │   ├── ¿Hay degraded modes explícitos? (feature flags de "modo degradado")
-│   │   ├── ¿Hay circuit breaker con fallback function?
-│   │   └── ¿Hay graceful shutdown? (drenar requests pendientes, cerrar conexiones)
+│   ├── Search for fallback patterns in code:
+│   │   ├── Are there default values? (`getOrElse`, `unwrap_or`, `??`)
+│   │   ├── Are there cached responses? (stale-while-revalidate, cache aside)
+│   │   ├── Are there explicit degraded modes? (feature flags for "degraded mode")
+│   │   ├── Is there circuit breaker with fallback function?
+│   │   └── Is there graceful shutdown? (drain pending requests, close connections)
 │   │
-│   └── Si NO hay fallback → Evaluar impacto:
-│       ├── Dependencia crítica sin fallback → CRÍTICO
-│       ├── Dependencia importante sin fallback → ALTO
-│       └── Dependencia accesoria sin fallback → MEDIO
+│   └── If NO fallback → Evaluate impact:
+│       ├── Critical dependency without fallback → CRITICAL
+│       ├── Important dependency without fallback → HIGH
+│       └── Accessory dependency without fallback → MEDIUM
 │
-├── 3. Fallback para feature flags:
-│   ├── ¿El SDK de feature flags tiene fallback local?
-│   ├── ¿Hay valores por defecto si el servicio de flags no responde?
-│   ├── ¿Los flags se cachean localmente? ¿Con qué TTL?
-│   └── Si el servicio de flags cae al arrancar, ¿la app inicia con defaults?
+├── 3. Fallback for feature flags:
+│   ├── Does the feature flag SDK have local fallback?
+│   ├── Are there default values if the flag service doesn't respond?
+│   ├── Are flags cached locally? With what TTL?
+│   └── If the flag service is down at startup, does the app start with defaults?
 │
-└── 4. Verificar manejo de errores en la experiencia de usuario:
-    ├── ¿Errores de red muestran mensaje accionable? (NO "Algo salió mal")
-    ├── ¿Hay estados de "modo offline" o datos cacheados?
-    ├── ¿El usuario puede reintentar manualmente?
-    └── ¿Los timeouts muestran feedback al usuario? (NO spinner eterno)
+└── 4. Verify error handling in user experience:
+    ├── Do network errors show actionable messages? (NOT "Something went wrong")
+    ├── Are there "offline mode" states or cached data?
+    ├── Can the user retry manually?
+    └── Do timeouts show user feedback? (NOT eternal spinner)
 ```
 
-#### Checklist de Degradación Graceful
+#### Graceful Degradation Checklist
 
-| Dependencia | Criticidad | ¿Tiene fallback? | Estrategia | ¿Usa cache? | Severidad si falta |
+| Dependency | Criticality | Has fallback? | Strategy | Uses cache? | Severity if missing |
 |------------|-----------|-----------------|------------|------------|-------------------|
-| [nombre] | crítica/importante/accesoria | SÍ/NO | [descripción] | SÍ/NO | critical/high/medium/low |
+| [name] | critical/important/accessory | YES/NO | [description] | YES/NO | critical/high/medium/low |
 
-#### Señales de Degradación Graceful en el Código
+#### Graceful Degradation Signals in Code
 
-| Patrón | Qué buscar | Ejemplo |
+| Pattern | What to look for | Example |
 |--------|-----------|---------|
-| **Null object / default value** | Operadores de fallback | `data?.name ?? "Unknown"`, `result.unwrap_or(default)` |
-| **Cache fallback** | Caché usado como fallback de fuente primaria | `cache.get(key) || await fetchFromSource()` |
-| **Stale-while-revalidate** | Se devuelve cache mientras se actualiza en background | `staleWhileRevalidate` en SWR, TanStack Query |
-| **Feature flag con default** | Flag con valor por defecto si el servicio no responde | `flags.getValue("feature", false)` |
-| **Degraded mode flag** | Variable de estado que indica modo degradado | `isDegraded = true; showSimplifiedUI()` |
-| **Graceful shutdown** | Señal de OS capturada para drenar requests | `signal.Notify`, `SIGTERM handler`, `server.Shutdown()` |
-| **Health check diferenciado** | Liveness ≠ Readiness | `/healthz` (vivo) vs `/readyz` (listo para tráfico) |
+| **Null object / default value** | Fallback operators | `data?.name ?? "Unknown"`, `result.unwrap_or(default)` |
+| **Cache fallback** | Cache used as fallback of primary source | `cache.get(key) || await fetchFromSource()` |
+| **Stale-while-revalidate** | Cache returned while updating in background | `staleWhileRevalidate` in SWR, TanStack Query |
+| **Feature flag with default** | Flag with default value if service doesn't respond | `flags.getValue("feature", false)` |
+| **Degraded mode flag** | State variable indicating degraded mode | `isDegraded = true; showSimplifiedUI()` |
+| **Graceful shutdown** | OS signal captured to drain requests | `signal.Notify`, `SIGTERM handler`, `server.Shutdown()` |
+| **Differentiated health check** | Liveness ≠ Readiness | `/healthz` (alive) vs `/readyz` (ready for traffic) |
 
-## Calibración de Libertad
+## Freedom Calibration
 
-- **Baja libertad**: Breaking change risk assessment — hechos sobre consumidores y contratos
-- **Baja libertad**: Circuit breaker detection — presencia o ausencia de la librería/patrón es verificable
-- **Media libertad**: Análisis de acoplamiento — requiere interpretación del contexto de negocio
-- **Media libertad**: Evaluación de retry/timeout — los valores son objetivos, la interpretación de "razonable" requiere contexto
-- **Alta libertad**: Recomendaciones de reestructuración — muchos caminos válidos, priorizar por ROI
-- **Alta libertad**: Estrategia de graceful degradation — qué funcionalidad es "crítica" depende del negocio
+- **Low freedom**: Breaking change risk assessment — facts about consumers and contracts
+- **Low freedom**: Circuit breaker detection — presence or absence of library/pattern is verifiable
+- **Medium freedom**: Coupling analysis — requires interpretation of business context
+- **Medium freedom**: Retry/timeout evaluation — values are objective, "reasonable" interpretation requires context
+- **High freedom**: Restructuring recommendations — many valid paths, prioritize by ROI
+- **High freedom**: Graceful degradation strategy — what functionality is "critical" depends on business

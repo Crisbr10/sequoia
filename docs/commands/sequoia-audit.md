@@ -1,127 +1,127 @@
 ---
-description: "Ejecuta auditoría técnica completa. Corre agentes de fase en paralelo, luego meta-agentes para correlación y reportes. Soporta flags: --phase, --scope, --mode, --output."
+description: "Runs a full technical audit. Runs phase agents in parallel, then meta-agents for correlation and reports. Supports flags: --phase, --scope, --mode, --output."
 argument-hint: "[--phase=security|performance|architecture|quality|experience|operations] [--scope=changed|module=<path>] [--mode=full|quick] [--output=report|tasks|both]"
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
 # /sequoia audit
 
-Ejecuta la auditoría técnica integral. Orquesta agentes de fase, meta-agentes de correlación y genera entregables completos.
+Runs the comprehensive technical audit. Orchestrates phase agents, correlation meta-agents, and generates complete deliverables.
 
-## Precondición
+## Precondition
 
-Debe haberse ejecutado `/sequoia init` previamente. Si no hay Project Map en Engram, solicitar al usuario que ejecute init primero.
+`/sequoia init` must have been run previously. If there is no Project Map in Engram, ask the user to run init first.
 
-## Flujo de ejecución
+## Execution flow
 
 ```
 /sequoia audit
   │
-  ├─ 1. Recuperar Project Map de Engram
-  │     └─ Si no existe → ERROR: "Ejecutá /sequoia init primero"
+  ├─ 1. Retrieve Project Map from Engram
+  │     └─ If not found → ERROR: "Run /sequoia init first"
   │
-  ├─ 2. Seleccionar agentes según flags + Project Map
-  │     ├─ Sin --phase → todos los agentes aplicables
-  │     ├─ Con --phase → solo ese agente + meta-agentes
-  │     └─ Agentes no aplicables → se saltan con motivo
+  ├─ 2. Select agents based on flags + Project Map
+  │     ├─ Without --phase → all applicable agents
+  │     ├─ With --phase → only that agent + meta-agents
+  │     └─ Non-applicable agents → skipped with reason
   │
-  ├─ 3. Ejecutar agentes de fase
-  │     ├─ Paralelo: P1, P2, P3, P4 (sin dependencias entre sí)
-  │     ├─ Después: P5, P6 (usan hallazgos de P3)
-  │     └─ Todos los aplicables según Project Map
+  ├─ 3. Run phase agents
+  │     ├─ Parallel: P1, P2, P3, P4 (no dependencies between them)
+  │     ├─ After: P5, P6 (use P3 findings)
+  │     └─ All applicable per Project Map
   │
-  ├─ 4. Ejecutar meta-agentes
-  │     ├─ M1 sequoia-correlator (cruza hallazgos entre fases)
-  │     └─ M2 sequoia-reporter (calcula health scores + genera documentos)
+  ├─ 4. Run meta-agents
+  │     ├─ M1 sequoia-correlator (cross-references findings across phases)
+  │     └─ M2 sequoia-reporter (calculates health scores + generates documents)
   │
-  ├─ 5. Generar entregables
-  │     ├─ sequoia-master.md (documento maestro)
+  ├─ 5. Generate deliverables
+  │     ├─ sequoia-master.md (master document)
   │     ├─ sequoia-phases/01-security.md ... 06-operations.md
   │     ├─ sequoia-score.md (health scorecard)
-  │     └─ [si --output=tasks|both] sequoia-tasks.md
+  │     └─ [if --output=tasks|both] sequoia-tasks.md
   │
-  └─ 6. Persistir en Engram
-        ├─ Hallazgos con timestamp
+  └─ 6. Persist in Engram
+        ├─ Findings with timestamp
         ├─ Health scores
-        └─ Snapshot de estado para futuro diff
+        └─ State snapshot for future diff
 ```
 
-## Referencia de flags
+## Flag reference
 
-| Flag | Valores | Default | Descripción |
+| Flag | Values | Default | Description |
 |------|---------|---------|-------------|
-| `--phase` | `security` `performance` `architecture` `quality` `experience` `operations` | todas | Ejecuta solo una fase específica |
-| `--scope` | `changed` `module=<path>` | todo el proyecto | Limita el scope de la auditoría |
-| `--mode` | `full` `quick` | `full` | Profundidad del análisis |
-| `--output` | `report` `tasks` `both` | `both` | Tipo de entregable a generar |
+| `--phase` | `security` `performance` `architecture` `quality` `experience` `operations` | all | Run only a specific phase |
+| `--scope` | `changed` `module=<path>` | entire project | Limit audit scope |
+| `--mode` | `full` `quick` | `full` | Analysis depth |
+| `--output` | `report` `tasks` `both` | `both` | Type of deliverable to generate |
 
-## `--mode` diferencias
+## `--mode` differences
 
 ### `full` (default)
-- Todos los agentes aplicables
-- Análisis profundo por agente
-- Hallazgos de todas las severidades
-- Presupuestos de performance completos
-- Mapa de dependencias de módulos
-- Matriz de superficie de ataque completa
-- Tiempo estimado: 15-45 min según tamaño
+- All applicable agents
+- Deep analysis per agent
+- Findings of all severities
+- Full performance budgets
+- Module dependency map
+- Full attack surface matrix
+- Estimated time: 15-45 min depending on size
 
 ### `quick`
-- Solo hallazgos 🔴 CRÍTICO y 🟠 RIESGO
-- Sin entregables adicionales (presupuestos, mapas, matrices)
-- Agentes reducidos a inspecciones de mayor impacto
-- Sin correlación profunda (correlator simplificado)
-- Tiempo estimado: 5-15 min según tamaño
+- Only 🔴 CRITICAL and 🟠 RISK findings
+- No additional deliverables (budgets, maps, matrices)
+- Agents reduced to highest-impact inspections
+- No deep correlation (simplified correlator)
+- Estimated time: 5-15 min depending on size
 
-## `--scope` opciones
+## `--scope` options
 
-| Valor | Qué hace |
+| Value | What it does |
 |-------|----------|
-| *(sin flag)* | Audita todo el proyecto |
-| `changed` | Solo archivos modificados vs último commit. Usa `git diff --name-only HEAD` |
-| `module=src/auth` | Solo el módulo indicado y sus subdirectorios |
+| *(no flag)* | Audits the entire project |
+| `changed` | Only files modified vs last commit. Uses `git diff --name-only HEAD` |
+| `module=src/auth` | Only the indicated module and its subdirectories |
 
-Con `--scope=changed`, cada agente solo inspecciona los archivos del diff. Los meta-agentes correlacionan solo contra esos hallazgos.
+With `--scope=changed`, each agent only inspects files from the diff. Meta-agents correlate only against those findings.
 
-## `--output` opciones
+## `--output` options
 
-| Valor | Genera |
+| Value | Generates |
 |-------|--------|
 | `report` | `sequoia-master.md` + `sequoia-phases/*.md` + `sequoia-score.md` |
-| `tasks` | `sequoia-tasks.md` con plan accionable por fase |
-| `both` | Todo lo anterior (default) |
+| `tasks` | `sequoia-tasks.md` with actionable plan by phase |
+| `both` | All of the above (default) |
 
-## Lógica de paralelismo
+## Parallelism logic
 
-### Pueden correr en paralelo (sin dependencias):
+### Can run in parallel (no dependencies):
 - P1 Security, P2 Performance, P3 Architecture, P4 Quality
 
-### Deben correr después de P3:
-- P5 Experience (usa mapa de arquitectura)
-- P6 Operations (usa modelo de arquitectura)
+### Must run after P3:
+- P5 Experience (uses architecture map)
+- P6 Operations (uses architecture model)
 
-### Meta-agentes (siempre secuenciales):
-- M1 Correlator → M2 Reporter (en ese orden; scoring es parte de M2)
+### Meta-agents (always sequential):
+- M1 Correlator → M2 Reporter (in that order; scoring is part of M2)
 
-## Delegación del orquestador
+## Orchestrator delegation
 
-El orquestador delega a cada agente proporcionándole:
-1. El **Project Map** completo
-2. El **scope** aplicable (todo, changed files, o módulo)
-3. El **modo** (full o quick)
-4. La **plantilla de hallazgo** estándar (de `references/finding-format.md`)
+The orchestrator delegates to each agent by providing:
+1. The complete **Project Map**
+2. The applicable **scope** (all, changed files, or module)
+3. The **mode** (full or quick)
+4. The standard **finding template** (from `references/finding-format.md`)
 
-Cada agente retorna sus hallazgos en el formato estándar. El orquestador no interpreta hallazgos, solo los enruta.
+Each agent returns its findings in the standard format. The orchestrator does not interpret findings, only routes them.
 
-## Entregables generados
+## Generated deliverables
 
-Todos se crean en el directorio configurado (default: `docs/sequoia/`):
+All are created in the configured directory (default: `docs/sequoia/`):
 
 ```
 docs/sequoia/
-├── sequoia-master.md          # Documento maestro
+├── sequoia-master.md          # Master document
 ├── sequoia-score.md           # Health scorecard
-├── sequoia-tasks.md           # [si --output=tasks|both]
+├── sequoia-tasks.md           # [if --output=tasks|both]
 └── sequoia-phases/
     ├── 01-security.md
     ├── 02-performance.md
@@ -131,21 +131,21 @@ docs/sequoia/
     └── 06-operations.md
 ```
 
-## Ejemplos de uso
+## Usage examples
 
 ```bash
-# Auditoría completa
+# Full audit
 /sequoia audit
 
-# Solo seguridad, modo rápido
+# Security only, quick mode
 /sequoia audit --phase=security --mode=quick
 
-# Solo archivos cambiados, solo reporte
+# Changed files only, report only
 /sequoia audit --scope=changed --output=report
 
-# Auditoría profunda de un módulo
+# Deep module audit
 /sequoia audit --scope=module=src/auth --mode=full
 
-# Generar solo tareas de calidad
+# Generate only quality tasks
 /sequoia audit --phase=quality --output=tasks
 ```

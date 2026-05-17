@@ -1,9 +1,9 @@
 # Sequoia Health Score — sequoia-ai
 
-**Fecha de auditoría**: 2026-05-12
-**Modo**: Full
-**Scope**: Proyecto completo (59 hallazgos en 6 fases)
-**Metodología**: `score = 100 − Σ(severity_weight × scope_multiplier)`
+**Audit date**: 2026-05-12
+**Mode**: Full
+**Scope**: Full project (59 findings across 6 phases)
+**Methodology**: `score = 100 − Σ(severity_weight × scope_multiplier)`
 
 ---
 
@@ -14,11 +14,11 @@
 | **Health Score** | **28 / 100** |
 | **Grade** | **F** |
 | **Severity scale** | 🔴 CRÍTICO=15 · 🟠 ALTO=8 · 🟡 MEDIO=4 · 🟢 BAJO=2 · 🔵 INFO=0 |
-| **Multiplier** | ×1.0 aislado · ×1.5 causa raíz compartida (≥2 hallazgos) |
+| **Multiplier** | ×1.0 isolated · ×1.5 shared root cause (≥2 findings) |
 
 ---
 
-## Score por Categoría
+## Score by Category
 
 | Categoría | Deducción | Score | Grade | Peso | Ponderado |
 |-----------|-----------|-------|-------|------|-----------|
@@ -34,7 +34,7 @@
 
 ---
 
-## Hallazgos por Severidad
+## Findings by Severity
 
 | Severidad | Count | % |
 |-----------|-------|---|
@@ -46,7 +46,7 @@
 
 ---
 
-## Top 5 Deductores
+## Top 5 Deductors
 
 | # | Hallazgo | Severidad | Scope | Deducción |
 |---|----------|-----------|-------|-----------|
@@ -58,20 +58,20 @@
 
 ---
 
-## Causas Raíz Identificadas (M1 Correlator)
+## Root Causes Identified (M1 Correlator)
 
-| # | Causa Raíz | Hallazgos | Gravedad |
+| # | Root Cause | Findings | Severity |
 |---|-----------|-----------|----------|
-| R1 | **Sin capa común de adaptador** — 5 adaptadores duplican 70-85% del código | P3-001, P3-002, P4-001, P4-005 | 🔴 CRÍTICO |
-| R2 | **CI mínimo sin automatización** — Go version mismatch, no linting, no coverage, no Dependabot | P4-004, P6-001, P6-002, P6-003, P6-004, P6-005, P6-006, P6-007 | 🟠 ALTO |
-| R3 | **i18n muerta** — Language selector existe pero ningún adapter lo usa, strings hardcodeados | P1-006, P4-003, P7-001, P7-002, P7-005, P7-006 | 🟠 ALTO |
-| R4 | **Sin taxonomía de errores** — Un solo sentinel error, sin códigos, sin clasificación | P1-004, P3-010, P7-006 | 🟡 MEDIO |
-| R5 | **Pipeline sobre-diseñado** — 3 pasos cosméticos vs 1 paso real, spinner muerto | P2-007, P3-006, P3-012, P4-005 | 🟡 MEDIO |
-| R6 | **Paquete `_template` en producción** — Compilable, auto-registra, 20 TODOs | P2-008, P4-002, P4-011 | 🟡 MEDIO |
+| R1 | **No common adapter layer** — 5 adapters duplicate 70-85% of code | P3-001, P3-002, P4-001, P4-005 | 🔴 CRITICAL |
+| R2 | **Minimal CI without automation** — Go version mismatch, no linting, no coverage, no Dependabot | P4-004, P6-001, P6-002, P6-003, P6-004, P6-005, P6-006, P6-007 | 🟠 HIGH |
+| R3 | **Dead i18n** — Language selector exists but no adapter uses it, strings hardcoded | P1-006, P4-003, P7-001, P7-002, P7-005, P7-006 | 🟠 HIGH |
+| R4 | **No error taxonomy** — Single sentinel error, no codes, no classification | P1-004, P3-010, P7-006 | 🟡 MEDIUM |
+| R5 | **Over-designed pipeline** — 3 cosmetic steps vs 1 real step, dead spinner | P2-007, P3-006, P3-012, P4-005 | 🟡 MEDIUM |
+| R6 | **`_template` package in production** — Compilable, auto-registers, 20 TODOs | P2-008, P4-002, P4-011 | 🟡 MEDIUM |
 
 ---
 
-## Gráfico de Distribución
+## Distribution Chart
 
 ```
 🔴 CRÍTICO  ██████░░░░░░░░░░░░░░░░░░░░░░ 6
@@ -82,9 +82,9 @@
 
 ---
 
-## Trayectoria Recomendada
+## Recommended Trajectory
 
-Resolver R1 (capa común de adaptador) y R2 (CI mínimo) en el sprint actual subiría el score de ~28 a ~55 (D→C). Resolver R1-R6 completo llevaría el score a ~78 (C→B).
+Resolving R1 (common adapter layer) and R2 (minimal CI) in the current sprint would raise the score from ~28 to ~55 (D→C). Resolving R1-R6 completely would bring the score to ~78 (C→B).
 
 ```
 Actual:  ██████████████░░░░░░░░░░░░░░░░░░░░░░░░░░ 28/100  F

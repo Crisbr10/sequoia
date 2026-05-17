@@ -1,138 +1,138 @@
 ---
-description: "Compara estado actual del proyecto contra la última auditoría registrada. Muestra: resuelto, nuevo, empeorado, sin cambio. Útil para tracking de evolución del proyecto."
+description: "Compares current project state against the last recorded audit. Shows: resolved, new, worsened, unchanged. Useful for tracking project evolution."
 allowed-tools: Read, Glob, Grep
 ---
 
 # /sequoia diff
 
-Compara el estado actual del proyecto contra la última auditoría registrada en Engram. Muestra evolución: qué mejoró, qué empeoró, qué apareció nuevo.
+Compares the current project state against the last audit recorded in Engram. Shows evolution: what improved, what worsened, what's new.
 
-## Precondición
+## Precondition
 
-Debe existir al menos una auditoría previa en Engram. Si no hay auditoría previa, sugerir ejecutar `/sequoia audit` primero.
+There must be at least one prior audit in Engram. If no prior audit exists, suggest running `/sequoia audit` first.
 
-## Qué hace
+## What it does
 
-1. Recupera la última auditoría de Engram
-2. Ejecuta un scan rápido del estado actual del proyecto
-3. Compara hallazgos anteriores vs estado actual
-4. Clasifica cada hallazgo en una categoría de evolución
-5. Genera el reporte de diff
+1. Retrieves the last audit from Engram
+2. Runs a quick scan of the current project state
+3. Compares previous findings vs current state
+4. Classifies each finding into an evolution category
+5. Generates the diff report
 
-## Categorías de comparación
+## Comparison categories
 
-| Categoría | Significado | Icono |
+| Category | Meaning | Icon |
 |-----------|-------------|-------|
-| **Resuelto** | El hallazgo anterior ya no se reproduce | ✅ |
-| **Nuevo** | Problema que no existía en la auditoría anterior | 🆕 |
-| **Empeorado** | El hallazgo anterior sigue y ha worsened | 🔻 |
-| **Sin cambio** | El hallazgo anterior sigue igual | ⏸️ |
-| **Parcialmente resuelto** | Se mejoró pero no cumple criterio de aceptación | 🔸 |
+| **Resolved** | The previous finding no longer reproduces | ✅ |
+| **New** | Problem that didn't exist in the previous audit | 🆕 |
+| **Worsened** | The previous finding persists and has worsened | 🔻 |
+| **Unchanged** | The previous finding persists unchanged | ⏸️ |
+| **Partially resolved** | Improved but doesn't meet acceptance criteria | 🔸 |
 
-## Flujo de ejecución
+## Execution flow
 
 ```
 /sequoia diff
   │
-  ├─ 1. Recuperar última auditoría de Engram
-  │     ├─ Hallazgos con timestamp
+  ├─ 1. Retrieve last audit from Engram
+  │     ├─ Findings with timestamp
   │     ├─ Health scores
   │     └─ Project Map snapshot
   │
-  ├─ 2. Verificar cambios en estructura del proyecto
-  │     ├─ ¿Archivos nuevos o eliminados desde la última auditoría?
-  │     ├─ ¿Cambió el stack o las dependencias?
-  │     └─ ¿Cambió la madurez del proyecto?
+  ├─ 2. Verify changes in project structure
+  │     ├─ New or deleted files since the last audit?
+  │     ├─ Did the stack or dependencies change?
+  │     └─ Did project maturity change?
   │
-  ├─ 3. Re-verificar cada hallazgo anterior
-  │     ├─ Para cada hallazgo, leer los archivos citados
-  │     ├─ ¿La evidencia sigue presente?
-  │     ├─ ¿Se implementó la recomendación?
-  │     └─ Clasificar: resuelto | sin cambio | empeorado | parcial
+  ├─ 3. Re-verify each previous finding
+  │     ├─ For each finding, read the cited files
+  │     ├─ Is the evidence still present?
+  │     ├─ Was the recommendation implemented?
+  │     └─ Classify: resolved | unchanged | worsened | partial
   │
-  ├─ 4. Detectar hallazgos nuevos
-  │     ├─ Scan rápido de áreas no cubiertas antes
-  │     ├─ Solo hallazgos 🔴 y 🟠 (no es auditoría completa)
-  │     └─ Listar como "nuevos"
+  ├─ 4. Detect new findings
+  │     ├─ Quick scan of areas not previously covered
+  │     ├─ Only 🔴 and 🟠 findings (not a full audit)
+  │     └─ List as "new"
   │
-  └─ 5. Generar reporte de evolución
-        ├─ Tabla resumen por categoría
-        ├─ Comparativa de health scores
-        └─ Persistir resultado en Engram
+  └─ 5. Generate evolution report
+        ├─ Summary table by category
+        ├─ Health score comparison
+        └─ Persist result in Engram
 ```
 
-## Metodología de verificación
+## Verification methodology
 
-Para cada hallazgo anterior:
+For each previous finding:
 
-1. **Leer el archivo citado en la evidencia** — ¿existe aún? ¿tiene las mismas líneas?
-2. **Verificar el criterio de aceptación** — ¿se cumplió?
-3. **Cross-check con git blame/log** — ¿hubo commits que tocaron esa área?
+1. **Read the file cited in the evidence** — does it still exist? same lines?
+2. **Verify the acceptance criteria** — were they met?
+3. **Cross-check with git blame/log** — were there commits touching that area?
 
-Clasificación:
-- Si el archivo cambió y el problema ya no está → ✅ Resuelto
-- Si el archivo cambió pero el problema persiste parcialmente → 🔸 Parcial
-- Si el archivo no cambió → ⏸️ Sin cambio
-- Si el archivo cambió y hay problemas adicionales → 🔻 Empeorado
+Classification:
+- If the file changed and the problem is gone → ✅ Resolved
+- If the file changed but the problem partially persists → 🔸 Partial
+- If the file hasn't changed → ⏸️ Unchanged
+- If the file changed and there are additional problems → 🔻 Worsened
 
-## Formato de salida
+## Output format
 
 ```markdown
-## Sequoia Diff — [Proyecto]
+## Sequoia Diff — [Project]
 
-**Auditoría anterior**: [fecha]
-**Comparación actual**: [fecha]
-**Tiempo transcurrido**: [días/semanas]
+**Previous audit**: [date]
+**Current comparison**: [date]
+**Time elapsed**: [days/weeks]
 
-### Resumen de evolución
+### Evolution summary
 
-| Categoría | Cantidad | Porcentaje |
+| Category | Count | Percentage |
 |-----------|----------|------------|
-| ✅ Resueltos | {N} | {N}% |
-| 🔸 Parciales | {N} | {N}% |
-| ⏸️ Sin cambio | {N} | {N}% |
-| 🔻 Empeorados | {N} | {N}% |
-| 🆕 Nuevos | {N} | {N}% |
+| ✅ Resolved | {N} | {N}% |
+| 🔸 Partial | {N} | {N}% |
+| ⏸️ Unchanged | {N} | {N}% |
+| 🔻 Worsened | {N} | {N}% |
+| 🆕 New | {N} | {N}% |
 | **Total** | **{N}** | **100%** |
 
-### Health Score comparativo
+### Health Score comparison
 
-| Fase | Score anterior | Score actual | Tendencia |
+| Phase | Previous score | Current score | Trend |
 |------|---------------|--------------|-----------|
-| Security | 🟠 | 🟢 | ↗️ Mejorando |
-| Performance | 🟡 | 🟡 | → Estable |
+| Security | 🟠 | 🟢 | ↗️ Improving |
+| Performance | 🟡 | 🟡 | → Stable |
 | ... | | | |
 
-### Detalle de hallazgos resueltos ✅
-{lista de hallazgos con qué cambió}
+### Detail of resolved findings ✅
+{list of findings with what changed}
 
-### Detalle de hallazgos nuevos 🆕
-{solo hallazgos 🔴 y 🟠 detectados en el scan rápido}
+### Detail of new findings 🆕
+{only 🔴 and 🟠 findings detected in the quick scan}
 
-### Detalle de hallazgos empeorados 🔻
-{hallazgos donde el problema creció o se agregaron nuevos riesgos}
+### Detail of worsened findings 🔻
+{findings where the problem grew or new risks were added}
 
-### Tendencia global
-📈 Mejorando | ➡️ Estable | 📉 Degradando
+### Global trend
+📈 Improving | ➡️ Stable | 📉 Degrading
 
-### Recomendación
-{cuándo ejecutar la próxima auditoría completa}
+### Recommendation
+{when to run the next full audit}
 ```
 
-## Cuándo usar diff vs auditoría nueva
+## When to use diff vs new audit
 
-| Situación | Usar |
+| Situation | Use |
 |-----------|------|
-| Implementaste fixes y querés verificar | `diff` |
-| Pasó 1-2 semanas y querés tracking | `diff` |
-| Cambios grandes en el proyecto | `audit` (nueva auditoría) |
-| Pasó más de un mes | `audit` (nueva auditoría) |
-| Nuevo miembro en el equipo | `audit` (nueva auditoría) |
-| Post-merge de feature grande | `diff` primero, `audit` si hay sorpresas |
+| You implemented fixes and want to verify | `diff` |
+| 1-2 weeks passed and you want tracking | `diff` |
+| Major changes in the project | `audit` (new audit) |
+| More than a month passed | `audit` (new audit) |
+| New team member | `audit` (new audit) |
+| Post-merge of large feature | `diff` first, `audit` if there are surprises |
 
-## Detección de obsolescencia
+## Obsolescence detection
 
-Si la última auditoría tiene más de 30 días, diff muestra una advertencia:
-> ⚠️ La última auditoría tiene {N} días. Los hallazgos pueden estar desactualizados. Considerá ejecutar `/sequoia audit` para una auditoría fresca.
+If the last audit is more than 30 days old, diff shows a warning:
+> ⚠️ The last audit is {N} days old. Findings may be outdated. Consider running `/sequoia audit` for a fresh audit.
 
-Si el Project Map cambió significativamente (nuevos deps, cambio de framework, etc.), diff recomienda ejecutar un `init` + `audit` nuevo.
+If the Project Map changed significantly (new deps, framework change, etc.), diff recommends running a new `init` + `audit`.

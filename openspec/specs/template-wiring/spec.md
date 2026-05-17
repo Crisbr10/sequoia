@@ -2,68 +2,54 @@
 
 ## Purpose
 
-Define the template updates required to wire P7 (i18n), P4 deep dependency scanning, and P3 resilience patterns into all 5 adapter template files and the AGENTS.md section template. Also define the language-aware template resolution mechanism (`RenderTemplateLang`) that routes to language-specific `.tmpl` variants.
+Define the template resolution mechanism and adapter template structure. All language-aware template resolution has been removed. P7 (i18n) references have been stripped from all adapter templates.
 
 ## Requirements
 
-### Requirement: Language-Aware Template Resolution
-`adapters/common/template.go` MUST provide `RenderTemplateLang(fs embed.FS, name, lang string, data interface{}) (string, error)`. The function SHALL resolve `{name}.{lang}.tmpl` first, falling back to `{name}.tmpl` when the language-specific template file does not exist in the embedded FS. Adapter `Install()` methods SHALL call `RenderTemplateLang` instead of `RenderTemplate` for skill and system prompt templates.
+### Requirement: Direct Template Resolution
 
-#### Scenario: Language-specific template exists
-- GIVEN `name = "skill.md"`, `lang = "en"`, and `skill.md.en.tmpl` in the FS
-- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
-- THEN `skill.md.en.tmpl` SHALL be loaded and rendered
+`adapters/common/template.go` MUST provide `RenderTemplate(fs embed.FS, name string, data interface{}) (string, error)`. The function SHALL resolve templates from a single `templates/` directory with no language subdirectory resolution. `RenderTemplateLang` SHALL be deleted.
 
-#### Scenario: Language file missing — fallback
-- GIVEN `name = "skill.md"`, `lang = "es"`, and NO `skill.md.es.tmpl` in the FS
-- WHEN `RenderTemplateLang(fs, "skill.md", "es", data)` is called
-- THEN `skill.md.tmpl` SHALL be loaded as fallback
-- AND no error SHALL occur
+#### Scenario: Template resolved directly
+- GIVEN `name = "templates/skill.md.tmpl"` exists in the embedded FS
+- WHEN `RenderTemplate(fs, "templates/skill.md.tmpl", data)` is called
+- THEN the template SHALL be loaded and rendered from the single directory
 
-#### Scenario: Existing templates unaffected
-- GIVEN existing adapters with only `skill.md.tmpl` and no language-specific variants
-- WHEN `RenderTemplateLang(fs, "skill.md", "en", data)` is called
-- THEN `skill.md.tmpl` SHALL be used (backward compatible)
-- AND existing behavior SHALL be preserved
+#### Scenario: No language subdirectory used
+- GIVEN `adapters/common/base_adapter.go`
+- WHEN resolving templates
+- THEN the path SHALL NOT include a language segment
 
-### Requirement: P7 Agent Roster Entry in All Templates
-All 5 adapter `skill.md.tmpl` files and the OpenCode `agents-md-section.md.tmpl` MUST include P7 in their agent roster tables. The P7 entry SHALL follow the existing row format: `| P7 i18n | Hardcoded strings, locale formatting, RTL, translation keys | Always |`.
+### Requirement: No P7 Agent References in Templates
 
-#### Scenario: P7 present in all roster tables
-- GIVEN the 5 adapter template files and the AGENTS.md section template
-- WHEN templates are rendered with `{{.Version}}`
-- THEN each roster table SHALL contain exactly one P7 row
-- AND the P7 row SHALL be placed after P6 Operations and before M1 Correlator
+All adapter template files (`skill.md.tmpl`, `rules.md.tmpl`, `*-section.md.tmpl`) SHALL NOT contain P7 (i18n) agent references. The agent roster, Phase 2 selection matrix, health score categories, delegation sections, and frontmatter descriptions SHALL all be stripped of P7/i18n entries.
 
-### Requirement: Phase 2 Selection Matrix Includes P7
-The Phase 2 agent selection table in opencode, gemini, and claude templates MUST include a P7 row. P7 SHALL be triggered for all project types (`**Siempre**`).
+#### Scenario: Roster lacks P7 row
+- GIVEN any adapter `skill.md.tmpl`
+- WHEN rendered
+- THEN the agent roster table SHALL NOT contain a P7 row
+- AND P6 Operations SHALL be followed directly by M1 Correlator
 
-#### Scenario: P7 triggers on all project types
-- GIVEN the Phase 2 selection table in the opencode template
-- WHEN the table is rendered
-- THEN row `P7 (i18n)` SHALL map to `**Siempre**`
+#### Scenario: Phase 2 matrix lacks P7
+- GIVEN the Phase 2 selection table in any adapter template
+- WHEN rendered
+- THEN no P7 (i18n) row exists
 
-### Requirement: Health Score Includes i18n Category
-All templates that define the Health Score categories MUST include `i18n` in the category list. The `health_score.categories` block SHALL have an `i18n: [0-100]` entry.
+#### Scenario: Health score lacks i18n category
+- GIVEN the health score section in any template
+- WHEN rendered
+- THEN no `i18n` category exists
 
-#### Scenario: Health score renders i18n category
-- GIVEN the health_score block in opencode and gemini templates
-- WHEN the block is rendered
-- THEN `i18n: [0-100]` SHALL appear between `operations` and any trailing category
-
-### Requirement: Template Description Mentions i18n
-The YAML frontmatter `description` field SHALL be updated to mention i18n among the specialized angles. The phrase SHALL change from "security, performance, architecture, quality, UX, and operations" to include "internationalization".
-
-#### Scenario: Description includes i18n
+#### Scenario: Frontmatter lacks i18n mention
 - GIVEN any adapter template frontmatter
 - WHEN the `description` field is rendered
-- THEN it SHALL contain the word "internationalization"
+- THEN it SHALL NOT contain "internationalization" or "i18n"
 
-### Requirement: P7 Section in Agent Delegation Templates
-OpenCode and gemini templates (full-length variants) SHALL include a P7 delegation section following the existing agent section pattern. The section SHALL define misión, methodology, and calibración for the i18n domain.
+### Requirement: No P7 Delegation Section
 
-#### Scenario: P7 section renders in full template
-- GIVEN the opencode template (1931 lines)
+Templates SHALL NOT include a P7 (i18n) delegation section. The full agent delegation section for i18n SHALL be removed from all templates.
+
+#### Scenario: No P7 delegation section
+- GIVEN the opencode template
 - WHEN the complete skill document is rendered
-- THEN a `# Sequoia i18n — P7` section SHALL exist
-- AND it SHALL contain `## Misión` and `## Calibración de Libertad`
+- THEN no `# Sequoia i18n — P7` section exists

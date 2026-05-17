@@ -1,161 +1,161 @@
 ---
-description: "Inicializa Sequoia en el proyecto. Detecta stack, construye el mapa del proyecto, identifica agentes aplicables y persiste contexto en Engram. Primer paso obligatorio antes de cualquier auditoría."
+description: "Initializes Sequoia in the project. Detects stack, builds the project map, identifies applicable agents, and persists context in Engram. Mandatory first step before any audit."
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
 # /sequoia init
 
-Inicializa Sequoia en el proyecto actual. Construye el mapa completo que informa a TODOS los agentes posteriores.
+Initializes Sequoia in the current project. Builds the complete map that informs ALL subsequent agents.
 
-## Qué hace
+## What it does
 
-1. Ejecuta el agente de contexto (`sequoia-context`) como pre-flight
-2. Construye el **Project Map** — la única fuente de verdad sobre el proyecto
-3. Determina qué agentes aplican y cuáles no (con motivo explícito)
-4. Persiste el mapa en Engram para que futuras sesiones lo recuperen
+1. Runs the context agent (`sequoia-context`) as pre-flight
+2. Builds the **Project Map** — the single source of truth about the project
+3. Determines which agents apply and which don't (with explicit reason)
+4. Persists the map in Engram for future sessions to retrieve
 
-## Flujo de trabajo paso a paso
+## Step-by-step workflow
 
-### Paso 1 — Escanear estructura del proyecto
+### Step 1 — Scan project structure
 
 ```
-Buscar:
-├── Manifiestos de dependencias: package.json, go.mod, Cargo.toml, pom.xml,
+Search for:
+├── Dependency manifests: package.json, go.mod, Cargo.toml, pom.xml,
 │   requirements.txt, pyproject.toml, Gemfile, *.csproj, composer.json
-├── Configuraciones: tsconfig.*, vite.config.*, webpack.config.*, next.config.*,
+├── Configurations: tsconfig.*, vite.config.*, webpack.config.*, next.config.*,
 │   docker-compose.*, Dockerfile, Makefile, build.gradle, .env*, *.yaml, *.toml
 ├── Frameworks: next/, pages/, src/app/, angular.json, nuxt.config.*
 ├── CI/CD: .github/workflows/, .gitlab-ci.yml, Jenkinsfile, .circleci/
-└── Documentación: README*, CHANGELOG*, docs/, CONTRIBUTING*
+└── Documentation: README*, CHANGELOG*, docs/, CONTRIBUTING*
 ```
 
-### Paso 2 — Analizar tech stack
+### Step 2 — Analyze tech stack
 
-Identificar con evidencia:
-- **Lenguaje principal** (y secundarios si hay)
+Identify with evidence:
+- **Primary language** (and secondary if any)
 - **Framework** (React, Next.js, Express, Django, Spring, Gin, etc.)
 - **Runtime** (Node, Deno, Bun, Go, Python, Java, .NET)
-- **Bundler/Build** (Vite, Webpack, esbuild, Rollup, Turbopack, o ninguno)
-- **Test runner** (Jest, Vitest, pytest, Go testing, xUnit, o ausente)
+- **Bundler/Build** (Vite, Webpack, esbuild, Rollup, Turbopack, or none)
+- **Test runner** (Jest, Vitest, pytest, Go testing, xUnit, or absent)
 - **Package manager** (npm, pnpm, yarn, pip, cargo, go modules)
 
-### Paso 3 — Determinar paradigma del proyecto
+### Step 3 — Determine project paradigm
 
-Clasificar en UNO principal (puede tener secundario):
-- SPA | SSR | SSG | API REST | API GraphQL | CLI | Library | Monolito
-- Microservicios | Fullstack | Mobile | Desktop | Plugin
+Classify into ONE primary (may have secondary):
+- SPA | SSR | SSG | API REST | API GraphQL | CLI | Library | Monolith
+- Microservices | Fullstack | Mobile | Desktop | Plugin
 
-Justificar la clasificación con evidencia del repo.
+Justify the classification with repo evidence.
 
-### Paso 4 — Estimar tamaño del proyecto
+### Step 4 — Estimate project size
 
 ```markdown
-| Métrica | Valor | Cómo se midió |
+| Metric | Value | How measured |
 |---------|-------|---------------|
-| LOC estimado | ~N | conteo de archivos × promedio estimado |
-| Módulos principales | N | directorios con responsabilidad propia |
-| Dependencias directas | N | del manifiesto de deps |
-| Dependencias totales | ~N | del lockfile si existe |
+| Estimated LOC | ~N | file count × estimated average |
+| Main modules | N | directories with own responsibility |
+| Direct dependencies | N | from dependency manifest |
+| Total dependencies | ~N | from lockfile if it exists |
 ```
 
-### Paso 5 — Verificar infraestructura existente
+### Step 5 — Verify existing infrastructure
 
-| Aspecto | Presente | Parcial | Ausente |
+| Aspect | Present | Partial | Absent |
 |---------|----------|---------|---------|
-| Tests unitarios | | | |
-| Tests de integración | | | |
+| Unit tests | | | |
+| Integration tests | | | |
 | CI/CD pipeline | | | |
 | Linting/Formatting | | | |
 | Type checking | | | |
-| Documentación técnica | | | |
+| Technical docs | | | |
 | `.env.example` / env contract | | | |
-| Docker / containerización | | | |
+| Docker / containerization | | | |
 
-### Paso 6 — Evaluar madurez del proyecto
+### Step 6 — Assess project maturity
 
-Criterios para clasificar:
+Classification criteria:
 
-- **Prototipo**: sin tests, sin CI, README mínimo, deps mínimas, estructura flat
-- **Desarrollo activo**: algunos tests, CI básico, estructura en módulos, README con instrucciones
-- **Producción**: tests > 50%, CI con gates, documentación operativa, monitoring, releases estables
+- **Prototype**: no tests, no CI, minimal README, minimal deps, flat structure
+- **Active development**: some tests, basic CI, modular structure, README with instructions
+- **Production**: tests > 50%, CI with gates, operational docs, monitoring, stable releases
 
-### Paso 7 — Determinar agentes aplicables
+### Step 7 — Determine applicable agents
 
-Para cada agente P1-P6, decidir si aplica con motivo:
+For each agent P1-P6, decide if it applies with reason:
 
 ```markdown
-| Agente | Aplica | Motivo |
+| Agent | Applies | Reason |
 |--------|--------|--------|
-| P1 Security | ✅ | Todo proyecto necesita revisión de seguridad |
-| P2 Performance | ✅ | [justificar según tipo] |
-| P3 Architecture | ✅ | Siempre (incluye API design) |
-| P4 Quality | ✅ | Siempre (incluye dependencias) |
-| P5 Experience | ❌ | API pura sin interfaz de usuario |
-| P6 Operations | ✅ | Siempre, con ajuste por madurez (incluye data) |
+| P1 Security | ✅ | Every project needs security review |
+| P2 Performance | ✅ | [justify by type] |
+| P3 Architecture | ✅ | Always (includes API design) |
+| P4 Quality | ✅ | Always (includes dependencies) |
+| P5 Experience | ❌ | Pure API without user interface |
+| P6 Operations | ✅ | Always, adjusted by maturity (includes data) |
 ```
 
-### Paso 8 — Persistir en Engram
+### Step 8 — Persist in Engram
 
-Guardar como observación con:
-- **title**: "Sequoia Project Map — {nombre-proyecto}"
-- **topic_key**: `sequoia/{nombre-proyecto}/project-map`
+Save as observation with:
+- **title**: "Sequoia Project Map — {project-name}"
+- **topic_key**: `sequoia/{project-name}/project-map`
 - **type**: `architecture`
-- **content**: el Project Map completo en formato markdown
+- **content**: the complete Project Map in markdown format
 
-Si ya existe un Project Map previo, comparar y notificar cambios significativos.
+If a previous Project Map exists, compare and report significant changes.
 
-## Formato de salida: Project Map
+## Output format: Project Map
 
 ```markdown
-## Sequoia Project Map — {nombre}
+## Sequoia Project Map — {name}
 
-**Fecha**: {fecha}
-**Madurez**: {prototipo | desarrollo | producción}
-**Paradigma**: {tipo principal}
+**Date**: {date}
+**Maturity**: {prototype | development | production}
+**Paradigm**: {primary type}
 
-### Stack detectado
-- Lenguaje: {detectado}
-- Framework: {detectado o "ninguno"}
-- Runtime: {detectado}
-- Bundler: {detectado o "ninguno"}
-- Test runner: {detectado o "AUSENTE"}
-- Package manager: {detectado}
+### Detected stack
+- Language: {detected}
+- Framework: {detected or "none"}
+- Runtime: {detected}
+- Bundler: {detected or "none"}
+- Test runner: {detected or "ABSENT"}
+- Package manager: {detected}
 
-### Tamaño
+### Size
 - LOC: ~{N}
-- Módulos: {lista}
-- Dependencias: {N} directas, ~{N} totales
+- Modules: {list}
+- Dependencies: {N} direct, ~{N} total
 
-### Infraestructura
-- Tests: {presente | parcial | ausente}
-- CI/CD: {presente | parcial | ausente}
-- Docs: {presente | parcial | ausente}
-- Lint: {presente | ausente}
+### Infrastructure
+- Tests: {present | partial | absent}
+- CI/CD: {present | partial | absent}
+- Docs: {present | partial | absent}
+- Lint: {present | absent}
 
-### Agentes aplicables
-{tabla del paso 7}
+### Applicable agents
+{table from step 7}
 
-### Notas de contexto
-- {cualquier detalle relevante que afecte el análisis}
+### Context notes
+- {any relevant details that affect analysis}
 ```
 
-## Manejo de detección ambigua
+## Handling ambiguous detection
 
-Cuando el stack no es claro:
-1. Listar las opciones posibles con confianza estimada
-2. Buscar evidencia adicional (imports en archivos fuente, scripts en manifiestos)
-3. Si persiste la ambigüedad, declararla explícitamente: `[AMBIGUO: podría ser X o Y]`
-4. NO adivinar. La ambigüedad declarada es mejor que la suposición silenciosa.
+When the stack is unclear:
+1. List possible options with estimated confidence
+2. Search for additional evidence (imports in source files, scripts in manifests)
+3. If ambiguity persists, declare it explicitly: `[AMBIGUOUS: could be X or Y]`
+4. Do NOT guess. Declared ambiguity is better than silent assumption.
 
-Si no se detecta ningún manifiesto de dependencias:
-- Declarar: "No se detectó manifiesto de dependencias estándar"
-- Listar qué archivos se buscaron y no se encontraron
-- Evaluar si es un proyecto sin deps (scripts sueltos, código bare) o si falta información
+If no dependency manifest is detected:
+- Declare: "No standard dependency manifest detected"
+- List which files were searched for and not found
+- Evaluate whether it's a dependency-free project (loose scripts, bare code) or missing information
 
-## Precondición
+## Precondition
 
-No requiere precondiciones. Este es SIEMPRE el primer comando.
+Does not require preconditions. This is ALWAYS the first command.
 
-## Post-condición
+## Post-condition
 
-El Project Map queda persistido en Engram. Los comandos `audit`, `review`, `diff` y `fix` lo consumen automáticamente.
+The Project Map is persisted in Engram. The `audit`, `review`, `diff` and `fix` commands consume it automatically.
