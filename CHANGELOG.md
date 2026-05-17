@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.6] — 2026-05-17
 
+### Fixed
+
+- **Data race in version tests**: `TestVersionCmd` and `TestVersionCmd_DevVersionResolves` no longer run in parallel — both access the shared global `Version` variable. Fixes `-race` failures on macOS and Linux CI.
+- **golangci-lint CI**: Downgraded `golangci-lint-action` from v7 to v6. v7 dropped support for golangci-lint v1.x, causing `invalid version string 'v1.64'` errors.
+
 ### Removed
 
 - **i18n package (`internal/i18n/`)**: 7 files, ~815 lines deleted. English is the only supported language.

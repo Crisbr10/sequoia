@@ -65,8 +65,8 @@ func TestRootNoArgs(t *testing.T) {
 }
 
 // TestVersionCmd verifies the version subcommand prints the Version string.
+// NOT parallel: modifies the shared global Version variable.
 func TestVersionCmd(t *testing.T) {
-	t.Parallel()
 
 	var out bytes.Buffer
 	cmd := newRootCmdWithOut(&out)
@@ -91,8 +91,8 @@ func TestVersionCmd(t *testing.T) {
 // TestVersionCmd_DevVersionResolves confirms that when Version is the default
 // "0.1.0-dev", the version command resolves it via debug.ReadBuildInfo.
 // The resolved value is non-empty and does not contain "(devel)".
+// NOT parallel: reads the shared global Version variable.
 func TestVersionCmd_DevVersionResolves(t *testing.T) {
-	t.Parallel()
 
 	var out bytes.Buffer
 	cmd := newRootCmdWithOut(&out)
