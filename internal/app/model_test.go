@@ -553,7 +553,7 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 	adapters.DefaultRegistry = reg
 	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
 
-	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
+	reg.Register(installedMock("claude-code", "Claude Code", true))
 
 	m := app.NewModel("", "test")
 	m.Screen = model.ScreenStatus
@@ -599,6 +599,89 @@ func TestStatus_UKeyNoOp(t *testing.T) {
 
 	assert.Nil(t, cmd, "u on Status should produce no command (placeholder)")
 	_ = updated
+}
+
+func TestStatus_RKeyReinstallsOnlyCursorTool(t *testing.T) {
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(installedMock("claude-code", "Claude Code", true))
+	reg.Register(installedMock("opencode", "OpenCode", true))
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenStatus
+	m.Cursor = 0
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+	updated, cmd := m.Update(msg)
+
+	require.NotNil(t, cmd, "r on installed cursor should produce a command")
+
+	m2 := updated.(app.Model)
+	// Only cursor tool (index 0) should be selected.
+	assert.True(t, m2.Tools[0].Selected, "cursor tool should be selected")
+	assert.False(t, m2.Tools[1].Selected, "non-cursor tool should NOT be selected")
+
+	// ProgressTools should contain only the cursor tool.
+	require.NotEmpty(t, m2.ProgressTools, "ProgressTools should be populated")
+	assert.Len(t, m2.ProgressTools, 1, "only cursor tool should be in ProgressTools")
+	assert.Equal(t, "claude-code", m2.ProgressTools[0].ToolID)
+}
+
+func TestStatus_RKeyOnNotInstalledNoOp(t *testing.T) {
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(installedMock("opencode", "OpenCode", false))
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenStatus
+	m.Cursor = 0
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+	updated, cmd := m.Update(msg)
+
+	assert.Nil(t, cmd, "r on non-installed cursor should NOT produce a command")
+	m2 := updated.(app.Model)
+	assert.NotEmpty(t, m2.ErrorMsg, "ErrorMsg should be set when cursor tool not installed")
+	assert.Equal(t, model.ScreenStatus, m2.Screen, "should stay on Status screen")
+}
+
+func TestStatus_RKeyClearsStaleSelections(t *testing.T) {
+	reg := &adapters.Registry{}
+	original := adapters.DefaultRegistry
+	registryMu.Lock()
+	adapters.DefaultRegistry = reg
+	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+
+	reg.Register(installedMock("claude-code", "Claude Code", true))
+	reg.Register(installedMock("opencode", "OpenCode", true))
+
+	m := app.NewModel("", "test")
+	m.Screen = model.ScreenStatus
+	m.Cursor = 0
+	// Simulate stale selections from prior flows.
+	m.Tools[0].Selected = true
+	m.Tools[1].Selected = true
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+	updated, cmd := m.Update(msg)
+
+	require.NotNil(t, cmd, "r on installed cursor should produce a command")
+
+	m2 := updated.(app.Model)
+	// Stale selections MUST be cleared; only cursor tool selected.
+	assert.True(t, m2.Tools[0].Selected, "cursor tool should be selected")
+	assert.False(t, m2.Tools[1].Selected, "non-cursor tool's stale selection should be cleared")
+
+	require.NotEmpty(t, m2.ProgressTools, "ProgressTools should be populated")
+	assert.Len(t, m2.ProgressTools, 1, "only cursor tool should be in ProgressTools")
 }
 
 func TestUninstallView_RendersCheckboxList(t *testing.T) {

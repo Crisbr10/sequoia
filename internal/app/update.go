@@ -173,13 +173,16 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return tui.NavigateMsg{Target: model.ScreenUninstall}
 			}
 		case "reinstall":
-			// Mark all installed tools as selected so the pipeline picks them up.
+			// Clear all stale selections, then select only the cursor tool.
 			for i := range m.Tools {
-				if m.Tools[i].Adapter.IsInstalled() {
-					m.Tools[i].Selected = true
-				}
+				m.Tools[i].Selected = false
 			}
-			return m, m.startPipeline("install")
+			if m.Cursor >= 0 && m.Cursor < len(m.Tools) && m.Tools[m.Cursor].Adapter.IsInstalled() {
+				m.Tools[m.Cursor].Selected = true
+				return m, m.startPipeline("install")
+			}
+			m.ErrorMsg = "Select an installed tool to reinstall"
+			return m, nil
 		case "back":
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenWelcome}
