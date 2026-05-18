@@ -7,8 +7,6 @@ linters:
     - unused
     - misspell
     - revive
-formatters:
-  enable:
     - gofmt
     - goimports
 linters-settings:
