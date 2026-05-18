@@ -61,6 +61,9 @@ adapters/*/.opencode/
 .atl/
 .gga
 
+# Reference examples (not part of the project)
+docs/Ejemplos de Skills/
+
 # OS generated
 [Tt]humbs.db
 *.orig
