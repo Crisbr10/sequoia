@@ -17,7 +17,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
@@ -192,11 +194,15 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		}
 	}
 
+	// Generate a unique session suffix for backup dirs to avoid collisions.
+	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	baseBackup := backupPath(base) + "-" + a.ID() + "-" + sessionSuffix
+
 	// Install skill file via the common framework.
 	skillInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: skillsPath(base),
-		BackupDir: backupPath(base),
+		BackupDir: filepath.Join(baseBackup, "skills"),
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -207,7 +213,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	cmdInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
-		BackupDir: backupPath(base),
+		BackupDir: filepath.Join(baseBackup, "commands"),
 		Files:     common.CommandFiles,
 	})
 	if err := cmdInstaller.Run(); err != nil {

@@ -369,3 +369,80 @@ func TestInstaller_BackupDirDoesNotCollideWithPreExisting(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "this should not be touched\n", string(maliciousData))
 }
+
+// TestInstaller_BackupIsolation_SkillSurvivesCommandFailure verifies that
+// when two installers use separate subdirectories under a common parent
+// backup path, a failed command installer's Rollback (which removes its
+// own subdirectory via os.RemoveAll) does NOT destroy the skill installer's
+// backup. This proves the namespace-isolation fix for cross-installer
+// rollback contamination.
+func TestInstaller_BackupIsolation_SkillSurvivesCommandFailure(t *testing.T) {
+	t.Parallel()
+
+	// --- Shared setup ---
+	skillSrcDir := t.TempDir()
+	cmdSrcDir := t.TempDir()
+	skillDstDir := t.TempDir()
+	cmdDstDir := t.TempDir()
+	backupRoot := t.TempDir()
+
+	// Write skill source and existing destination.
+	writeFile(t, skillSrcDir, "SKILL.md", "new-skill-content")
+	writeFile(t, skillDstDir, "SKILL.md", "old-skill-content")
+
+	// Write command source for first file only — second file intentionally
+	// missing to trigger an Apply failure on the command installer.
+	writeFile(t, cmdSrcDir, "cmd-a.md", "new-cmd-a")
+	// "cmd-b.md" NOT created in cmdSrcDir.
+
+	// Existing command files in destination (will be backed up).
+	writeFile(t, cmdDstDir, "cmd-a.md", "old-cmd-a")
+	writeFile(t, cmdDstDir, "cmd-b.md", "old-cmd-b")
+
+	// Separate backup subdirectories under common parent.
+	skillBackupDir := filepath.Join(backupRoot, "skills")
+	cmdBackupDir := filepath.Join(backupRoot, "commands")
+
+	// --- Skill installer: full lifecycle succeeds ---
+	skillInstaller := common.NewInstaller(common.InstallerConfig{
+		SourceDir: skillSrcDir,
+		TargetDir: skillDstDir,
+		BackupDir: skillBackupDir,
+		Files:     []string{"SKILL.md"},
+	})
+	require.NoError(t, skillInstaller.Run(), "skill installer should succeed")
+
+	// Skill backup should exist.
+	assert.True(t, fileExists(filepath.Join(skillBackupDir, "SKILL.md")),
+		"skill backup should exist after successful install")
+	assert.Equal(t, "new-skill-content", readFile(t, skillDstDir, "SKILL.md"),
+		"skill destination should have new content")
+
+	// --- Command installer: Apply fails (missing source file) → internal Rollback ---
+	cmdInstaller := common.NewInstaller(common.InstallerConfig{
+		SourceDir: cmdSrcDir,
+		TargetDir: cmdDstDir,
+		BackupDir: cmdBackupDir,
+		Files:     []string{"cmd-a.md", "cmd-b.md"},
+	})
+	require.Error(t, cmdInstaller.Run(), "command installer should fail when source file is missing")
+
+	// --- Verify isolation: skill backup survived command rollback ---
+	assert.True(t, fileExists(filepath.Join(skillBackupDir, "SKILL.md")),
+		"skill backup MUST survive command installer rollback")
+
+	// Command backup directory should have been removed by Rollback.
+	assert.False(t, fileExists(cmdBackupDir),
+		"command backup dir should be removed by its own rollback")
+
+	// Command destination should be restored to original state.
+	assert.Equal(t, "old-cmd-a", readFile(t, cmdDstDir, "cmd-a.md"),
+		"command destination should be restored to original after rollback")
+	assert.Equal(t, "old-cmd-b", readFile(t, cmdDstDir, "cmd-b.md"),
+		"command destination should be restored to original after rollback")
+
+	// Skill installer can still rollback independently.
+	require.NoError(t, skillInstaller.Rollback(), "skill rollback should succeed independently")
+	assert.Equal(t, "old-skill-content", readFile(t, skillDstDir, "SKILL.md"),
+		"skill destination should be restored to original after independent rollback")
+}

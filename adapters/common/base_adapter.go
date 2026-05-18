@@ -355,7 +355,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	// Append a unique session suffix to the backup dir to avoid name collisions
 	// with pre-existing directories.
 	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
-	backupDir := a.backupPathFn(base) + "-" + sessionSuffix
+	backupDir := a.backupPathFn(base) + "-" + a.ID() + "-" + sessionSuffix
 	a.lastBackupDir = backupDir
 
 	// Create target directories before Prepare (Prepare probes for write access).
@@ -369,7 +369,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	skillInstaller := NewInstaller(InstallerConfig{
 		SourceDir: staging,
 		TargetDir: skillsDir,
-		BackupDir: backupDir,
+		BackupDir: filepath.Join(backupDir, "skills"),
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -386,7 +386,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	cmdInstaller := NewInstaller(InstallerConfig{
 		SourceDir: staging,
 		TargetDir: commandsDir,
-		BackupDir: backupDir,
+		BackupDir: filepath.Join(backupDir, "commands"),
 		Files:     CommandFiles,
 	})
 	if err := cmdInstaller.Run(); err != nil {
