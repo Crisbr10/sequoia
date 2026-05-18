@@ -6,6 +6,8 @@ allowed-tools: Read, Glob, Grep
 
 # /sequoia fix
 
+> **Nota**: Desde Sequoia v0.2.0, las tareas se generan automáticamente durante `/sequoia audit`. Este comando permanece como fallback para regenerar tareas desde la última auditoría en Engram sin re-ejecutar agentes de fase.
+
 Generates implementable tasks from audit findings. Each task is self-contained: an implementing agent can execute it without re-reading the full audit.
 
 ## Precondition
@@ -18,7 +20,7 @@ There must be at least one prior audit in Engram (run via `/sequoia audit` or `/
 2. Filters by phase (if specified) or takes all
 3. Converts each finding into an implementable task
 4. Orders by dependencies and priority
-5. Generates the task document
+5. Generates the task document using the same format as `/sequoia audit` (see task template in SKILL.md)
 
 ## Usage
 
@@ -117,24 +119,22 @@ If multiple findings point to the same root cause (detected by the correlator), 
 
 ## Output
 
-Generates `sequoia-fix.md` with the ordered task list:
+Generates task files under `docs/sequoia/tasks/` using the same format and structure as `/sequoia audit`:
 
-```markdown
-# Implementation Plan — [Project]
-
-**Generated from**: Audit dated [date]
-**Total tasks**: {N}
-**Blocking**: {N} | **High leverage**: {N} | **Backlog**: {N}
-
-## Implementation order
-{tasks ordered by priority and dependencies}
-
-## Task dependencies
-{diagram or list of what blocks what}
-
-## Global risk estimate
-{assessment of the change set}
 ```
+docs/sequoia/tasks/
+├── index.md           # Global dependency graph, priority tiers, risk estimate
+├── security.md        # Security tasks with full evidence
+├── architecture.md    # Architecture tasks with full evidence
+├── performance.md     # Performance tasks with full evidence
+├── quality.md         # Quality tasks with full evidence
+├── operations.md      # Operations tasks with full evidence
+└── i18n.md            # i18n tasks with full evidence (if applicable)
+```
+
+When filtering by phase (`/sequoia fix security`), only the corresponding area file is generated. When running `all`, all area files + `index.md` are generated.
+
+Each task follows the standard template defined in Sequoia's SKILL.md. See `/sequoia audit` for the primary workflow.
 
 ## Example
 

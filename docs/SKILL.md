@@ -211,7 +211,15 @@ action_plan:
    - Prioritized action plan
    - Findings by category (complete detail)
 
-**Output**: Complete report + Health Score + Action Plan
+4. **Generate task files by area**:
+   - Group findings by phase (P1→security, P2→performance, P3→architecture, P4→quality, P5→experience, P6→operations, P7→i18n)
+   - Generate `docs/sequoia/tasks/{area}.md` with self-contained tasks (each task includes: ID, priority, evidence, steps, dependencies, risk, acceptance criteria, verification command)
+   - Generate `docs/sequoia/tasks/index.md` with global dependency graph and priority tiers
+   - Generate `docs/sequoia/summary.md` (consolidated: score + root causes + verified state + gaps + trajectory)
+   - Merge findings sharing a root cause into a single task
+   - Do NOT generate individual phase reports
+
+**Output**: `docs/sequoia/summary.md` + `docs/sequoia/tasks/{area}.md` + `docs/sequoia/tasks/index.md`
 
 ### Phase 6: Delivery
 
@@ -219,8 +227,12 @@ Present to the user:
 1. **Health Score** prominently at the top
 2. **Critical findings** first — those requiring immediate action
 3. **Root cause summary** — where to focus effort
-4. **Action plan** — what to do, in what order
-5. **Option to generate tasks** via `/sequoia fix`
+4. **Generated files**:
+   - `docs/sequoia/summary.md` — Full score + root causes + gaps + trajectory
+   - `docs/sequoia/tasks/index.md` — Dependency graph and sprint plan
+   - `docs/sequoia/tasks/{area}.md` — Self-contained tasks per area (open only the one to implement)
+
+> **Note**: To regenerate tasks from an existing audit without re-running phase agents, use `/sequoia fix`.
 
 ---
 
@@ -299,7 +311,7 @@ Run Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6. Complet
 Run Phase 1, then phase agents only on modified files (diff). Limited correlation to the diff.
 
 ### `/sequoia fix`
-Transform findings from the latest audit into tasks formatted for a project manager.
+> **Note**: Since Sequoia v1.0.7, tasks are auto-generated during `/sequoia audit`. This command remains as a fallback to regenerate tasks from the latest audit in Engram without re-running phase agents.
 
 ### `/sequoia diff`
 Compare Project Map and findings against the previous audit. Show delta.

@@ -35,10 +35,8 @@ Runs the comprehensive technical audit. Orchestrates phase agents, correlation m
   │     └─ M2 sequoia-reporter (calculates health scores + generates documents)
   │
   ├─ 5. Generate deliverables
-  │     ├─ sequoia-master.md (master document)
-  │     ├─ sequoia-phases/01-security.md ... 06-operations.md
-  │     ├─ sequoia-score.md (health scorecard)
-  │     └─ [if --output=tasks|both] sequoia-tasks.md
+  │     ├─ docs/sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
+  │     └─ docs/sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
   │
   └─ 6. Persist in Engram
         ├─ Findings with timestamp
@@ -87,9 +85,11 @@ With `--scope=changed`, each agent only inspects files from the diff. Meta-agent
 
 | Value | Generates |
 |-------|--------|
-| `report` | `sequoia-master.md` + `sequoia-phases/*.md` + `sequoia-score.md` |
-| `tasks` | `sequoia-tasks.md` with actionable plan by phase |
+| `report` | `docs/sequoia/summary.md` |
+| `tasks` | `docs/sequoia/tasks/*.md` (area files + index) |
 | `both` | All of the above (default) |
+
+With `--output=report`, only `summary.md` is generated (tasks are skipped). With `--output=tasks`, only area task files are generated (`summary.md` is skipped). The default `both` generates all deliverables.
 
 ## Parallelism logic
 
@@ -119,17 +119,19 @@ All are created in the configured directory (default: `docs/sequoia/`):
 
 ```
 docs/sequoia/
-├── sequoia-master.md          # Master document
-├── sequoia-score.md           # Health scorecard
-├── sequoia-tasks.md           # [if --output=tasks|both]
-└── sequoia-phases/
-    ├── 01-security.md
-    ├── 02-performance.md
-    ├── 03-architecture.md
-    ├── 04-quality.md
-    ├── 05-experience.md
-    └── 06-operations.md
+├── summary.md                  # Health score + root causes + verified state + missing items + trajectory
+└── tasks/
+    ├── index.md                # Global dependency graph, priority tiers, risk estimate
+    ├── security.md             # Self-contained task file (P1 findings)
+    ├── performance.md          # Self-contained task file (P2 findings)
+    ├── architecture.md         # Self-contained task file (P3 findings)
+    ├── quality.md              # Self-contained task file (P4 findings)
+    ├── experience.md           # Self-contained task file (P5 findings, if applicable)
+    ├── operations.md           # Self-contained task file (P6 findings)
+    └── i18n.md                 # Self-contained task file (P7 findings, if applicable)
 ```
+
+Each area task file is self-contained: an implementing agent opens ONE file (~150-250 lines) instead of the full report.
 
 ## Usage examples
 
