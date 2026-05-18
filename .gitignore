@@ -64,6 +64,10 @@ adapters/*/.opencode/
 # Reference examples (not part of the project)
 docs/Ejemplos de Skills/
 
+# SDD generated artifacts (persisted in Engram, not needed in repo)
+sdd/
+sequoia-fix/
+
 # OS generated
 [Tt]humbs.db
 *.orig
