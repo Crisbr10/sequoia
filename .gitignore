@@ -57,6 +57,10 @@ adapters/*/.cursor/
 adapters/*/.codex/
 adapters/*/.opencode/
 
+# Local dev tools
+.atl/
+.gga
+
 # OS generated
 [Tt]humbs.db
 *.orig
