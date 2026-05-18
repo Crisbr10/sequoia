@@ -11,6 +11,7 @@ coverage
 *.cover
 coverage.out
 coverage_*
+coverage*.out
 
 # Test binary
 *.test
@@ -61,14 +62,12 @@ adapters/*/.opencode/
 .atl/
 .gga
 
-# Reference examples (not part of the project)
-docs/Ejemplos de Skills/
+# Duplicate docs artifacts
+docs/.atl/
 
 # SDD generated artifacts (persisted in Engram, not needed in repo)
 sdd/
 sequoia-fix/
 
-# OS generated
-[Tt]humbs.db
+# Misc
 *.orig
-coverage*.out
