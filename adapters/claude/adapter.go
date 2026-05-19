@@ -33,9 +33,10 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetPaths(common.NewPathResolver(claudeBase, homeDir,
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
-	a.SetStrategy(adapters.StrategyMarkdownSections,
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyMarkdownSections,
 		func(base, content string) error { return common.InjectMarkdownSection(systemPromptPath(base), content) },
-		func(base string) error { return common.RemoveMarkdownSection(systemPromptPath(base)) })
+		func(base string) error { return common.RemoveMarkdownSection(systemPromptPath(base)) }))
+	a.SetBackup(common.NewBackupPathBuilder(backupPath, "claude-code"))
 	a.SetInstallTemplates(templateFS, "sequoia-claude-*",
 		"templates/claude-md-section.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })

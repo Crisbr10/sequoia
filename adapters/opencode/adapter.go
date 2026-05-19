@@ -33,13 +33,15 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetPaths(common.NewPathResolver(opencodeBase, homeDir,
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
-	a.SetStrategy(adapters.StrategyFileReplace,
+	pm := common.NewPromptManager(adapters.StrategyFileReplace,
 		func(base, content string) error { return common.ReplaceFile(systemPromptPath(base), content) },
 		func(base string) error { return common.RestoreOrRemoveFile(systemPromptPath(base)) })
+	pm.SetRollbackOnError(true)
+	a.SetPromptManager(pm)
+	a.SetBackup(common.NewBackupPathBuilder(backupPath, "opencode"))
 	a.SetInstallTemplates(templateFS, "sequoia-opencode-*",
 		"templates/agents-md-section.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })
-	a.SetRollbackOnSystemPromptError(true)
 	a.SetDetector(common.NewDetector(
 		a.Base,
 		func(base string) bool {

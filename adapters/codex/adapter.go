@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -38,7 +36,8 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetPaths(common.NewPathResolver(codexBase, homeDir,
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
-	a.SetStrategy(adapters.StrategyTOMLMerge, nil, nil) // TOML strategy — custom Install/Uninstall
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyTOMLMerge, nil, nil)) // TOML strategy — custom Install/Uninstall
+	a.SetBackup(common.NewBackupPathBuilder(backupPath, "codex"))
 	a.SetDetector(common.NewDetector(
 		a.Base,
 		func(base string) bool {
@@ -115,9 +114,8 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		}
 	}
 
-	// Generate a unique session suffix for backup dirs to avoid collisions.
-	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
-	baseBackup := backupPath(base) + "-" + a.ID() + "-" + sessionSuffix
+	// Generate a unique backup path via BackupPathBuilder.
+	baseBackup := a.BuildBackupPath(base)
 
 	skillInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,

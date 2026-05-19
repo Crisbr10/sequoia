@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Crisbr10/sequoia/adapters"
 )
@@ -36,10 +34,14 @@ type BaseAdapter struct {
 	// Set via SetDetector(). Delegates to Detect()/IsInstalled().
 	detector *Detector
 
-	// promptStrategy is the PromptStrategy constant for this adapter.
-	promptStrategy adapters.PromptStrategy
+	// prompt handles the system prompt write/remove lifecycle.
+	// Strategy, write/remove functions, and rollback flag are all encapsulated.
+	// Set via SetPromptManager().
+	prompt *PromptManager
 
-	// --- Install customization ---
+	// backup generates unique backup directory paths per install session.
+	// Set via SetBackup().
+	backup *BackupPathBuilder
 
 	// templateFS is the embed.FS containing this adapter's templates.
 	templateFS embed.FS
@@ -50,20 +52,6 @@ type BaseAdapter struct {
 	systemPromptTemplate string
 	// makeTemplateData returns the data passed to skill and system prompt templates.
 	makeTemplateData func() interface{}
-
-	// writeSystemPrompt writes the rendered system prompt content. Strategy varies:
-	//   - StrategyMarkdownSections → InjectMarkdownSection
-	//   - StrategyFileReplace → ReplaceFile
-	writeSystemPrompt func(base, content string) error
-
-	// removeSystemPrompt removes or restores the system prompt. Strategy varies:
-	//   - StrategyMarkdownSections → RemoveMarkdownSection
-	//   - StrategyFileReplace → RestoreOrRemoveFile
-	removeSystemPrompt func(base string) error
-	// rollbackOnSystemPromptError controls whether the shared Install() rolls
-	// back skill and command installers when the system prompt step fails.
-	// opencode and cursor need this; claude and gemini do not.
-	rollbackOnSystemPromptError bool
 
 	// warnings collects non-fatal warnings during adapter operations
 	// (e.g., symlink resolution failures). Protected by mu.
@@ -112,11 +100,29 @@ func (a *BaseAdapter) ID() string { return a.adapterID }
 // Name returns the human-readable display name.
 func (a *BaseAdapter) Name() string { return a.adapterName }
 
-// SetStrategy sets the prompt strategy and its write/remove functions.
-func (a *BaseAdapter) SetStrategy(strategy adapters.PromptStrategy, write func(base, content string) error, remove func(base string) error) {
-	a.promptStrategy = strategy
-	a.writeSystemPrompt = write
-	a.removeSystemPrompt = remove
+// SetPromptManager sets the PromptManager used by BaseAdapter for system prompt
+// write/remove operations and rollback-on-error control. Concrete adapters MUST
+// call this during construction:
+//
+//	a.SetPromptManager(common.NewPromptManager(strategy, writeFn, removeFn))
+func (a *BaseAdapter) SetPromptManager(pm *PromptManager) {
+	a.prompt = pm
+}
+
+// SetBackup sets the BackupPathBuilder used by BaseAdapter to generate unique
+// backup directory paths per install session. Concrete adapters MUST call
+// this during construction:
+//
+//	a.SetBackup(common.NewBackupPathBuilder(backupPathFn, a.ID()))
+func (a *BaseAdapter) SetBackup(b *BackupPathBuilder) {
+	a.backup = b
+}
+
+// BuildBackupPath generates a unique backup directory path for the given base
+// directory. Delegates to the internal BackupPathBuilder. Returned by custom
+// Install() implementations (e.g., Codex) that need backup paths.
+func (a *BaseAdapter) BuildBackupPath(base string) string {
+	return a.backup.Build(base)
 }
 
 // SetInstallTemplates sets the template embed.FS, staging prefix, system prompt
@@ -134,12 +140,6 @@ func (a *BaseAdapter) SetInstallTemplates(fs embed.FS, stagingPrefix, sysPromptT
 //	a.SetDetector(common.NewDetector(a.paths.Base, isInstalledFn, detectFn))
 func (a *BaseAdapter) SetDetector(d *Detector) {
 	a.detector = d
-}
-
-// SetRollbackOnSystemPromptError enables or disables rollback of skill and
-// command installers when the system prompt step fails during Install().
-func (a *BaseAdapter) SetRollbackOnSystemPromptError(v bool) {
-	a.rollbackOnSystemPromptError = v
 }
 
 // AddWarning appends a non-fatal warning message. Thread-safe.
@@ -203,8 +203,12 @@ func (a *BaseAdapter) SystemPromptPath() string {
 }
 
 // PromptStrategy returns the injection strategy used by this adapter.
+// Delegates to the internal PromptManager.
 func (a *BaseAdapter) PromptStrategy() adapters.PromptStrategy {
-	return a.promptStrategy
+	if a.prompt == nil {
+		return 0 // zero value (StrategyMarkdownSections) as safe default
+	}
+	return a.prompt.PromptStrategy()
 }
 
 // Detect reports whether the tool is present on this machine.
@@ -322,11 +326,12 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 
 	skillsDir := a.paths.skillsPathFn(base)
 	commandsDir := a.paths.commandsPathFn(base)
-	// Append a unique session suffix to the backup dir to avoid name collisions
-	// with pre-existing directories.
-	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
-	backupDir := a.paths.backupPathFn(base) + "-" + a.ID() + "-" + sessionSuffix
+
+	// Generate a unique backup path via BackupPathBuilder.
+	backupDir := a.backup.Build(base)
+	a.mu.Lock()
 	a.lastBackupDir = backupDir
+	a.mu.Unlock()
 
 	// Create target directories before Prepare (Prepare probes for write access).
 	for _, dir := range []string{skillsDir, commandsDir} {
@@ -376,8 +381,8 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-	if err := a.writeSystemPrompt(base, sectionContent); err != nil {
-		if a.rollbackOnSystemPromptError {
+	if err := a.prompt.Write(base, sectionContent); err != nil {
+		if a.prompt.RollbackOnError() {
 			_ = cmdInstaller.Rollback()
 			_ = skillInstaller.Rollback()
 		}
@@ -444,7 +449,7 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 	}
 
 	// Remove or restore the system prompt.
-	if err := a.removeSystemPrompt(base); err != nil {
+	if err := a.prompt.Remove(base); err != nil {
 		errs = append(errs, fmt.Errorf("restore system prompt: %w", err))
 	}
 

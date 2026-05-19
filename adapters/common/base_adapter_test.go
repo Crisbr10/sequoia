@@ -39,10 +39,14 @@ func uninstallTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 	))
 
 	// No-op system prompt removal for tests.
-	a.SetStrategy(adapters.StrategyFileReplace,
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyFileReplace,
 		nil,
 		func(_ string) error { return nil },
-	)
+	))
+	a.SetBackup(common.NewBackupPathBuilder(
+		func(base string) string { return filepath.Join(home, "backup") },
+		"test-adapter",
+	))
 
 	return a
 }
@@ -204,10 +208,14 @@ func installTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 		func(base string) string { return filepath.Join(home, "backup") },
 		a.AddWarning,
 	))
-	a.SetStrategy(adapters.StrategyFileReplace,
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyFileReplace,
 		func(base, content string) error { return fmt.Errorf("system prompt write failed") },
 		nil,
-	)
+	))
+	a.SetBackup(common.NewBackupPathBuilder(
+		func(base string) string { return filepath.Join(home, "backup") },
+		"test-adapter",
+	))
 	// Use testFS (from shared_test.go) which only has testdata/test.tmpl.
 	// RenderTemplate will fail looking for "templates/skill.md.tmpl",
 	// simulating a template failure.
@@ -318,10 +326,14 @@ func warningsTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 		func(base string) string { return filepath.Join(base, "backup") },
 		a.AddWarning,
 	))
-	a.SetStrategy(adapters.StrategyFileReplace,
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyFileReplace,
 		func(base, content string) error { return nil }, // no-op for test
 		nil,
-	)
+	))
+	a.SetBackup(common.NewBackupPathBuilder(
+		func(base string) string { return filepath.Join(home, "backup") },
+		"warn-adapter",
+	))
 	a.SetInstallTemplates(testFS, "sequoia-warn-*",
 		"testdata/test.tmpl",
 		func() interface{} { return map[string]string{"Name": "warn", "Version": "0.1.0"} })

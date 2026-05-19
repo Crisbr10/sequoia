@@ -37,9 +37,10 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetPaths(common.NewPathResolver(geminiBase, homeDir,
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
-	a.SetStrategy(adapters.StrategyConfigMerge,
+	a.SetPromptManager(common.NewPromptManager(adapters.StrategyConfigMerge,
 		func(base, content string) error { return common.InjectMarkdownSection(systemPromptPath(base), content) },
-		func(base string) error { return common.RemoveMarkdownSection(systemPromptPath(base)) })
+		func(base string) error { return common.RemoveMarkdownSection(systemPromptPath(base)) }))
+	a.SetBackup(common.NewBackupPathBuilder(backupPath, "gemini-cli"))
 	a.SetInstallTemplates(templateFS, "sequoia-gemini-*",
 		"templates/gemini-md-section.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })
