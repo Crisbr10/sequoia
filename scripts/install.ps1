@@ -242,6 +242,65 @@ try {
         Write-Warn "Checksum verification skipped (--SkipChecksum)."
     }
 
+    # -- Cosign signature verification ----------------------------------------
+    # Attempt cryptographic signature verification (REQ-IV-002).
+    # cosign absence → warn + continue (SHA-256 remains the baseline)
+    # .sig/.cert download failure → warn + continue (network issue, not tampering)
+    # Verification failure → error exit (signature does not match → tampered binary)
+    # Cosign is additive — -SkipChecksum does NOT skip this step.
+    $sigUrl  = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball.sig"
+    $certUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball.cert"
+    $sigFile = Join-Path $TempDir "$Tarball.sig"
+    $certFile = Join-Path $TempDir "$Tarball.cert"
+
+    $cosignFound = Get-Command cosign -ErrorAction SilentlyContinue
+
+    if ($cosignFound) {
+        Write-Info "Cosign detected — verifying cryptographic signature..."
+
+        $sigDownloadOk = $true
+        try {
+            Invoke-WebRequest -Uri $sigUrl -OutFile $sigFile -UseBasicParsing -ErrorAction Stop
+        } catch {
+            $sigDownloadOk = $false
+        }
+        try {
+            Invoke-WebRequest -Uri $certUrl -OutFile $certFile -UseBasicParsing -ErrorAction Stop
+        } catch {
+            $sigDownloadOk = $false
+        }
+
+        if (-not $sigDownloadOk) {
+            Write-Warn "Failed to download .sig or .cert file. Skipping cosign verification."
+            Write-Warn "SHA-256 checksum remains the integrity baseline."
+        } else {
+            $archivePath = Join-Path $TempDir $Tarball
+            $cosignArgs = @(
+                "verify-blob",
+                "--signature", $sigFile,
+                "--certificate", $certFile,
+                "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+                "--certificate-identity", "https://github.com/$Repo/.github/workflows/release.yml@refs/tags/$ResolvedVersion",
+                $archivePath
+            )
+
+            & cosign $cosignArgs *>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Info "Cosign signature verified"
+            } else {
+                Write-Err "Cosign signature verification FAILED."
+                Write-Err "The downloaded binary may have been tampered with. Aborting."
+                exit $EXIT_CHECKSUM
+            }
+        }
+    } else {
+        Write-Warn "Cosign is not installed. Skipping cryptographic signature verification."
+        Write-Warn "Install cosign for stronger integrity guarantees:"
+        Write-Warn "  winget install sigstore.cosign"
+        Write-Warn "  Or see https://docs.sigstore.dev/cosign/installation/"
+        Write-Warn "SHA-256 checksum remains the integrity baseline."
+    }
+
     # -- Extract --------------------------------------------------------------
     Write-Info "Extracting $Tarball..."
     $extractDir = Join-Path $TempDir "extracted"

@@ -345,6 +345,54 @@ else
     log_warn "Checksums file missing after download. Skipping verification."
 fi
 
+# -- Cosign signature verification --------------------------------------------
+# Attempt cryptographic signature verification (REQ-IV-001).
+# cosign absence → warn + continue (SHA-256 remains the baseline)
+# .sig/.cert download failure → warn + continue (network issue, not tampering)
+# Verification failure → error exit (signature does not match → tampered binary)
+# Cosign is additive — SKIP_CHECKSUMS does NOT skip this step.
+COSIGN_SIG_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.sig"
+CERT_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.cert"
+COSIGN_SIG_FILE="${TMPDIR}/${TARBALL}.sig"
+CERT_FILE="${TMPDIR}/${TARBALL}.cert"
+
+if command -v cosign >/dev/null 2>&1; then
+    log_info "Cosign detected — verifying cryptographic signature..."
+
+    SIG_DOWNLOAD_OK=true
+    if [ "$DOWNLOADER" = "curl" ]; then
+        curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+    else
+        wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+    fi
+
+    if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
+        log_warn "Failed to download .sig or .cert file. Skipping cosign verification."
+        log_warn "SHA-256 checksum remains the integrity baseline."
+    else
+        if cosign verify-blob \
+            --signature "$COSIGN_SIG_FILE" \
+            --certificate "$CERT_FILE" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
+            "${TMPDIR}/${TARBALL}" 2>/dev/null; then
+            log_info "Cosign signature verified"
+        else
+            log_error "Cosign signature verification FAILED."
+            log_error "The downloaded binary may have been tampered with. Aborting."
+            exit $EXIT_CHECKSUM
+        fi
+    fi
+else
+    log_warn "Cosign is not installed. Skipping cryptographic signature verification."
+    log_warn "Install cosign for stronger integrity guarantees:"
+    log_warn "  macOS:  brew install cosign"
+    log_warn "  Linux:  See https://docs.sigstore.dev/cosign/installation/"
+    log_warn "SHA-256 checksum remains the integrity baseline."
+fi
+
 # -- Extract ------------------------------------------------------------------
 log_info "Extracting ${TARBALL}..."
 tar -xzf "${TMPDIR}/${TARBALL}" -C "$TMPDIR"

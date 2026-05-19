@@ -9,6 +9,7 @@ linters:
     - revive
     - gofmt
     - goimports
+    - gosec
 linters-settings:
   revive:
     rules:
@@ -25,3 +26,11 @@ issues:
     - path: cmd/sequoia/main\.go
       linters:
         - errcheck
+    - path: cmd/sequoia/main\.go
+      linters:
+        - gosec
+      text: "G104:"
+    - path: adapters/
+      linters:
+        - gosec
+      text: "G304:"

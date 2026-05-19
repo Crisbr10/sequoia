@@ -7,6 +7,14 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      gomod-dependencies:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    reviewers:
+      - "Crisbr10"
+    labels:
+      - "dependencies"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -14,3 +22,10 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(ci)"
+    groups:
+      github-actions-dependencies:
+        patterns: ["*"]
+    reviewers:
+      - "Crisbr10"
+    labels:
+      - "dependencies"
