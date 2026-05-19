@@ -46,23 +46,46 @@ type AdapterStatus struct {
 // ToolAdapter is the contract every tool integration must satisfy.
 // Each concrete adapter lives in its own sub-package (e.g. adapters/claude)
 // and self-registers via its init() function.
+//
+// ToolAdapter is the composite interface that embeds all role interfaces.
+// Consumers that only need a subset of behavior SHOULD accept the narrower
+// role interface instead (Identifier, Detector, Installer, or PathResolver).
 type ToolAdapter interface {
+	Identifier
+	Detector
+	Installer
+	AdapterPaths
+	Status() AdapterStatus
+}
+
+// Identifier exposes adapter identity for logging and display.
+type Identifier interface {
 	// ID returns the unique machine-readable identifier (e.g. "claude-code").
 	ID() string
 	// Name returns the human-readable display name.
 	Name() string
+}
+
+// Detector exposes tool presence and Sequoia installation checks.
+type Detector interface {
 	// Detect reports whether the tool is installed on this machine.
 	Detect() bool
 	// IsInstalled reports whether Sequoia has already been installed for this tool.
 	IsInstalled() bool
+}
+
+// Installer exposes the install/uninstall lifecycle.
+type Installer interface {
 	// Install installs Sequoia files for this tool.
 	// opts carries optional configuration such as cancellation context.
 	Install(opts InstallOpts) error
 	// Uninstall removes Sequoia files for this tool.
 	// opts carries optional configuration such as cancellation context.
 	Uninstall(opts InstallOpts) error
-	// Status returns the current installation status.
-	Status() AdapterStatus
+}
+
+// AdapterPaths exposes directory paths for a tool adapter.
+type AdapterPaths interface {
 	// SkillsPath returns the absolute path to the skills directory for this tool.
 	SkillsPath() string
 	// CommandsPath returns the absolute path to the commands directory for this tool.
