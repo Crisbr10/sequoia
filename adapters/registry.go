@@ -16,8 +16,22 @@ type Registry struct {
 	order []string // preserves registration order for All()
 }
 
+// NewRegistry creates an initialized Registry ready for adapter registration.
+// Use this constructor instead of &Registry{} to ensure internal maps and
+// slices are allocated correctly (Register() does lazy-init, but NewRegistry
+// is explicit and test-friendly).
+func NewRegistry() *Registry {
+	return &Registry{
+		items: make(map[string]ToolAdapter),
+		order: make([]string, 0),
+	}
+}
+
 // DefaultRegistry is the global adapter registry used by NewAdapter.
-var DefaultRegistry = &Registry{}
+// Deprecated: prefer NewRegistry() constructor and dependency injection.
+// init() functions in adapter sub-packages still register here for backward
+// compatibility. New code should use constructor DI via NewRegistry().
+var DefaultRegistry = NewRegistry()
 
 // Register adds a to the registry.
 // If an adapter with the same ID already exists, it is replaced.

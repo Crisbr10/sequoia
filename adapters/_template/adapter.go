@@ -31,8 +31,14 @@ type Adapter struct {
 	homeDir string
 }
 
+// RegisterIn registers this adapter in the given registry.
+// Use this for constructor DI; init() delegates to it for backward compatibility.
+func RegisterIn(reg *adapters.Registry) {
+	reg.Register(&Adapter{})
+}
+
 func init() {
-	adapters.DefaultRegistry.Register(&Adapter{})
+	RegisterIn(adapters.DefaultRegistry)
 }
 
 // NewAdapter creates an Adapter with an overridden home directory.
