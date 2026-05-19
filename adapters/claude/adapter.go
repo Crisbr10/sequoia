@@ -21,7 +21,7 @@ type Adapter struct {
 // RegisterIn registers this adapter in the given registry.
 // Use this for constructor DI; init() delegates to it for backward compatibility.
 func RegisterIn(reg *adapters.Registry) {
-	reg.Register(newAdapter(""))
+	reg.RegisterFactory("claude-code", func() adapters.ToolAdapter { return newAdapter("") })
 }
 
 func init() {
