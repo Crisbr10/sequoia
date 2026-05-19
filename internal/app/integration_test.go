@@ -71,15 +71,11 @@ func safeProcessCmd(t *testing.T, m app.Model, cmd tea.Cmd, maxIter int) app.Mod
 
 func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
 	// Setup: register a mock adapter.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 
 	// Verify initial state.
 	assert.Equal(t, model.ScreenWelcome, m.Screen)
@@ -105,15 +101,11 @@ func TestIntegration_ProgressToComplete_Transition(t *testing.T) {
 	// Test the progress → complete transition by directly applying
 	// ProgressMsg to the model state and checking the auto-transition.
 	// We bypass the full Update path to avoid blocking on waitForProgress.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 
 	// Populate ProgressTools with 3 pending steps.
@@ -155,15 +147,11 @@ func TestIntegration_ProgressToComplete_Transition(t *testing.T) {
 }
 
 func TestIntegration_ProgressWithError_Transition(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -205,15 +193,11 @@ func TestIntegration_ProgressWithError_Transition(t *testing.T) {
 }
 
 func TestIntegration_FlowWithNoToolsSelected_ShowsError(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter}, 3)
 	require.Equal(t, model.ScreenToolSelection, m.Screen)
 
@@ -230,16 +214,12 @@ func TestIntegration_FlowWithNoToolsSelected_ShowsError(t *testing.T) {
 }
 
 func TestIntegration_WelcomeView_ShowsMenu(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "tool-a", NameVal: "Tool A"})
 	reg.Register(&testutil.MockAdapter{IDVal: "tool-b", NameVal: "Tool B"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	view := m.View()
 
 	// Welcome screen shows the main menu, not the individual tool list.
@@ -250,15 +230,11 @@ func TestIntegration_WelcomeView_ShowsMenu(t *testing.T) {
 }
 
 func TestIntegration_CompleteView_ShowsNextSteps(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenComplete
 
 	view := m.View()
@@ -267,15 +243,11 @@ func TestIntegration_CompleteView_ShowsNextSteps(t *testing.T) {
 }
 
 func TestIntegration_QuitFromAnyScreen_ReturnsQuitMsg(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 
 	// Test quit from Welcome.
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -294,15 +266,11 @@ func TestIntegration_QuitFromAnyScreen_ReturnsQuitMsg(t *testing.T) {
 }
 
 func TestIntegration_ErrorScreen_RetryReturnsToProgress(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenError
 
 	// Press 'r' for retry.
@@ -318,15 +286,11 @@ func TestIntegration_ErrorRecovery_FullFlow(t *testing.T) {
 	// 2. Verify screen transitions: InstallProgress → Error → InstallProgress → Complete
 	// 3. Verify error messages are displayed on Error screen
 
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 
 	// === PHASE 1: Simulate a partial installation with a failure ===
@@ -404,16 +368,12 @@ func TestIntegration_ErrorRecovery_FullFlow(t *testing.T) {
 func TestIntegration_ErrorRecovery_MultipleFailuresRetryAll(t *testing.T) {
 	// Simulate two tools failing, then retry succeeds for both.
 
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "tool-a", NameVal: "Tool A"})
 	reg.Register(&testutil.MockAdapter{IDVal: "tool-b", NameVal: "Tool B"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 
 	m.ProgressTools = []screens.ProgressTool{
@@ -503,15 +463,11 @@ func TestIntegration_UninstallBackToStatus(t *testing.T) {
 	// Verify the full path: Status → Uninstall → Esc → back to Status
 	// (not Welcome). This confirms PreviousScreen tracking works correctly
 	// when the user entered Uninstall from the Status screen.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool", DetectFunc: func() bool { return true }, IsInstalledFunc: func() bool { return true }})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 
 	// Step 1: Navigate to Status screen via NavigateMsg (this sets PreviousScreen).
 	msg := tui.NavigateMsg{Target: model.ScreenStatus}
@@ -532,15 +488,11 @@ func TestIntegration_UninstallBackToStatus(t *testing.T) {
 }
 
 func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 
 	view := m.View()
@@ -552,15 +504,11 @@ func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
 }
 
 func TestIntegration_UninstallConfirmation_EscCancels(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool", DetectFunc: func() bool { return true }, IsInstalledFunc: func() bool { return true }})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	// Tool is installed, so select it for uninstall.
 	m.Tools[0].Selected = true
@@ -583,15 +531,11 @@ func TestIntegration_UninstallConfirmation_EscCancels(t *testing.T) {
 func TestIntegration_StatusReinstallPipeline(t *testing.T) {
 	// Verify Status 'r' key triggers the reinstall pipeline:
 	// navigates to InstallProgress, populates ProgressTools, sets OperationMode.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool", DetectFunc: func() bool { return true }, IsInstalledFunc: func() bool { return true }})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -616,15 +560,11 @@ func TestIntegration_StatusReinstallPipeline(t *testing.T) {
 func TestIntegration_ErrorRetryPipeline(t *testing.T) {
 	// Verify Error 'r' key rebuilds ProgressTools (reset to pending) and
 	// navigates to InstallProgress for retry.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenError
 	m.OperationMode = "install"
 	m.Tools[0].Selected = true
@@ -670,15 +610,11 @@ func TestIntegration_ErrorRetryPipeline(t *testing.T) {
 func TestIntegration_UninstallFlowLabels(t *testing.T) {
 	// Verify uninstall flow sets OperationMode correctly and builds
 	// ProgressTools for the uninstall pipeline with correct labels.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool", DetectFunc: func() bool { return true }, IsInstalledFunc: func() bool { return true }})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = true
 	m.Cursor = 0

@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -18,11 +17,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// registryMu protects concurrent swaps of the global adapters.DefaultRegistry
-// during parallel tests. Tests that mutate DefaultRegistry must lock this
-// mutex around the swap+NewModel critical section.
-var registryMu sync.Mutex
-
 // installedMock creates a MockAdapter with Detect and IsInstalled returning the given value.
 func installedMock(id, name string, installed bool) *testutil.MockAdapter {
 	return &testutil.MockAdapter{
@@ -34,43 +28,35 @@ func installedMock(id, name string, installed bool) *testutil.MockAdapter {
 }
 
 func TestNewModel_StoresVersion(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "v9.9.9-test")
+	m := app.NewModel("", "v9.9.9-test", adapters.DefaultRegistry)
 	assert.Equal(t, "v9.9.9-test", m.Version, "NewModel should store the version string")
 }
 
 // TestNewModel_EngramAvailableDefaultsFalse verifies that after construction,
 // EngramAvailable is false — detection happens asynchronously via detectEngram().
 func TestNewModel_EngramAvailableDefaultsFalse(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	assert.False(t, m.EngramAvailable,
 		"EngramAvailable should default to false; detection happens asynchronously via Init()")
 }
 
 func TestNewModel_DefaultScreen(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "new model should default to ScreenWelcome")
 }
 
 func TestNewModel_PopulatesTools(t *testing.T) {
-	// NOT parallel: mutates global adapters.DefaultRegistry.
 
 	// Register a mock adapter so Tools is non-empty.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	require.Len(t, m.Tools, 2, "Tools should be populated from DefaultRegistry")
 
 	// Verify ToolState wraps the adapter.
@@ -79,26 +65,23 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 }
 
 func TestNewModel_ProgressChannel(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	require.NotNil(t, m.Progress, "Progress channel should be allocated")
 	assert.Equal(t, 64, cap(m.Progress), "Progress channel buffer capacity should be 64")
 }
 
 func TestNewModel_InitReturnsCmd(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	cmd := m.Init()
 	// Init now returns a tea.Batch wrapping detectEngram (async engram detection).
 	assert.NotNil(t, cmd, "Init should return detecEngram batch command for async detection")
 }
 
 func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	var _ tea.Model = m // compile-time check
 	_ = m.Init()
 	_, _ = m.Update(nil)
@@ -106,9 +89,8 @@ func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
 }
 
 func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, cmd := m.Update(msg)
@@ -120,9 +102,8 @@ func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
 }
 
 func TestKeyMsg_Q_Quits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	updated, cmd := m.Update(msg)
@@ -135,9 +116,8 @@ func TestKeyMsg_Q_Quits(t *testing.T) {
 }
 
 func TestKeyMsg_CtrlC_Quits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -149,9 +129,8 @@ func TestKeyMsg_CtrlC_Quits(t *testing.T) {
 }
 
 func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 
 	// These should not panic.
 	require.NotPanics(t, func() {
@@ -168,9 +147,8 @@ func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
 }
 
 func TestNavigateMsg_TransitionsScreen(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "initial screen should be Welcome")
 
 	// Send NavigateMsg targeting ToolSelection.
@@ -182,9 +160,8 @@ func TestNavigateMsg_TransitionsScreen(t *testing.T) {
 }
 
 func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	// Manually set to InstallProgress to simulate post-install.
 	m.Screen = model.ScreenInstallProgress
 
@@ -196,9 +173,8 @@ func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
 }
 
 func TestUnknownMsg_DoesNotPanic(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 
 	type unknownMsg struct{}
 	require.NotPanics(t, func() {
@@ -207,9 +183,8 @@ func TestUnknownMsg_DoesNotPanic(t *testing.T) {
 }
 
 func TestWelcomeView_RendersContent(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	view := m.View()
 
 	// Should NOT be the default placeholder — screens are wired.
@@ -220,9 +195,8 @@ func TestWelcomeView_RendersContent(t *testing.T) {
 }
 
 func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 
 	updated, cmd := m.Update(msg)
@@ -237,16 +211,12 @@ func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
 
 func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 	// Register mock adapters, then navigate to ToolSelection.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
 	// NewModel("") selects all tools — deselect first to test [ ] rendering.
 	m.Tools[0].Selected = false
@@ -263,9 +233,8 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 }
 
 func TestToolSelection_EscNavigatesToWelcome(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenToolSelection
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
 
@@ -281,15 +250,11 @@ func TestToolSelection_EscNavigatesToWelcome(t *testing.T) {
 
 func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 	// Register one tool, none selected.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
 	// Ensure no tool is selected.
 	for i := range m.Tools {
@@ -308,15 +273,11 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 
 func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) {
 	// Register one tool and select it.
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
 	// Select the first tool.
 	if len(m.Tools) > 0 {
@@ -336,15 +297,11 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 }
 
 func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenConfiguration
 	m.EngramAvailable = true
 	m.Config = model.TUIConfig{Persistence: "engram"}
@@ -356,15 +313,11 @@ func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
 }
 
 func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenConfiguration
 	// Select the tool so that confirm builds progress.
 	m.Tools[0].Selected = true
@@ -381,9 +334,8 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 }
 
 func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenConfiguration
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -398,15 +350,11 @@ func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
 }
 
 func TestInstallProgressView_RendersProgressTable(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -428,9 +376,8 @@ func TestInstallProgressView_RendersProgressTable(t *testing.T) {
 }
 
 func TestInstallProgress_QQuitsFromProgress(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenInstallProgress
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -444,15 +391,11 @@ func TestInstallProgress_QQuitsFromProgress(t *testing.T) {
 }
 
 func TestCompleteView_RendersSuccess(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenComplete
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -472,9 +415,8 @@ func TestCompleteView_RendersSuccess(t *testing.T) {
 }
 
 func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
@@ -489,9 +431,8 @@ func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
 }
 
 func TestComplete_QKeyQuits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -505,15 +446,11 @@ func TestComplete_QKeyQuits(t *testing.T) {
 }
 
 func TestStatusView_RendersToolTable(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 
 	view := m.View()
@@ -523,15 +460,11 @@ func TestStatusView_RendersToolTable(t *testing.T) {
 }
 
 func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -547,15 +480,11 @@ func TestStatus_DKeyNavigatesToUninstall(t *testing.T) {
 }
 
 func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -582,15 +511,11 @@ func TestStatus_RKeyNavigatesToReinstall(t *testing.T) {
 }
 
 func TestStatus_UKeyNoOp(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -602,16 +527,12 @@ func TestStatus_UKeyNoOp(t *testing.T) {
 }
 
 func TestStatus_RKeyReinstallsOnlyCursorTool(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 	reg.Register(installedMock("opencode", "OpenCode", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -632,15 +553,11 @@ func TestStatus_RKeyReinstallsOnlyCursorTool(t *testing.T) {
 }
 
 func TestStatus_RKeyOnNotInstalledNoOp(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("opencode", "OpenCode", false))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 
@@ -654,16 +571,12 @@ func TestStatus_RKeyOnNotInstalledNoOp(t *testing.T) {
 }
 
 func TestStatus_RKeyClearsStaleSelections(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 	reg.Register(installedMock("opencode", "OpenCode", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
 	m.Cursor = 0
 	// Simulate stale selections from prior flows.
@@ -685,15 +598,11 @@ func TestStatus_RKeyClearsStaleSelections(t *testing.T) {
 }
 
 func TestUninstallView_RendersCheckboxList(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = false
 
@@ -703,16 +612,12 @@ func TestUninstallView_RendersCheckboxList(t *testing.T) {
 }
 
 func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	// Tool must be installed for confirmation to work.
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = true
 	m.UninstallConfirming = false
@@ -726,15 +631,11 @@ func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
 }
 
 func TestUninstall_SpaceTogglesSelection(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.Tools[0].Selected = false
 
@@ -747,9 +648,8 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 }
 
 func TestUninstall_EscGoesBackToStatus(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -764,15 +664,11 @@ func TestUninstall_EscGoesBackToStatus(t *testing.T) {
 }
 
 func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 	m.Tools[0].Selected = true
@@ -787,9 +683,8 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 }
 
 func TestUninstallConfirm_NCancelsConfirmation(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 
@@ -802,15 +697,11 @@ func TestUninstallConfirm_NCancelsConfirmation(t *testing.T) {
 }
 
 func TestErrorView_RendersFailedTools(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenError
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -831,15 +722,11 @@ func TestErrorView_RendersFailedTools(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -870,15 +757,11 @@ func TestUpdateScreenMsg_ProgressMsgSuccessTransition(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "fail-tool", NameVal: "Fail Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -909,15 +792,11 @@ func TestUpdateScreenMsg_ProgressMsgFailTransition(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenInstallProgress
 	m.ProgressTools = []screens.ProgressTool{
 		{
@@ -940,9 +819,8 @@ func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
 }
 
 func TestUpdateScreenMsg_NonInstallProgressScreen_NoOp(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenWelcome
 
 	msg := model.ProgressMsg{ToolID: "test", Step: "Skills", Done: true}
@@ -953,15 +831,11 @@ func TestUpdateScreenMsg_NonInstallProgressScreen_NoOp(t *testing.T) {
 }
 
 func TestView_DefaultPlaceholder(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	// Set screen to an invalid value.
 	m.Screen = model.Screen(999)
 
@@ -971,15 +845,11 @@ func TestView_DefaultPlaceholder(t *testing.T) {
 }
 
 func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(installedMock("claude-code", "Claude Code", true))
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 
@@ -989,9 +859,8 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 }
 
 func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenStatus
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -1004,9 +873,8 @@ func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 }
 
 func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -1019,9 +887,8 @@ func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 }
 
 func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", adapters.DefaultRegistry)
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -1037,10 +904,9 @@ func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 // The call was moved to an async Bubbletea command (detectEngram) so the TUI
 // renders immediately without blocking.
 func TestNewModel_NoExecLookPath(t *testing.T) {
-	// NOT parallel: reads adapters.DefaultRegistry via NewModel().
 
 	start := time.Now()
-	_ = app.NewModel("", "test")
+	_ = app.NewModel("", "test", adapters.DefaultRegistry)
 	elapsed := time.Since(start)
 
 	// NewModel should return in well under 100ms when no exec.LookPath blocks.
@@ -1050,15 +916,11 @@ func TestNewModel_NoExecLookPath(t *testing.T) {
 }
 
 func TestToolSelection_SpaceToggles(t *testing.T) {
-	reg := &adapters.Registry{}
-	original := adapters.DefaultRegistry
-	registryMu.Lock()
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = original; registryMu.Unlock() }()
+	reg := adapters.NewRegistry()
 
 	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
 
-	m := app.NewModel("", "test")
+	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
 	// Initially not selected.
 	m.Tools[0].Selected = false

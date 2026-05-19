@@ -69,6 +69,10 @@ type Model struct {
 	ctx context.Context
 	// cancel cancels the pipeline context.
 	cancel context.CancelFunc
+
+	// reg is the adapter registry this Model reads from.
+	// Stored for potential lookup operations after construction.
+	reg *adapters.Registry
 }
 
 // EngramDetectedMsg is a Bubbletea message sent when the asynchronous engram
@@ -97,10 +101,14 @@ func (a toolInfoAdapter) Status() model.ToolStatus {
 // selected by default. version is the Sequoia release string (set via ldflags)
 // displayed on the Welcome screen.
 //
+// reg provides the adapter registry for DI. In production, the caller creates
+// a NewRegistry() and registers adapters via RegisterIn(). In tests, mocks
+// are registered locally without touching DefaultRegistry.
+//
 // Engram detection is deferred to Init() via detectEngram() to avoid
 // blocking the first TUI render on exec.LookPath.
-func NewModel(toolID string, version string) Model {
-	all := adapters.DefaultRegistry.All()
+func NewModel(toolID string, version string, reg *adapters.Registry) Model {
+	all := reg.All()
 	tools := make([]model.ToolState, 0, len(all))
 	for _, a := range all {
 		ts := model.ToolState{
@@ -119,6 +127,7 @@ func NewModel(toolID string, version string) Model {
 		Config:          model.TUIConfig{Persistence: "engram"},
 		Progress:        make(chan model.ProgressMsg, 64),
 		EngramAvailable: false,
+		reg:             reg,
 		ctx:             ctx,
 		cancel:          cancel,
 	}
