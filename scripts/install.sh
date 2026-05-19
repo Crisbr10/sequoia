@@ -73,6 +73,53 @@ log_info()  { printf "${GREEN}[INFO]${NC}  %s\n" "$*"; }
 log_warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$*" >&2; }
 log_error() { printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; }
 
+# -- Path sanitization ---------------------------------------------------------
+validate_path() {
+    path="$1"
+    context="${2:-install directory}"
+
+    if [ -z "$path" ]; then
+        log_error "$context must not be empty"
+        exit $EXIT_GENERAL
+    fi
+
+    case "$path" in
+        /*) ;;
+        *)  log_error "$context must be absolute (start with /)"
+            exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\.\.*)
+        log_error "$context contains '..' traversal"
+        exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\;*)
+        log_error "$context contains forbidden: ';'"
+        exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\|*)
+        log_error "$context contains forbidden: '|'"
+        exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\&*)
+        log_error "$context contains forbidden: '&'"
+        exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\`*)
+        log_error "$context contains forbidden: backtick"
+        exit $EXIT_GENERAL ;;
+    esac
+
+    case "$path" in *\$\(*)
+        log_error "$context contains \$() substitution"
+        exit $EXIT_GENERAL ;;
+    esac
+}
+
 # -- Temporary directory ------------------------------------------------------
 TMPDIR=""
 cleanup() {
@@ -184,6 +231,9 @@ VERSION="$(resolve_version "$VERSION_INPUT")"
 
 # Strip "v" prefix for asset filenames (tags are v0.1.1, assets use 0.1.1)
 VERSION_NUMBER="${VERSION#v}"
+
+# Validate install path before any I/O
+validate_path "$INSTALL_DIR" "INSTALL_DIR"
 
 # -- Construct download URLs --------------------------------------------------
 TARBALL="sequoia_${VERSION_NUMBER}_${OS}_${ARCH}.tar.gz"

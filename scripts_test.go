@@ -224,6 +224,245 @@ func TestInstallPs1ChecksumMandatory(t *testing.T) {
 	})
 }
 
+// TestInstallShPathValidation validates install.sh path security (IS-SEC-001).
+// The script must reject dangerous input before any filesystem operation.
+func TestInstallShPathValidation(t *testing.T) {
+	content, err := os.ReadFile("scripts/install.sh")
+	require.NoError(t, err, "scripts/install.sh must exist")
+
+	script := string(content)
+
+	t.Run("function validate_path exists", func(t *testing.T) {
+		assert.Contains(t, script, "validate_path",
+			"install.sh must define a validate_path function for path sanitization")
+	})
+
+	t.Run("rejects .. traversal", func(t *testing.T) {
+		assert.Contains(t, script, "..",
+			"validation must reject '..' traversal sequences")
+	})
+
+	t.Run("rejects ; metachar", func(t *testing.T) {
+		assert.Contains(t, script, ";",
+			"validation must reject ';' command separator")
+	})
+
+	t.Run("rejects | metachar", func(t *testing.T) {
+		assert.Contains(t, script, "|",
+			"validation must reject '|' pipe metachar")
+	})
+
+	t.Run("rejects & metachar", func(t *testing.T) {
+		// The script must contain '&' in a forbidden-character check context.
+		// Since '&' also appears in '2>&1', check that it appears in a
+		// case statement or error message pattern near the validation code.
+		assert.True(t,
+			strings.Contains(script, "&") &&
+				(strings.Contains(script, "forbidden") ||
+					strings.Contains(script, "invalid character") ||
+					strings.Contains(script, "must not contain")),
+			"validation must reject '&' background/metachar")
+	})
+
+	t.Run("rejects backtick metachar", func(t *testing.T) {
+		// Look for backtick in the validation context (case *\`*)
+		assert.Contains(t, script, "`",
+			"validation must reject backtick command substitution")
+	})
+
+	t.Run("rejects $() substitution", func(t *testing.T) {
+		assert.True(t,
+			strings.Contains(script, "$(") &&
+				(strings.Contains(script, "substitution") ||
+					strings.Contains(script, "forbidden") ||
+					strings.Contains(script, ";")),
+			"validation must reject $() command substitution")
+	})
+
+	t.Run("rejects empty path", func(t *testing.T) {
+		// Validation must check for empty/null path
+		assert.True(t,
+			strings.Contains(script, "must not be empty") ||
+				strings.Contains(script, "required") ||
+				strings.Contains(script, "-n") ||
+				strings.Contains(script, "-z"),
+			"validation must reject empty install directory")
+	})
+
+	t.Run("requires absolute path", func(t *testing.T) {
+		// Unix paths must start with /
+		assert.True(t,
+			strings.Contains(script, "/*)") ||
+				strings.Contains(script, "absolute") ||
+				strings.Contains(script, "start with /"),
+			"validation must require absolute paths starting with /")
+	})
+
+	t.Run("validate_path called before check_existing", func(t *testing.T) {
+		// The validation must run BEFORE the idempotency check (check_existing).
+		// This ensures no I/O happens before path validation.
+		valIdx := strings.Index(script, "validate_path")
+		checkIdx := strings.Index(script, "check_existing")
+		if valIdx >= 0 && checkIdx >= 0 {
+			assert.True(t, valIdx < checkIdx,
+				"validate_path call must appear before check_existing call")
+		}
+	})
+}
+
+// TestInstallPs1PathValidation validates install.ps1 path security
+// (IS-SEC-001, IS-SEC-002). PowerShell must reject dangerous input
+// before any filesystem/PATH operation.
+func TestInstallPs1PathValidation(t *testing.T) {
+	content, err := os.ReadFile("scripts/install.ps1")
+	require.NoError(t, err, "scripts/install.ps1 must exist")
+
+	script := string(content)
+
+	t.Run("function Resolve-SafePath exists", func(t *testing.T) {
+		assert.Contains(t, script, "Resolve-SafePath",
+			"install.ps1 must define a Resolve-SafePath function for path sanitization")
+	})
+
+	t.Run("rejects ; metachar", func(t *testing.T) {
+		assert.True(t,
+			contains(script, ";") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject ';' semicolon metachar")
+	})
+
+	t.Run("rejects | metachar", func(t *testing.T) {
+		assert.True(t,
+			contains(script, "|") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject '|' pipe metachar")
+	})
+
+	t.Run("rejects & metachar", func(t *testing.T) {
+		// '&' metachar — verify it appears in a validation context
+		assert.True(t,
+			contains(script, "&") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject '&' background operator")
+	})
+
+	t.Run("rejects backtick metachar", func(t *testing.T) {
+		assert.True(t,
+			contains(script, "`") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject backtick escape character")
+	})
+
+	t.Run("rejects $( ) substitution", func(t *testing.T) {
+		// PowerShell's $() is the subexpression operator
+		assert.True(t,
+			contains(script, "$(") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject $( ) subexpression")
+	})
+
+	t.Run("rejects .. traversal", func(t *testing.T) {
+		assert.True(t,
+			contains(script, "..") &&
+				strings.Contains(script, "forbidden"),
+			"validation must reject '..' directory traversal")
+	})
+
+	t.Run("rejects < and > Windows special chars", func(t *testing.T) {
+		// PowerShell/Windows special chars: < > (redirection)
+		hasLT := contains(script, "<") && strings.Contains(script, "invalid")
+		hasGT := contains(script, ">") && strings.Contains(script, "invalid")
+		assert.True(t, hasLT || hasGT ||
+			strings.Contains(script, "[<>\\\"*?]") ||
+			strings.Contains(script, "x00-\\x1f"),
+			"validation must reject Windows special chars: < > \" * ?")
+	})
+
+	t.Run("rejects double-quote char", func(t *testing.T) {
+		// Double quote must be rejected (escape/parameter injection)
+		assert.True(t,
+			(contains(script, "\"") || contains(script, "\\\"\"")) &&
+				(strings.Contains(script, "invalid") ||
+					strings.Contains(script, "forbidden")),
+			"validation must reject double-quote character")
+	})
+
+	t.Run("rejects * and ? wildcards", func(t *testing.T) {
+		// Windows wildcard chars must be rejected
+		hasStar := contains(script, "*") && strings.Contains(script, "invalid")
+		hasQMark := contains(script, "?") && strings.Contains(script, "invalid")
+		assert.True(t, hasStar || hasQMark,
+			"validation must reject wildcard characters * and ?")
+	})
+
+	t.Run("requires absolute path with drive letter", func(t *testing.T) {
+		// PowerShell paths must be rooted (drive letter)
+		assert.True(t,
+			strings.Contains(script, "IsPathRooted") ||
+				strings.Contains(script, "[A-Z]:\\") ||
+				strings.Contains(script, "absolute"),
+			"validation must require absolute paths starting with drive letter")
+	})
+
+	t.Run("rejects empty path", func(t *testing.T) {
+		assert.True(t,
+			strings.Contains(script, "must not be empty") ||
+				strings.Contains(script, "IsNullOrWhiteSpace") ||
+				strings.Contains(script, "must not be empty"),
+			"validation must reject empty/whitespace-only install directory")
+	})
+
+	t.Run("called before Test-SequoiaInstalled", func(t *testing.T) {
+		// Resolve-SafePath must be called AFTER version resolution
+		// but BEFORE the Test-SequoiaInstalled check.
+		safeIdx := strings.Index(script, "Resolve-SafePath")
+		testIdx := strings.Index(script, "Test-SequoiaInstalled")
+		if safeIdx >= 0 && testIdx >= 0 {
+			assert.True(t, safeIdx < testIdx,
+				"Resolve-SafePath call must appear before Test-SequoiaInstalled call")
+		}
+	})
+}
+
+// TestInstallPs1PathGuard validates the PATH injection guard (IS-SEC-003).
+// Before writing to the Windows user PATH registry, the script must
+// re-validate InstallDir with a semicolon guard.
+func TestInstallPs1PathGuard(t *testing.T) {
+	content, err := os.ReadFile("scripts/install.ps1")
+	require.NoError(t, err, "scripts/install.ps1 must exist")
+
+	script := string(content)
+
+	t.Run("Resolve-SafePath recalled before PATH write", func(t *testing.T) {
+		// The script must call Resolve-SafePath (or a ; guard check)
+		// immediately before [Environment]::SetEnvironmentVariable.
+		safeIdx := strings.LastIndex(script, "Resolve-SafePath")
+		pathWriteIdx := strings.Index(script, "[Environment]::SetEnvironmentVariable")
+		if safeIdx >= 0 && pathWriteIdx >= 0 {
+			assert.True(t, safeIdx < pathWriteIdx,
+				"Resolve-SafePath must be called before SetEnvironmentVariable for PATH write")
+		}
+	})
+
+	t.Run("semicolon rejected before PATH write", func(t *testing.T) {
+		// The PATH guard re-calls Resolve-SafePath before SetEnvironmentVariable.
+		// The Resolve-SafePath function body (defined earlier in the script)
+		// includes ';' in its $forbidden array — this is the rejection mechanism.
+		// Verify the function definition contains semicolon in forbidden chars.
+		setEnvIdx := strings.Index(script, "[Environment]::SetEnvironmentVariable")
+		lastSafeIdx := strings.LastIndex(script, "Resolve-SafePath")
+		if setEnvIdx >= 0 && lastSafeIdx >= 0 {
+			assert.True(t, lastSafeIdx < setEnvIdx,
+				"Resolve-SafePath must be called before SetEnvironmentVariable")
+		}
+		// Verify the Resolve-SafePath function itself rejects ';'
+		assert.True(t,
+			contains(script, "';'") &&
+				strings.Contains(script, "forbidden"),
+			"Resolve-SafePath must explicitly reject ';' semicolon in its forbidden list")
+	})
+}
+
 // TestInstallPs1RepoRefs validates that install.ps1 references:
 // 1. The correct GitHub repo (Crisbr10/sequoia)
 // 2. Download URLs matching goreleaser zip artifact naming

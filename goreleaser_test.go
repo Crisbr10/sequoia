@@ -54,17 +54,21 @@ type goreleaserFormatOverride struct {
 	Formats []string `yaml:"formats"`
 }
 
+type goreleaserExtraFile struct {
+	Glob string `yaml:"glob"`
+}
+
 type goreleaserChecksum struct {
-	NameTemplate string `yaml:"name_template"`
+	NameTemplate string              `yaml:"name_template"`
+	Algorithm    string              `yaml:"algorithm,omitempty"`
+	ExtraFiles   []goreleaserExtraFile `yaml:"extra_files,omitempty"`
 }
 
 type goreleaserRelease struct {
-	Draft      bool                 `yaml:"draft"`
-	Discussion goreleaserDiscussion `yaml:"discussion"`
-}
-
-type goreleaserDiscussion struct {
-	Category string `yaml:"category"`
+	Draft      bool   `yaml:"draft"`
+	Prerelease string `yaml:"prerelease,omitempty"`
+	Header     string `yaml:"header,omitempty"`
+	Footer     string `yaml:"footer,omitempty"`
 }
 
 type goreleaserChangelog struct {
@@ -322,4 +326,89 @@ func indexInString(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// TestGoreleaserConfig_ScriptChecksums validates SI-001: install scripts
+// must be included in GoReleaser checksums via checksum.extra_files.
+func TestGoreleaserConfig_ScriptChecksums(t *testing.T) {
+	content, err := os.ReadFile(".goreleaser.yaml")
+	require.NoError(t, err, ".goreleaser.yaml must exist")
+
+	var cfg goreleaserSchema
+	require.NoError(t, yaml.Unmarshal(content, &cfg), ".goreleaser.yaml must be valid YAML")
+
+	t.Run("extra_files is not empty", func(t *testing.T) {
+		require.NotEmpty(t, cfg.Checksum.ExtraFiles,
+			"checksum.extra_files must include install scripts")
+	})
+
+	t.Run("includes install.ps1", func(t *testing.T) {
+		found := false
+		for _, ef := range cfg.Checksum.ExtraFiles {
+			if contains(ef.Glob, "install.ps1") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found,
+			"extra_files must include glob pattern for scripts/install.ps1")
+	})
+
+	t.Run("includes install.sh", func(t *testing.T) {
+		found := false
+		for _, ef := range cfg.Checksum.ExtraFiles {
+			if contains(ef.Glob, "install.sh") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found,
+			"extra_files must include glob pattern for scripts/install.sh")
+	})
+
+	t.Run("existing checksum config preserved", func(t *testing.T) {
+		// The existing checksum configuration (name_template, algorithm) must
+		// remain intact — extra_files is additive.
+		assert.Contains(t, cfg.Checksum.NameTemplate, "checksums",
+			"checksum name_template must still reference checksums")
+	})
+}
+
+// TestGoreleaserConfig_ReleaseFooter validates SI-002: the release notes
+// footer must include a verification command so users can verify installer
+// integrity before piping scripts to a shell.
+func TestGoreleaserConfig_ReleaseFooter(t *testing.T) {
+	content, err := os.ReadFile(".goreleaser.yaml")
+	require.NoError(t, err, ".goreleaser.yaml must exist")
+
+	var cfg goreleaserSchema
+	require.NoError(t, yaml.Unmarshal(content, &cfg), ".goreleaser.yaml must be valid YAML")
+
+	t.Run("footer is not empty", func(t *testing.T) {
+		assert.NotEmpty(t, cfg.Release.Footer,
+			"release footer must contain install verification instructions")
+	})
+
+	t.Run("footer contains sha256sum verification command", func(t *testing.T) {
+		assert.Contains(t, cfg.Release.Footer, "sha256sum",
+			"release footer must include sha256sum -c verification command")
+	})
+
+	t.Run("footer references install.sh", func(t *testing.T) {
+		assert.Contains(t, cfg.Release.Footer, "install.sh",
+			"release footer must reference install.sh for verification")
+	})
+
+	t.Run("footer references checksums file", func(t *testing.T) {
+		assert.Contains(t, cfg.Release.Footer, "checksums",
+			"release footer must reference the checksums file")
+	})
+
+	t.Run("footer references curl for download", func(t *testing.T) {
+		// The verification command should include curl to download the checksums
+		assert.True(t,
+			contains(cfg.Release.Footer, "curl") ||
+				contains(cfg.Release.Footer, "wget"),
+			"release footer must include a download command (curl/wget)")
+	})
 }

@@ -51,6 +51,34 @@ function Write-Info  { Write-Host "[INFO]  $args" -ForegroundColor Green }
 function Write-Warn  { Write-Host "[WARN]  $args" -ForegroundColor Yellow }
 function Write-Err   { Write-Host "[ERROR] $args" -ForegroundColor Red }
 
+# -- Path sanitization --------------------------------------------------------
+function Resolve-SafePath {
+    param([string]$Path, [string]$Context)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        Write-Err "$Context must not be empty"
+        exit $EXIT_GENERAL
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($Path)) {
+        Write-Err "$Context must be absolute (e.g., C:\Tools\sequoia)"
+        exit $EXIT_GENERAL
+    }
+
+    $forbidden = @('..', ';', '|', '&', '`', '$(')
+    foreach ($bad in $forbidden) {
+        if ($Path.Contains($bad)) {
+            Write-Err "$Context contains forbidden: '$bad'"
+            exit $EXIT_GENERAL
+        }
+    }
+
+    if ($Path -match '[<>\"*?\x00-\x1f]') {
+        Write-Err "$Context has invalid Windows path chars"
+        exit $EXIT_GENERAL
+    }
+}
+
 # -- OS / Arch detection ------------------------------------------------------
 function Get-NormalizedArch {
     # Simple, reliable detection (same approach as gentle-ai)
@@ -101,6 +129,9 @@ $ResolvedVersion = Resolve-Version -VersionInput $Version
 # Strip "v" prefix for asset filenames (tags are v0.1.1, assets use 0.1.1)
 $VersionNumber = $ResolvedVersion.TrimStart("v")
 
+# Validate install path before any I/O
+Resolve-SafePath -Path $InstallDir -Context "InstallDir"
+
 # -- Download URLs ------------------------------------------------------------
 $Tarball     = "sequoia_${VersionNumber}_${OS}_${Arch}.zip"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball"
@@ -140,6 +171,7 @@ if (Test-SequoiaInstalled) {
 
 # -- Temp directory -----------------------------------------------------------
 $TempDir = Join-Path -Path $env:TEMP -ChildPath "sequoia-install-$(Get-Random)"
+Resolve-SafePath -Path $TempDir -Context "TempDir"
 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
 
 try {
@@ -256,6 +288,10 @@ try {
             } else {
                 $newPath = "$currentPath;$InstallDir"
             }
+
+            # Re-validate InstallDir before writing to PATH (IS-SEC-003)
+            # Prevents semicolon-based PATH splitting injection.
+            Resolve-SafePath -Path $InstallDir -Context "InstallDir for PATH"
 
             # Write to registry (persists across terminal sessions and reboots)
             [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
