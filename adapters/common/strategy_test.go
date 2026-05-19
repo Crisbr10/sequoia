@@ -678,3 +678,28 @@ func TestRestoreOrRemoveFile_MultipleBackupsOnlyRestoresLatest(t *testing.T) {
 	_, err = os.Stat(oldBackup)
 	assert.NoError(t, err, "old backup from different session should remain untouched")
 }
+
+// TestReplaceFile_SessionWriteFails verifies that ReplaceFile propagates
+// AtomicWriteFile errors for the session file instead of silently discarding
+// them. The cross-platform technique creates the session path as a directory,
+// causing os.Rename to fail on every platform. Reference spec: "Session file
+// write fails during file replace".
+func TestReplaceFile_SessionWriteFails(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+
+	// Write user content without Sequoia markers (not managed).
+	require.NoError(t, os.WriteFile(p, []byte("# User config\n"), 0o644))
+
+	// Pre-create the session path as a directory so AtomicWriteFile's
+	// os.Rename fails on all platforms.
+	sessionPath := p + ".sequoia-session"
+	require.NoError(t, os.Mkdir(sessionPath, 0o755))
+
+	err := common.ReplaceFile(p, sequoiaBody("sequoia rules"))
+
+	assert.Error(t, err, "ReplaceFile should return error when session file write fails")
+	assert.Contains(t, err.Error(), "replace file: session",
+		"error should wrap with context 'replace file: session'")
+}

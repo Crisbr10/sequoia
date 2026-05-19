@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -130,8 +131,7 @@ func ReplaceFile(path, content string) error {
 
 	// Write a session file so RestoreOrRemoveFile can find the correct backup.
 	if err := AtomicWriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
-		// Best-effort: if session file write fails, the backup exists but
-		// RestoreOrRemoveFile will fall back to scanning for backups.
+		return fmt.Errorf("replace file: session: %w", err)
 	}
 
 	return AtomicWriteFile(path, []byte(content), 0o644)

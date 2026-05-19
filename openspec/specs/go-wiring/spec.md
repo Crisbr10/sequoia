@@ -105,3 +105,39 @@ The system SHALL ensure that backup files and directories created during install
 - **GIVEN** any install or upgrade operation
 - **WHEN** production files are written (skills, commands, version markers, configs)
 - **THEN** production file permissions SHALL remain at `0o644` (files) and `0o755` (directories)
+
+### Requirement: MergeConfig Session File Error Propagation
+
+`MergeConfig` (`adapters/codex/installer.go`) SHALL return a wrapped error when `AtomicWriteFile` for the `.sequoia-session` file fails, instead of silently discarding the error.
+
+#### Scenario: Session file write fails during config merge
+
+- **GIVEN** `MergeConfig` is called and a backup file exists (non-empty config)
+- **WHEN** `AtomicWriteFile` for `.sequoia-session` fails (e.g., disk full, permission denied, read-only FS)
+- **THEN** `MergeConfig` SHALL return a non-nil error
+- **AND** the error SHALL be wrapped as `"merge config: session: <underlying error>"`
+- **AND** `Adapter.Install()` SHALL trigger rollback (skills + commands) on error
+
+#### Scenario: Session file write succeeds
+
+- **GIVEN** `MergeConfig` is called and a backup file exists
+- **WHEN** `AtomicWriteFile` for `.sequoia-session` succeeds
+- **THEN** `MergeConfig` SHALL proceed to write the merged config and return nil
+
+### Requirement: ReplaceFile Session File Error Propagation
+
+`ReplaceFile` (`adapters/common/strategy.go`) SHALL return a wrapped error when `AtomicWriteFile` for the `.sequoia-session` file fails, instead of silently discarding the error.
+
+#### Scenario: Session file write fails during file replace
+
+- **GIVEN** `ReplaceFile` is called on a non-Sequoia-managed, existing file
+- **WHEN** `AtomicWriteFile` for `.sequoia-session` fails
+- **THEN** `ReplaceFile` SHALL return a non-nil error
+- **AND** the error SHALL be wrapped as `"replace file: session: <underlying error>"`
+- **AND** SHALL NOT proceed to write the replacement file content
+
+#### Scenario: Session file write succeeds
+
+- **GIVEN** `ReplaceFile` is called on a non-Sequoia-managed, existing file
+- **WHEN** `AtomicWriteFile` for `.sequoia-session` succeeds
+- **THEN** `ReplaceFile` SHALL write the replacement content and return nil

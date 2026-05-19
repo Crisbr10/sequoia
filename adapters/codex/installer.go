@@ -34,8 +34,7 @@ func MergeConfig(path string, table map[string]interface{}) error {
 		}
 		// Write a session file so RemoveConfig can find the correct backup.
 		if err := common.AtomicWriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
-			// Best-effort: if session file write fails, the backup exists
-			// but RemoveConfig will fall back to scanning for backups.
+			return fmt.Errorf("merge config: session: %w", err)
 		}
 	}
 

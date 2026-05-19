@@ -439,3 +439,32 @@ func TestRemoveConfig_RestoresCorrectBackup(t *testing.T) {
 			"session file should have been cleaned up")
 	}
 }
+
+// TestMergeConfig_SessionWriteFails verifies that MergeConfig propagates
+// AtomicWriteFile errors for the session file instead of silently discarding
+// them. The cross-platform technique creates the session path as a directory,
+// causing os.Rename to fail on every platform (cannot replace directory with
+// file). Reference spec: "Session file write fails during config merge".
+func TestMergeConfig_SessionWriteFails(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+
+	// Pre-create the session path as a directory so AtomicWriteFile's
+	// os.Rename fails on all platforms.
+	sessionPath := configPath + ".sequoia-session"
+	require.NoError(t, os.Mkdir(sessionPath, 0o755))
+
+	// Write a non-empty config file so MergeConfig enters the backup path.
+	require.NoError(t, os.WriteFile(configPath, []byte("[settings]\ntheme = \"dark\"\n"), 0o644))
+
+	table := map[string]interface{}{
+		"skills_path": "/path",
+	}
+
+	err := codex.MergeConfig(configPath, table)
+
+	assert.Error(t, err, "MergeConfig should return error when session file write fails")
+	assert.Contains(t, err.Error(), "merge config: session",
+		"error should wrap with context 'merge config: session'")
+}
