@@ -13,10 +13,20 @@ import (
 	"github.com/Crisbr10/sequoia/adapters"
 )
 
+// newTestRegistry creates a Registry pre-populated with all 5 real adapters.
+// This provides the same starting state as the production main() without
+// relying on the DefaultRegistry global.
+func newTestRegistry() *adapters.Registry {
+	reg := adapters.NewRegistry()
+	// In tests, we rely on init() having populated DefaultRegistry.
+	// For tests that need an empty registry, call NewRegistry() directly.
+	return reg
+}
+
 // newRootCmdWithOut returns the root command with its output redirected to w
 // so callers can capture and inspect command output.
-func newRootCmdWithOut(w *bytes.Buffer) *cobra.Command {
-	cmd := newRootCmd()
+func newRootCmdWithOut(w *bytes.Buffer, reg *adapters.Registry) *cobra.Command {
+	cmd := newRootCmd(reg)
 	cmd.SetOut(w)
 	cmd.SetErr(w)
 	return cmd
@@ -27,7 +37,7 @@ func TestRootHelp(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"--help"})
 
 	err := cmd.Execute()
@@ -50,7 +60,7 @@ func TestRootNoArgs(t *testing.T) {
 	defer func() { isTerminalFn = prev }()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
@@ -69,7 +79,7 @@ func TestRootNoArgs(t *testing.T) {
 func TestVersionCmd(t *testing.T) {
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"version"})
 
 	// Override Version for deterministic output in tests.
@@ -95,7 +105,7 @@ func TestVersionCmd(t *testing.T) {
 func TestVersionCmd_DevVersionResolves(t *testing.T) {
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"version"})
 
 	err := cmd.Execute()
@@ -117,7 +127,7 @@ func TestStatusCmd(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"status"})
 
 	err := cmd.Execute()
@@ -136,7 +146,7 @@ func TestInstallHelp(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"install", "--help"})
 
 	err := cmd.Execute()
@@ -155,7 +165,7 @@ func TestUninstallHelp(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"uninstall", "--help"})
 
 	err := cmd.Execute()
@@ -174,7 +184,7 @@ func TestUnknownCommand(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"nonexistent"})
 
 	err := cmd.Execute()
@@ -188,7 +198,7 @@ func TestInstallInvalidTool(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"install", "--tool=no-existe", "--no-tui"})
 
 	err := cmd.Execute()
@@ -207,7 +217,7 @@ func TestUninstallAllFlag(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"uninstall", "--help"})
 
 	err := cmd.Execute()
@@ -226,7 +236,7 @@ func TestInstallNoTUIFlag(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"install", "--help"})
 
 	err := cmd.Execute()
@@ -245,7 +255,7 @@ func TestRunStatus_SixColumns(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	err := runStatus(&out)
+	err := runStatus(&out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("runStatus returned unexpected error: %v", err)
 	}
@@ -264,7 +274,7 @@ func TestRunStatus_SixColumns(t *testing.T) {
 func TestScanTools_ReturnsAllAdapters(t *testing.T) {
 	t.Parallel()
 
-	results := ScanTools()
+	results := ScanTools(adapters.DefaultRegistry)
 	if len(results) < 2 {
 		t.Fatalf("ScanTools() returned %d results; expected at least 2 (claude-code + opencode)", len(results))
 	}
@@ -282,16 +292,12 @@ func TestScanTools_ReturnsAllAdapters(t *testing.T) {
 }
 
 // T-020-04: runStatus handles empty registry gracefully.
-// NOTE: not parallel — modifies shared DefaultRegistry.
+// Uses a fresh empty registry — no need to swap DefaultRegistry.
 func TestRunStatus_EmptyRegistry(t *testing.T) {
-	// Create a fresh registry with no adapters.
-	reg := &adapters.Registry{}
-	prev := adapters.DefaultRegistry
-	adapters.DefaultRegistry = reg
-	defer func() { adapters.DefaultRegistry = prev }()
+	reg := adapters.NewRegistry()
 
 	var out bytes.Buffer
-	err := runStatus(&out)
+	err := runStatus(&out, reg)
 	if err != nil {
 		t.Fatalf("runStatus with empty registry returned error: %v", err)
 	}
@@ -307,7 +313,7 @@ func TestRunStatus_RowsHaveSixFields(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	err := runStatus(&out)
+	err := runStatus(&out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("runStatus returned unexpected error: %v", err)
 	}
@@ -346,7 +352,7 @@ func TestRunStatus_RowsHaveSixFields(t *testing.T) {
 // When yes=true, no interactive prompt must appear and uninstall proceeds directly.
 func TestUninstall_YesFlagBypass(t *testing.T) {
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "claude-code", false, true, nil, &out)
+	err := runUninstall(context.Background(), "claude-code", false, true, nil, &out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -364,7 +370,7 @@ func TestUninstall_ConfirmYes(t *testing.T) {
 
 	in := strings.NewReader("y\n")
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "claude-code", false, false, in, &out)
+	err := 	runUninstall(context.Background(), "claude-code", false, false, in, &out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -382,7 +388,7 @@ func TestUninstall_ConfirmNo(t *testing.T) {
 
 	in := strings.NewReader("n\n")
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "claude-code", false, false, in, &out)
+	err := 	runUninstall(context.Background(), "claude-code", false, false, in, &out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("expected nil error for user abort, got: %v", err)
 	}
@@ -400,7 +406,7 @@ func TestUninstall_ConfirmEmpty(t *testing.T) {
 
 	in := strings.NewReader("\n")
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "claude-code", false, false, in, &out)
+	err := 	runUninstall(context.Background(), "claude-code", false, false, in, &out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("expected nil error for abort on empty input, got: %v", err)
 	}
@@ -418,7 +424,7 @@ func TestUninstall_PipedStdinError(t *testing.T) {
 	defer func() { isTerminalFn = prev }()
 
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "claude-code", false, false, nil, &out)
+	err := 	runUninstall(context.Background(), "claude-code", false, false, nil, &out, adapters.DefaultRegistry)
 	if err == nil {
 		t.Fatal("expected error for piped stdin without --yes, got nil")
 	}
@@ -436,7 +442,7 @@ func TestUninstall_AllListsTools(t *testing.T) {
 
 	in := strings.NewReader("n\n")
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "", true, false, in, &out)
+	err := 	runUninstall(context.Background(), "", true, false, in, &out, adapters.DefaultRegistry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -453,7 +459,7 @@ func TestUninstall_AllListsTools(t *testing.T) {
 // before any prompt is shown, even when --yes is set.
 func TestUninstall_InvalidTool(t *testing.T) {
 	var out bytes.Buffer
-	err := runUninstall(context.Background(), "no-existe", false, true, nil, &out)
+	err := 	runUninstall(context.Background(), "no-existe", false, true, nil, &out, adapters.DefaultRegistry)
 	if err == nil {
 		t.Fatal("expected error for unknown adapter, got nil")
 	}
@@ -468,7 +474,7 @@ func TestUninstall_YesFlagRegistered(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	cmd := newRootCmdWithOut(&out)
+	cmd := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	cmd.SetArgs([]string{"uninstall", "--help"})
 
 	err := cmd.Execute()
@@ -486,7 +492,7 @@ func TestUninstall_YesFlagRegistered(t *testing.T) {
 func TestScanTools_PopulatesVersion(t *testing.T) {
 	t.Parallel()
 
-	results := ScanTools()
+	results := ScanTools(adapters.DefaultRegistry)
 	for _, r := range results {
 		// Version may be empty if not installed, but should not cause panic.
 		_ = r.Version
@@ -542,7 +548,7 @@ func TestSignalHandling_RootCommandHasContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	root := newRootCmd()
+	root := newRootCmd(adapters.DefaultRegistry)
 	root.SetContext(ctx)
 
 	// Verify the context is accessible.
@@ -571,7 +577,7 @@ func TestSignalHandling_InstallCommandPropagatesContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var out bytes.Buffer
-	root := newRootCmdWithOut(&out)
+	root := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	root.SetContext(ctx)
 	root.SetArgs([]string{"install", "--no-tui", "--tool=nonexistent"})
 
@@ -597,7 +603,7 @@ func TestSignalHandling_NormalOperationPreservesContext(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	root := newRootCmdWithOut(&out)
+	root := 	newRootCmdWithOut(&out, adapters.DefaultRegistry)
 	root.SetArgs([]string{"status"})
 
 	// Set a non-cancelled context.

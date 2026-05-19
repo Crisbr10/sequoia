@@ -19,12 +19,12 @@ import (
 	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/app"
 
-	// Register all adapters via their init() functions (database/sql pattern).
-	_ "github.com/Crisbr10/sequoia/adapters/claude"
-	_ "github.com/Crisbr10/sequoia/adapters/codex"
-	_ "github.com/Crisbr10/sequoia/adapters/cursor"
-	_ "github.com/Crisbr10/sequoia/adapters/gemini"
-	_ "github.com/Crisbr10/sequoia/adapters/opencode"
+	// Register all adapters via init() + named imports for explicit DI.
+	adaptersClaude "github.com/Crisbr10/sequoia/adapters/claude"
+	adaptersCodex "github.com/Crisbr10/sequoia/adapters/codex"
+	adaptersCursor "github.com/Crisbr10/sequoia/adapters/cursor"
+	adaptersGemini "github.com/Crisbr10/sequoia/adapters/gemini"
+	adaptersOpenCode "github.com/Crisbr10/sequoia/adapters/opencode"
 )
 
 // Version is the Sequoia CLI version. Set at build time via:
@@ -39,7 +39,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	root := newRootCmd()
+	// Build the DI registry and register all adapters explicitly.
+	reg := adapters.NewRegistry()
+	adaptersClaude.RegisterIn(reg)
+	adaptersCodex.RegisterIn(reg)
+	adaptersCursor.RegisterIn(reg)
+	adaptersGemini.RegisterIn(reg)
+	adaptersOpenCode.RegisterIn(reg)
+
+	root := newRootCmd(reg)
 	root.SetContext(ctx)
 	if err := root.Execute(); err != nil {
 		printError(err)
@@ -77,7 +85,8 @@ func exitCode(err error) int {
 }
 
 // newRootCmd creates the root command with all subcommands attached.
-func newRootCmd() *cobra.Command {
+// reg provides the adapter registry for DI.
+func newRootCmd(reg *adapters.Registry) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "sequoia",
 		Short: "Sequoia — Code Audit Framework installer and manager",
@@ -94,16 +103,16 @@ Running sequoia with no arguments launches the interactive TUI.
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if isTerminalFn() {
-				return runTUI("")
+				return runTUI("", reg)
 			}
 			return cmd.Help()
 		},
 	}
 
 	root.AddCommand(
-		newInstallCmd(),
-		newStatusCmd(),
-		newUninstallCmd(),
+		newInstallCmd(reg),
+		newStatusCmd(reg),
+		newUninstallCmd(reg),
 		newVersionCmd(),
 	)
 
@@ -111,7 +120,7 @@ Running sequoia with no arguments launches the interactive TUI.
 }
 
 // newInstallCmd creates the 'install' subcommand.
-func newInstallCmd() *cobra.Command {
+func newInstallCmd(reg *adapters.Registry) *cobra.Command {
 	var (
 		toolID string
 		noTUI  bool
@@ -135,10 +144,10 @@ Examples:
 			// TUI mode: if stdin is a terminal and --no-tui is not set,
 			// launch the Bubbletea app.
 			if !noTUI && isTerminal() {
-				return runTUI(toolID)
+				return runTUI(toolID, reg)
 			}
 			// Headless mode.
-			return runInstall(cmd.Context(), toolID, cmd.OutOrStdout())
+			return runInstall(cmd.Context(), toolID, cmd.OutOrStdout(), reg)
 		},
 	}
 
@@ -149,7 +158,7 @@ Examples:
 }
 
 // newStatusCmd creates the 'status' subcommand.
-func newStatusCmd() *cobra.Command {
+func newStatusCmd(reg *adapters.Registry) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show installation status for all adapters",
@@ -159,7 +168,7 @@ Sequoia is installed for each one.
 The output includes the adapter ID, display name, detected status,
 and installation path.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStatus(cmd.OutOrStdout())
+			return runStatus(cmd.OutOrStdout(), reg)
 		},
 	}
 
@@ -167,7 +176,7 @@ and installation path.`,
 }
 
 // newUninstallCmd creates the 'uninstall' subcommand.
-func newUninstallCmd() *cobra.Command {
+func newUninstallCmd(reg *adapters.Registry) *cobra.Command {
 	var (
 		toolID  string
 		all     bool
@@ -189,7 +198,7 @@ Examples:
   sequoia uninstall --all               # Remove from all tools
   sequoia uninstall --all --yes         # Remove from all tools without prompt`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runUninstall(cmd.Context(), toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout())
+			return runUninstall(cmd.Context(), toolID, all, yesFlag, cmd.InOrStdin(), cmd.OutOrStdout(), reg)
 		},
 	}
 
@@ -244,8 +253,8 @@ var isTerminalFn = isTerminal
 
 // runInstall installs Sequoia into a specific adapter or all detected adapters.
 // ctx is the signal-aware context from main() — cancellation stops the install early.
-func runInstall(ctx context.Context, toolID string, out io.Writer) error {
-	targets := targetAdapters(toolID)
+func runInstall(ctx context.Context, toolID string, out io.Writer, reg *adapters.Registry) error {
+	targets := targetAdapters(toolID, reg)
 	if len(targets) == 0 {
 		if toolID != "" {
 			return fmt.Errorf("%w: unknown adapter %q — use 'sequoia status' to list available adapters", adapters.ErrUnknownAdapter, toolID)
@@ -278,8 +287,8 @@ func runInstall(ctx context.Context, toolID string, out io.Writer) error {
 // in a 6-column fixed-width table: ID, NAME, DETECTED, INSTALLED, VERSION, PATH.
 // If the user's home directory is a symlink, a note is included showing the
 // real resolved path.
-func runStatus(out io.Writer) error {
-	all := adapters.DefaultRegistry.All()
+func runStatus(out io.Writer, reg *adapters.Registry) error {
+	all := reg.All()
 	if len(all) == 0 {
 		_, _ = fmt.Fprintln(out, "No adapters registered.")
 		return nil
@@ -320,8 +329,8 @@ func runStatus(out io.Writer) error {
 // ScanTools returns structured installation status for all registered adapters.
 // Each result includes name, path, installed state, and Sequoia version.
 // The returned slice includes adapters even if not detected — callers filter.
-func ScanTools() []adapters.AdapterStatus {
-	all := adapters.DefaultRegistry.All()
+func ScanTools(reg *adapters.Registry) []adapters.AdapterStatus {
+	all := reg.All()
 	results := make([]adapters.AdapterStatus, 0, len(all))
 	for _, a := range all {
 		results = append(results, a.Status())
@@ -336,10 +345,10 @@ func ScanTools() []adapters.AdapterStatus {
 // and yes is false, it returns an error directing users to --yes. When yes is
 // true, the confirmation prompt is skipped entirely.
 // ctx is the signal-aware context from main() — cancellation stops uninstall early.
-func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.Reader, out io.Writer) error {
-	targets := targetAdapters(toolID)
+func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.Reader, out io.Writer, reg *adapters.Registry) error {
+	targets := targetAdapters(toolID, reg)
 	if all && toolID == "" {
-		targets = adapters.DefaultRegistry.All()
+		targets = reg.All()
 	}
 	if len(targets) == 0 {
 		if toolID != "" {
@@ -404,9 +413,9 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 // runTUI launches the interactive TUI installer using Bubbletea.
 // It creates the root model, configures the program with alt-screen and mouse
 // support, and blocks until the user quits.
-func runTUI(toolID string) error {
+func runTUI(toolID string, reg *adapters.Registry) error {
 	p := tea.NewProgram(
-		app.NewModel(toolID, resolveVersion(Version)),
+		app.NewModel(toolID, resolveVersion(Version), reg),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
@@ -417,9 +426,9 @@ func runTUI(toolID string) error {
 }
 
 // targetAdapters returns adapters matching toolID, or all detected adapters if toolID is empty.
-func targetAdapters(toolID string) []adapters.ToolAdapter {
+func targetAdapters(toolID string, reg *adapters.Registry) []adapters.ToolAdapter {
 	if toolID != "" {
-		a, err := adapters.DefaultRegistry.Get(toolID)
+		a, err := reg.Get(toolID)
 		if err != nil {
 			return nil
 		}
@@ -427,7 +436,7 @@ func targetAdapters(toolID string) []adapters.ToolAdapter {
 	}
 
 	var detected []adapters.ToolAdapter
-	for _, a := range adapters.DefaultRegistry.All() {
+	for _, a := range reg.All() {
 		if a.Detect() {
 			detected = append(detected, a)
 		}
