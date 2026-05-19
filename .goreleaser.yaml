@@ -49,6 +49,9 @@ archives:
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
+  extra_files:
+    - glob: scripts/install.ps1
+    - glob: scripts/install.sh
 
 signs:
   - cmd: cosign
@@ -77,6 +80,13 @@ release:
     
     # Windows PowerShell
     irm https://raw.githubusercontent.com/Crisbr10/sequoia/main/scripts/install.ps1 | iex
+    ```
+
+    **Verify installer integrity**
+
+    ```bash
+    curl -sSLO https://github.com/Crisbr10/sequoia/releases/download/{{ .Tag }}/{{ .ProjectName }}_{{ .Version }}_checksums.txt
+    grep install.sh {{ .ProjectName }}_{{ .Version }}_checksums.txt | sha256sum -c && bash install.sh
     ```
 
 changelog:
