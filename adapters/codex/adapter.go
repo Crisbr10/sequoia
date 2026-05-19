@@ -39,24 +39,27 @@ func newAdapter(homeDir string) *Adapter {
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
 	a.SetStrategy(adapters.StrategyTOMLMerge, nil, nil) // TOML strategy — custom Install/Uninstall
-	a.SetDetectFn(func() bool {
-		base, err := codexBase(homeDir)
-		if err != nil {
-			return false
-		}
-		_, err = os.Stat(base)
-		return err == nil
-	})
-	a.SetIsInstalledFn(func(base string) bool {
-		if _, err := os.Stat(filepath.Join(base, "sequoia")); os.IsNotExist(err) {
-			return false
-		}
-		data, err := os.ReadFile(configPath(base))
-		if err != nil {
-			return false
-		}
-		return containsSequoiaSection(string(data))
-	})
+	a.SetDetector(common.NewDetector(
+		a.Base,
+		func(base string) bool {
+			if _, err := os.Stat(filepath.Join(base, "sequoia")); os.IsNotExist(err) {
+				return false
+			}
+			data, err := os.ReadFile(configPath(base))
+			if err != nil {
+				return false
+			}
+			return containsSequoiaSection(string(data))
+		},
+		func() bool {
+			base, err := codexBase(homeDir)
+			if err != nil {
+				return false
+			}
+			_, err = os.Stat(base)
+			return err == nil
+		},
+	))
 	return a
 }
 

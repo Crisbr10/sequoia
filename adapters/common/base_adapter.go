@@ -32,12 +32,9 @@ type BaseAdapter struct {
 	// paths resolves tool config directory paths. Set via SetPaths().
 	paths *PathResolver
 
-	// isInstalledFn checks whether Sequoia is already installed for this tool.
-	// Receives the resolved base directory.
-	isInstalledFn func(base string) bool
-
-	// detectFn reports whether the tool is present on the host.
-	detectFn func() bool
+	// detector encapsulates tool presence detection and installation checks.
+	// Set via SetDetector(). Delegates to Detect()/IsInstalled().
+	detector *Detector
 
 	// promptStrategy is the PromptStrategy constant for this adapter.
 	promptStrategy adapters.PromptStrategy
@@ -131,14 +128,12 @@ func (a *BaseAdapter) SetInstallTemplates(fs embed.FS, stagingPrefix, sysPromptT
 	a.makeTemplateData = makeData
 }
 
-// SetIsInstalledFn sets the function that checks if Sequoia is installed.
-func (a *BaseAdapter) SetIsInstalledFn(fn func(base string) bool) {
-	a.isInstalledFn = fn
-}
-
-// SetDetectFn sets the function that detects whether the tool is present.
-func (a *BaseAdapter) SetDetectFn(fn func() bool) {
-	a.detectFn = fn
+// SetDetector sets the Detector used by BaseAdapter for tool presence
+// and installation checks. Concrete adapters MUST call this during construction:
+//
+//	a.SetDetector(common.NewDetector(a.paths.Base, isInstalledFn, detectFn))
+func (a *BaseAdapter) SetDetector(d *Detector) {
+	a.detector = d
 }
 
 // SetRollbackOnSystemPromptError enables or disables rollback of skill and
@@ -213,17 +208,21 @@ func (a *BaseAdapter) PromptStrategy() adapters.PromptStrategy {
 }
 
 // Detect reports whether the tool is present on this machine.
+// Delegates to the internal Detector.
 func (a *BaseAdapter) Detect() bool {
-	return a.detectFn()
+	if a.detector == nil {
+		return false
+	}
+	return a.detector.Detect()
 }
 
 // IsInstalled reports whether Sequoia has already been installed.
+// Delegates to the internal Detector.
 func (a *BaseAdapter) IsInstalled() bool {
-	base, err := a.Base()
-	if err != nil {
+	if a.detector == nil {
 		return false
 	}
-	return a.isInstalledFn(base)
+	return a.detector.IsInstalled()
 }
 
 // Status returns the current installation status.

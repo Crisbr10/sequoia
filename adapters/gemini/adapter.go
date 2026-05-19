@@ -43,21 +43,24 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetInstallTemplates(templateFS, "sequoia-gemini-*",
 		"templates/gemini-md-section.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })
-	a.SetIsInstalledFn(func(base string) bool {
-		data, err := os.ReadFile(systemPromptPath(base))
-		if err != nil {
-			return false
-		}
-		return strings.Contains(string(data), sequoiaMarker)
-	})
-	a.SetDetectFn(func() bool {
-		base, err := geminiBase(homeDir)
-		if err != nil {
-			return false
-		}
-		_, err = os.Stat(base)
-		return err == nil
-	})
+	a.SetDetector(common.NewDetector(
+		a.Base,
+		func(base string) bool {
+			data, err := os.ReadFile(systemPromptPath(base))
+			if err != nil {
+				return false
+			}
+			return strings.Contains(string(data), sequoiaMarker)
+		},
+		func() bool {
+			base, err := geminiBase(homeDir)
+			if err != nil {
+				return false
+			}
+			_, err = os.Stat(base)
+			return err == nil
+		},
+	))
 	return a
 }
 

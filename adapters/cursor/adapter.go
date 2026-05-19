@@ -38,18 +38,21 @@ func newAdapter(homeDir string) *Adapter {
 		"templates/rules.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })
 	a.SetRollbackOnSystemPromptError(true)
-	a.SetIsInstalledFn(func(base string) bool {
-		_, err := os.Stat(versionFilePath(base))
-		return err == nil
-	})
-	a.SetDetectFn(func() bool {
-		if base, err := cursorBase(homeDir); err == nil {
-			if _, err := os.Stat(filepath.Join(base, "..")); err == nil {
-				return true
+	a.SetDetector(common.NewDetector(
+		a.Base,
+		func(base string) bool {
+			_, err := os.Stat(versionFilePath(base))
+			return err == nil
+		},
+		func() bool {
+			if base, err := cursorBase(homeDir); err == nil {
+				if _, err := os.Stat(filepath.Join(base, "..")); err == nil {
+					return true
+				}
 			}
-		}
-		_, err := exec.LookPath("cursor")
-		return err == nil
-	})
+			_, err := exec.LookPath("cursor")
+			return err == nil
+		},
+	))
 	return a
 }

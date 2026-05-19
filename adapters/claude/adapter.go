@@ -39,21 +39,24 @@ func newAdapter(homeDir string) *Adapter {
 	a.SetInstallTemplates(templateFS, "sequoia-claude-*",
 		"templates/claude-md-section.md.tmpl",
 		func() interface{} { return templateData{Version: common.Version} })
-	a.SetIsInstalledFn(func(base string) bool {
-		data, err := os.ReadFile(systemPromptPath(base))
-		if err != nil {
-			return false
-		}
-		return strings.Contains(string(data), sequoiaMarker)
-	})
-	a.SetDetectFn(func() bool {
-		if base, err := claudeBase(homeDir); err == nil {
-			if _, err := os.Stat(base); err == nil {
-				return true
+	a.SetDetector(common.NewDetector(
+		a.Base,
+		func(base string) bool {
+			data, err := os.ReadFile(systemPromptPath(base))
+			if err != nil {
+				return false
 			}
-		}
-		_, err := exec.LookPath("claude")
-		return err == nil
-	})
+			return strings.Contains(string(data), sequoiaMarker)
+		},
+		func() bool {
+			if base, err := claudeBase(homeDir); err == nil {
+				if _, err := os.Stat(base); err == nil {
+					return true
+				}
+			}
+			_, err := exec.LookPath("claude")
+			return err == nil
+		},
+	))
 	return a
 }
