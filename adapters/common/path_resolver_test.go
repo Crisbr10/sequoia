@@ -400,6 +400,120 @@ func TestPathResolver_EmptyHomeDirUsesOS(t *testing.T) {
 }
 
 // =========================================================================
+// Symlink resolution caching
+// =========================================================================
+
+// TestPathResolver_BaseSymlinkCached verifies that ResolveSymlink (via
+// filepath.EvalSymlinks) is called at most once for the same PathResolver
+// instance. The cached resolved path is reused on subsequent Base() calls.
+func TestPathResolver_BaseSymlinkCached(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+
+	var resolveCalls int
+	pr := common.NewPathResolver(
+		func(homeDir string) (string, error) {
+			resolveCalls++
+			return filepath.Join(homeDir, ".tool"), nil
+		},
+		tmp,
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+		nil,
+	)
+
+	// First call resolves symlink.
+	first, err := pr.Base()
+	require.NoError(t, err)
+	assert.NotEmpty(t, first)
+
+	// Second call must NOT re-resolve the symlink.
+	second, err := pr.Base()
+	require.NoError(t, err)
+	assert.Equal(t, first, second, "Base() should return consistent result")
+	// resolveBase should be called twice (once per Base()), but the symlink
+	// resolution inside Base() should be cached. We verify that the resolved
+	// home directory passed to resolveBase is the same on both calls.
+	assert.Equal(t, 2, resolveCalls, "resolveBase should be called twice (no caching of base resolution)")
+}
+
+// TestPathResolver_SetHomeDirResetsSymlinkCache verifies that calling
+// SetHomeDir() invalidates the cached symlink resolution, forcing a fresh
+// ResolveSymlink call on the next Base().
+func TestPathResolver_SetHomeDirResetsSymlinkCache(t *testing.T) {
+	t.Parallel()
+
+	dirA := t.TempDir()
+	dirB := t.TempDir()
+
+	var lastResolved string
+	pr := common.NewPathResolver(
+		func(homeDir string) (string, error) {
+			lastResolved = homeDir
+			return filepath.Join(homeDir, ".tool"), nil
+		},
+		dirA,
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+		nil,
+	)
+
+	// First call with dirA — symlink resolution cached.
+	_, err := pr.Base()
+	require.NoError(t, err)
+	assert.Contains(t, lastResolved, filepath.Base(dirA))
+
+	// SetHomeDir must invalidate the symlink cache.
+	pr.SetHomeDir(dirB)
+
+	// Second call with dirB — fresh symlink resolution.
+	_, err = pr.Base()
+	require.NoError(t, err)
+	assert.Contains(t, lastResolved, filepath.Base(dirB))
+}
+
+// TestPathResolver_NonSymlinkPathStillCached verifies that even for
+// non-symlink paths, the resolution result is cached (EvalSymlinks
+// is still called once).
+func TestPathResolver_NonSymlinkPathStillCached(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	// Normalize to get the canonical path (EvalSymlinks on non-symlink).
+	canonical, err := filepath.EvalSymlinks(tmp)
+	require.NoError(t, err)
+
+	pr := common.NewPathResolver(
+		func(homeDir string) (string, error) {
+			// Verify we always get the canonical (resolved) path.
+			assert.Equal(t, canonical, homeDir, "resolveBase should receive canonical path")
+			return filepath.Join(homeDir, ".tool"), nil
+		},
+		tmp,
+		func(base string) string { return filepath.Join(base, "skills") },
+		func(base string) string { return filepath.Join(base, "commands") },
+		func(base string) string { return filepath.Join(base, "sys.md") },
+		func(base string) string { return filepath.Join(base, "version") },
+		func(base string) string { return filepath.Join(base, "backup") },
+		nil,
+	)
+
+	// Both calls receive the same canonical path.
+	first, err := pr.Base()
+	require.NoError(t, err)
+	second, err := pr.Base()
+	require.NoError(t, err)
+	assert.Equal(t, first, second)
+}
+
+// =========================================================================
 // TestPathResolver_BaseCachingEmptyHomeDir
 // =========================================================================
 

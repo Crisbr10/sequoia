@@ -8,8 +8,8 @@ import (
 
 // PathResolver resolves tool config directory paths from the user home
 // directory. It encapsulates home directory resolution (with sync.Once
-// caching), symlink resolution, and the 5 path functions that map a base
-// directory to tool-specific subdirectories.
+// caching), symlink resolution (with sync.Once caching), and the 5 path
+// functions that map a base directory to tool-specific subdirectories.
 //
 // PathResolver is constructed once per adapter and SHOULD NOT be modified
 // after construction except via SetHomeDir() (used for testing).
@@ -32,6 +32,12 @@ type PathResolver struct {
 	cachedHomeOnce sync.Once
 	cachedHomeDir  string
 	cachedHomeErr  error
+
+	// Caching for symlink resolution. ResolveSymlink(homeDir) is called
+	// at most once per PathResolver instance (reset on SetHomeDir).
+	cachedResolvedOnce sync.Once
+	cachedResolved     string
+	cachedResolvedWarn string
 
 	// warnFn is called with non-fatal warning messages (e.g., symlink
 	// resolution issues). If nil, warnings are discarded. The callback
@@ -77,9 +83,14 @@ func (p *PathResolver) HomeDir() string {
 
 // SetHomeDir overrides the home directory. After calling SetHomeDir, the
 // next call to Base() will use the new directory and skip os.UserHomeDir().
-// This is primarily used for testing.
+// The symlink resolution cache is reset so the new home directory is
+// re-resolved. This is primarily used for testing.
 func (p *PathResolver) SetHomeDir(dir string) {
 	p.homeDir = dir
+	// Reset the symlink resolution cache — a new home directory requires
+	// a fresh ResolveSymlink call. Assigning a zero-value sync.Once creates
+	// a fresh call-once guard.
+	p.cachedResolvedOnce = sync.Once{}
 }
 
 // Base resolves and returns the tool's config root directory. If homeDir
@@ -87,8 +98,8 @@ func (p *PathResolver) SetHomeDir(dir string) {
 // os.UserHomeDir() is called once and cached via sync.Once.
 //
 // The home directory is resolved via ResolveSymlink before being passed
-// to resolveBase. Any symlink warnings are appended to the shared warnings
-// slice.
+// to resolveBase. Symlink resolution is cached per PathResolver instance
+// via sync.Once; SetHomeDir() resets the cache.
 func (p *PathResolver) Base() (string, error) {
 	homeDir := p.homeDir
 	if homeDir == "" {
@@ -101,12 +112,18 @@ func (p *PathResolver) Base() (string, error) {
 		homeDir = p.cachedHomeDir
 	}
 
-	resolved, warning := ResolveSymlink(homeDir)
-	if warning != "" {
-		p.addWarning(warning)
+	// Cache symlink resolution — EvalSymlinks is expensive and homeDir
+	// is immutable per PathResolver instance (except via SetHomeDir,
+	// which resets the Once).
+	p.cachedResolvedOnce.Do(func() {
+		p.cachedResolved, p.cachedResolvedWarn = ResolveSymlink(homeDir)
+	})
+
+	if p.cachedResolvedWarn != "" {
+		p.addWarning(p.cachedResolvedWarn)
 	}
 
-	return p.resolveBase(resolved)
+	return p.resolveBase(p.cachedResolved)
 }
 
 // SkillsPath returns the absolute path to the skills directory.
