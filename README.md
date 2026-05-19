@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/icons8-árbol-conífero-64.png">
-    <img src="docs/icons8-árbol-conífero-64.png" alt="Sequoia" width="80">
+    <img src="internal/tui/sequoia_icon.png" alt="Sequoia" width="80">
   </picture>
 </p>
 
