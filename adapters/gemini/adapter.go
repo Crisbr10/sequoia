@@ -34,9 +34,9 @@ func NewAdapter(homeDir string) *Adapter {
 func newAdapter(homeDir string) *Adapter {
 	a := &Adapter{}
 	a.SetIDName("gemini-cli", "Gemini CLI")
-	a.SetHomeDir(homeDir)
-	a.ResolveBase(geminiBase)
-	a.SetPathFns(skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath)
+	a.SetPaths(common.NewPathResolver(geminiBase, homeDir,
+		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
+		a.AddWarning))
 	a.SetStrategy(adapters.StrategyConfigMerge,
 		func(base, content string) error { return common.InjectMarkdownSection(systemPromptPath(base), content) },
 		func(base string) error { return common.RemoveMarkdownSection(systemPromptPath(base)) })

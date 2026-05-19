@@ -16,8 +16,10 @@ import (
 )
 
 // BaseAdapter provides shared Install, Uninstall, Status, and path methods
-// for tool adapters. Concrete adapters embed BaseAdapter and set the function
-// fields to customize path resolution, detection, and system prompt handling.
+// for tool adapters. Concrete adapters embed BaseAdapter and configure it
+// via setters for detection, prompt strategy, and templates.
+//
+// Path resolution is delegated to an internal *PathResolver set via SetPaths().
 //
 // The Install/Uninstall flow follows the same 8-step pattern for all adapters;
 // only the system prompt strategy and path layout differ.
@@ -26,19 +28,9 @@ type BaseAdapter struct {
 	adapterID string
 	// adapterName is the human-readable display name (e.g. "Claude Code").
 	adapterName string
-	// homeDir overrides os.UserHomeDir() for testing.
-	homeDir string
 
-	// resolveBase returns the tool's config root directory from the user home.
-	// For example: ~/.claude/, ~/.gemini/, ~/.config/opencode/.
-	resolveBase func(homeDir string) (string, error)
-
-	// Path functions — each adapter provides its own directory layout.
-	skillsPathFn       func(base string) string
-	commandsPathFn     func(base string) string
-	systemPromptPathFn func(base string) string
-	versionFilePathFn  func(base string) string
-	backupPathFn       func(base string) string
+	// paths resolves tool config directory paths. Set via SetPaths().
+	paths *PathResolver
 
 	// isInstalledFn checks whether Sequoia is already installed for this tool.
 	// Receives the resolved base directory.
@@ -84,10 +76,6 @@ type BaseAdapter struct {
 	// Install or Uninstall operation. Exposed via LastBackupDir() for
 	// BackupDirGetter interface conformance (REQ-BUG-004).
 	lastBackupDir string
-	// cachedHomeOnce guards one-time resolution of os.UserHomeDir().
-	cachedHomeOnce sync.Once
-	cachedHomeDir  string
-	cachedHomeErr  error
 }
 
 // SetIDName sets the adapter's unique ID and human-readable name.
@@ -96,15 +84,29 @@ func (a *BaseAdapter) SetIDName(id, name string) {
 	a.adapterName = name
 }
 
-// SetHomeDir overrides the user home directory (for testing).
-func (a *BaseAdapter) SetHomeDir(dir string) {
-	a.homeDir = dir
+// SetPaths sets the PathResolver used by BaseAdapter for all path operations.
+// Concrete adapters MUST call this during construction:
+//
+//	a.SetPaths(common.NewPathResolver(resolveBase, homeDir, skillsFn, commandsFn,
+//	    systemPromptFn, versionFileFn, backupFn, a.AddWarning))
+func (a *BaseAdapter) SetPaths(p *PathResolver) {
+	a.paths = p
 }
 
-// HomeDir returns the current home directory override (empty string means
-// production — os.UserHomeDir() is used by the resolveBase function).
+// SetHomeDir overrides the user home directory (for testing).
+// Delegates to the internal PathResolver if configured.
+func (a *BaseAdapter) SetHomeDir(dir string) {
+	if a.paths != nil {
+		a.paths.SetHomeDir(dir)
+	}
+}
+
+// HomeDir returns the current home directory override.
 func (a *BaseAdapter) HomeDir() string {
-	return a.homeDir
+	if a.paths != nil {
+		return a.paths.HomeDir()
+	}
+	return ""
 }
 
 // ID returns the unique machine-readable identifier.
@@ -112,20 +114,6 @@ func (a *BaseAdapter) ID() string { return a.adapterID }
 
 // Name returns the human-readable display name.
 func (a *BaseAdapter) Name() string { return a.adapterName }
-
-// ResolveBase sets the base directory resolution function.
-func (a *BaseAdapter) ResolveBase(fn func(homeDir string) (string, error)) {
-	a.resolveBase = fn
-}
-
-// SetPathFns sets all five path functions at once.
-func (a *BaseAdapter) SetPathFns(skills, commands, systemPrompt, versionFile, backup func(base string) string) {
-	a.skillsPathFn = skills
-	a.commandsPathFn = commands
-	a.systemPromptPathFn = systemPrompt
-	a.versionFilePathFn = versionFile
-	a.backupPathFn = backup
-}
 
 // SetStrategy sets the prompt strategy and its write/remove functions.
 func (a *BaseAdapter) SetStrategy(strategy adapters.PromptStrategy, write func(base, content string) error, remove func(base string) error) {
@@ -187,53 +175,36 @@ func (a *BaseAdapter) clearWarnings() {
 }
 
 // Base resolves and returns the tool's config root directory.
-// If a.homeDir is empty, os.UserHomeDir() is called. The home directory
-// is resolved via ResolveSymlink before being passed to resolveBase.
+// Delegates to the internal PathResolver.
 func (a *BaseAdapter) Base() (string, error) {
-	homeDir := a.homeDir
-	if homeDir == "" {
-		a.cachedHomeOnce.Do(func() {
-			a.cachedHomeDir, a.cachedHomeErr = os.UserHomeDir()
-		})
-		if a.cachedHomeErr != nil {
-			return "", a.cachedHomeErr
-		}
-		homeDir = a.cachedHomeDir
+	if a.paths == nil {
+		return "", errors.New("base adapter: PathResolver not configured")
 	}
-
-	resolved, warning := ResolveSymlink(homeDir)
-	if warning != "" {
-		a.AddWarning(warning)
-	}
-
-	return a.resolveBase(resolved)
+	return a.paths.Base()
 }
 
 // SkillsPath returns the absolute path to the skills directory.
 func (a *BaseAdapter) SkillsPath() string {
-	base, err := a.Base()
-	if err != nil {
+	if a.paths == nil {
 		return ""
 	}
-	return a.skillsPathFn(base)
+	return a.paths.SkillsPath()
 }
 
 // CommandsPath returns the absolute path to the commands directory.
 func (a *BaseAdapter) CommandsPath() string {
-	base, err := a.Base()
-	if err != nil {
+	if a.paths == nil {
 		return ""
 	}
-	return a.commandsPathFn(base)
+	return a.paths.CommandsPath()
 }
 
 // SystemPromptPath returns the absolute path to the system prompt file.
 func (a *BaseAdapter) SystemPromptPath() string {
-	base, err := a.Base()
-	if err != nil {
+	if a.paths == nil {
 		return ""
 	}
-	return a.systemPromptPathFn(base)
+	return a.paths.SystemPromptPath()
 }
 
 // PromptStrategy returns the injection strategy used by this adapter.
@@ -262,7 +233,7 @@ func (a *BaseAdapter) Status() adapters.AdapterStatus {
 	if installed {
 		base, err := a.Base()
 		if err == nil {
-			data, err := os.ReadFile(a.versionFilePathFn(base))
+			data, err := os.ReadFile(a.paths.versionFilePathFn(base))
 			if err == nil {
 				version = strings.TrimSpace(string(data))
 			}
@@ -350,12 +321,12 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("install: %w", err)
 	}
 
-	skillsDir := a.skillsPathFn(base)
-	commandsDir := a.commandsPathFn(base)
+	skillsDir := a.paths.skillsPathFn(base)
+	commandsDir := a.paths.commandsPathFn(base)
 	// Append a unique session suffix to the backup dir to avoid name collisions
 	// with pre-existing directories.
 	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
-	backupDir := a.backupPathFn(base) + "-" + a.ID() + "-" + sessionSuffix
+	backupDir := a.paths.backupPathFn(base) + "-" + a.ID() + "-" + sessionSuffix
 	a.lastBackupDir = backupDir
 
 	// Create target directories before Prepare (Prepare probes for write access).
@@ -422,7 +393,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 
 	// Write the version marker file.
-	if err := AtomicWriteFile(a.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
+	if err := AtomicWriteFile(a.paths.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
 
@@ -461,14 +432,14 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 	// Collect errors from individual file removals instead of discarding them.
 	var errs []error
 
-	if err := os.Remove(filepath.Join(a.skillsPathFn(base), "SKILL.md")); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(filepath.Join(a.paths.skillsPathFn(base), "SKILL.md")); err != nil && !os.IsNotExist(err) {
 		errs = append(errs, fmt.Errorf("remove skill file: %w", err))
 	}
-	if err := os.Remove(a.versionFilePathFn(base)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(a.paths.versionFilePathFn(base)); err != nil && !os.IsNotExist(err) {
 		errs = append(errs, fmt.Errorf("remove version file: %w", err))
 	}
 	for _, cmd := range CommandFiles {
-		if err := os.Remove(filepath.Join(a.commandsPathFn(base), cmd)); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(filepath.Join(a.paths.commandsPathFn(base), cmd)); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
 		}
 	}

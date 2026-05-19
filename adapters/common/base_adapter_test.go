@@ -22,22 +22,21 @@ func uninstallTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("test-adapter", "Test Adapter")
-	a.SetHomeDir("") // not used — we inject home via ResolveBase
-	a.ResolveBase(func(_ string) (string, error) {
-		return home, nil
-	})
 
-	// Path functions that place files under the fake home.
 	skillsDir := filepath.Join(home, "skills")
 	cmdsDir := filepath.Join(home, "commands")
 	versionFile := filepath.Join(home, "sequoia-version")
-	a.SetPathFns(
+
+	a.SetPaths(common.NewPathResolver(
+		func(_ string) (string, error) { return home, nil },
+		"",
 		func(base string) string { return skillsDir },
 		func(base string) string { return cmdsDir },
 		func(base string) string { return filepath.Join(home, "system.md") },
 		func(base string) string { return versionFile },
 		func(base string) string { return filepath.Join(home, "backup") },
-	)
+		a.AddWarning,
+	))
 
 	// No-op system prompt removal for tests.
 	a.SetStrategy(adapters.StrategyFileReplace,
@@ -195,16 +194,16 @@ func installTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("test-adapter", "Test Adapter")
-	a.ResolveBase(func(_ string) (string, error) {
-		return home, nil
-	})
-	a.SetPathFns(
+	a.SetPaths(common.NewPathResolver(
+		func(_ string) (string, error) { return home, nil },
+		"",
 		func(base string) string { return filepath.Join(home, "skills") },
 		func(base string) string { return filepath.Join(home, "commands") },
 		func(base string) string { return filepath.Join(home, "sys.md") },
 		func(base string) string { return filepath.Join(home, "version") },
 		func(base string) string { return filepath.Join(home, "backup") },
-	)
+		a.AddWarning,
+	))
 	a.SetStrategy(adapters.StrategyFileReplace,
 		func(base, content string) error { return fmt.Errorf("system prompt write failed") },
 		nil,
@@ -212,9 +211,6 @@ func installTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 	// Use testFS (from shared_test.go) which only has testdata/test.tmpl.
 	// RenderTemplate will fail looking for "templates/skill.md.tmpl",
 	// simulating a template failure.
-	// We pass stagingPrefix="" to trigger os.MkdirTemp("", ""), which
-	// will fail — but we actually WANT the install to fail before that,
-	// at the template rendering step.
 	a.SetInstallTemplates(testFS, "sequoia-test-*",
 		"templates/skill.md.tmpl",
 		func() interface{} { return map[string]string{"Name": "test"} })
@@ -230,7 +226,7 @@ func TestInstall_ReturnsSentinelError(t *testing.T) {
 	home := t.TempDir()
 	a := installTestAdapter(t, home)
 
-	// Install should fail because templateFS is nil.
+	// Install should fail because templateFS lacks skill template.
 	err := a.Install(adapters.InstallOpts{})
 	require.Error(t, err, "Install should fail when templates are missing")
 
@@ -312,17 +308,16 @@ func warningsTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("warn-adapter", "Warning Adapter")
-	a.SetHomeDir(home)
-	a.ResolveBase(func(homeDir string) (string, error) {
-		return homeDir, nil
-	})
-	a.SetPathFns(
+	a.SetPaths(common.NewPathResolver(
+		func(homeDir string) (string, error) { return homeDir, nil },
+		home,
 		func(base string) string { return filepath.Join(base, "skills") },
 		func(base string) string { return filepath.Join(base, "commands") },
 		func(base string) string { return filepath.Join(base, "sys.md") },
 		func(base string) string { return filepath.Join(base, "version") },
 		func(base string) string { return filepath.Join(base, "backup") },
-	)
+		a.AddWarning,
+	))
 	a.SetStrategy(adapters.StrategyFileReplace,
 		func(base, content string) error { return nil }, // no-op for test
 		nil,
@@ -352,24 +347,30 @@ func TestBaseAdapter_WarningsClearedOnInstall(t *testing.T) {
 	assert.Empty(t, a.Warnings(), "warnings should be cleared at start of Install")
 }
 
-// TestBaseAdapter_BaseCachesUserHomeDir verifies that base() caches
-// os.UserHomeDir() via sync.Once and returns consistent results across
-// repeated calls. The explicit homeDir override path is unchanged.
+// =========================================================================
+// TestBaseAdapter_BaseCachesUserHomeDir
+// =========================================================================
+
+// TestBaseAdapter_BaseCachesUserHomeDir verifies that SkillsPath/CommandsPath
+// return stable results across repeated calls (home dir is cached via
+// sync.Once in PathResolver).
 func TestBaseAdapter_BaseCachesUserHomeDir(t *testing.T) {
 	t.Parallel()
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("cache-test", "Cache Test")
-	a.ResolveBase(func(homeDir string) (string, error) {
-		return filepath.Join(homeDir, ".cache-test"), nil
-	})
-	a.SetPathFns(
+	a.SetPaths(common.NewPathResolver(
+		func(homeDir string) (string, error) {
+			return filepath.Join(homeDir, ".cache-test"), nil
+		},
+		"", // empty → uses os.UserHomeDir()
 		func(base string) string { return filepath.Join(base, "skills") },
 		func(base string) string { return filepath.Join(base, "commands") },
 		func(base string) string { return filepath.Join(base, "sys.md") },
 		func(base string) string { return filepath.Join(base, "version") },
 		func(base string) string { return filepath.Join(base, "backup") },
-	)
+		a.AddWarning,
+	))
 
 	// Calling SkillsPath() triggers base(), which calls os.UserHomeDir().
 	// Repeated calls should return the same path (cached).
@@ -386,8 +387,8 @@ func TestBaseAdapter_BaseCachesUserHomeDir(t *testing.T) {
 }
 
 // TestBaseAdapter_HomeDirOverrideBypassesCache verifies that when
-// SetHomeDir is used, base() uses the explicit path without calling
-// os.UserHomeDir().
+// SetHomeDir is used (via SetPaths with explicit homeDir), Base() uses
+// the explicit path without calling os.UserHomeDir().
 func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
 	t.Parallel()
 
@@ -401,17 +402,18 @@ func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("override-test", "Override Test")
-	a.SetHomeDir(tmp)
-	a.ResolveBase(func(homeDir string) (string, error) {
-		return filepath.Join(homeDir, ".override"), nil
-	})
-	a.SetPathFns(
+	a.SetPaths(common.NewPathResolver(
+		func(homeDir string) (string, error) {
+			return filepath.Join(homeDir, ".override"), nil
+		},
+		tmp, // explicit homeDir
 		func(base string) string { return filepath.Join(base, "skills") },
 		func(base string) string { return filepath.Join(base, "commands") },
 		func(base string) string { return filepath.Join(base, "sys.md") },
 		func(base string) string { return filepath.Join(base, "version") },
 		func(base string) string { return filepath.Join(base, "backup") },
-	)
+		a.AddWarning,
+	))
 
 	// SkillsPath should use the explicit homeDir.
 	sp := a.SkillsPath()

@@ -28,9 +28,9 @@ func NewAdapter(homeDir string) *Adapter {
 func newAdapter(homeDir string) *Adapter {
 	a := &Adapter{}
 	a.SetIDName("cursor", "Cursor IDE")
-	a.SetHomeDir(homeDir)
-	a.ResolveBase(cursorBase)
-	a.SetPathFns(skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath)
+	a.SetPaths(common.NewPathResolver(cursorBase, homeDir,
+		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
+		a.AddWarning))
 	a.SetStrategy(adapters.StrategyFileReplace,
 		func(base, content string) error { return common.ReplaceFile(systemPromptPath(base), content) },
 		func(base string) error { return common.RestoreOrRemoveFile(systemPromptPath(base)) })
