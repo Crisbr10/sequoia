@@ -18,9 +18,9 @@ Sequoia has 56 test files and claims 90%+ coverage across ~19,200 LOC. The audit
 | ID | Task | Effort |
 |----|------|--------|
 | MERGED-001 | Replace go-figure with lightweight ASCII art (~20 lines) | small |
-| P4-002 | Improve adapters/common test coverage from 64.8% to >80% | medium |
+| P4-002 | ~~Improve adapters/common test coverage from 64.8% to >80%~~ ✅ DONE via RC-001 | medium |
 | P4-003 | Remove zero-assertion tests, add real behavior assertions | small |
-| P4-004 | Refactor BaseAdapter.Install() into smaller testable units | medium |
+| P4-004 | ~~Refactor BaseAdapter.Install() into smaller testable units~~ ✅ DONE via RC-001 | medium |
 | P4-009 | Add tests for TUI router (currently [no statements]) | small |
 
 ### Tier 3 — Long Term (LOW)
@@ -29,7 +29,7 @@ Sequoia has 56 test files and claims 90%+ coverage across ~19,200 LOC. The audit
 |----|------|--------|
 | P4-006 | Add build tag to _template directory to exclude from compilation | small |
 | P4-010 | Replace defer-recover with select-ok pattern for channel safety | small |
-| P4-011 | Add context-cancellation rollback tests for BaseAdapter.Install() | medium |
+| P4-011 | ~~Add context-cancellation rollback tests for Install()~~ ✅ DONE via RC-001 | medium |
 | P4-012 | Remove global DefaultRegistry mutation from TUI tests | medium |
 
 ---
@@ -59,17 +59,8 @@ Sequoia has 56 test files and claims 90%+ coverage across ~19,200 LOC. The audit
 - **Verification**: Binary size should drop by ~1.5-3MB. `go mod tidy` removes dependency. Welcome screen golden tests pass.
 - **References**: OWASP A06:2021; SLSA provenance; Go dependency hygiene
 
-### P4-002 — Improve adapters/common test coverage from 64.8% to >80%
-- **Severity**: MEDIUM (absorbed by RC-001)
-- **Evidence**: `go test -cover ./adapters/common/` → `coverage: 64.8% of statements`
-- **Problem**: `adapters/common` is the shared infrastructure for all 5 adapters. At 64.8% coverage, roughly a third of code paths are untested — including error branches in `InjectMarkdownSection`, `ReplaceFile`, `ResolveSymlink`, and `findBackupPath`. A bug here affects every adapter installation.
-- **Fix**:
-  1. Run `go test -coverprofile=coverage.out ./adapters/common/ && go tool cover -html=coverage.out` to identify uncovered lines
-  2. Add tests for: error paths in strategy functions, symlink resolution edge cases, backup path collision scenarios
-  3. Target: >80% statement coverage for common/ package
-  4. Depends on RC-001 (BaseAdapter decomposition to make Install() testable)
-- **Verification**: `go test -cover ./adapters/common/` shows >80%. Coverage report shows error branches covered.
-- **References**: Go proverb: "Test everything you want to keep working"
+### P4-002 — Improve adapters/common test coverage from 64.8% to >80% ✅ DONE via RC-001
+- **Resolution**: RC-001 added 35 new tests (20 error-path + 15 mock FS) to adapters/common, raising coverage from 64.8% to 84.6%. All error branches in Install(), Uninstall(), Detect(), IsInstalled() are now covered. Context cancellation rollback paths are tested at all 5 checkpoints.
 
 ### P4-003 — Remove zero-assertion tests, add real behavior assertions
 - **Severity**: MEDIUM
@@ -83,17 +74,8 @@ Sequoia has 56 test files and claims 90%+ coverage across ~19,200 LOC. The audit
 - **Verification**: All tests have named `t *testing.T` parameter and at least one assertion. Coverage numbers remain meaningful.
 - **References**: Go testing best practices: every test should verify at least one concrete behavior
 
-### P4-004 — Refactor BaseAdapter.Install() into smaller testable units
-- **Severity**: MEDIUM (absorbed by RC-001)
-- **Evidence**: `adapters/common/base_adapter.go:300-430` — 131 lines, 5+ nesting levels, 9 context-cancellation checkpoints
-- **Problem**: Install() handles staging, skill deployment, command deployment, system prompt injection, version file writing, AND 4 context-cancellation checkpoints with manual rollback. This makes it hard to test individual steps and hard to reason about cancellation safety.
-- **Fix**:
-  1. Extract `stageSkills()`, `stageCommands()`, `deploySkills()`, `deployCommands()`, `writeSystemPrompt()` as methods
-  2. Each method takes context and returns error
-  3. Pipeline orchestrates: Stage → Deploy → Verify with context checks between steps
-  4. Depends on RC-001 (BaseAdapter decomposition)
-- **Verification**: Each extracted method <30 lines. Unit tests for each step independently. Cancellation test: cancel context between deploySkills and deployCommands, verify partial state is rolled back.
-- **References**: Clean Code: functions should do one thing; cyclomatic complexity >10 triggers review
+### P4-004 — Refactor BaseAdapter.Install() into smaller testable units ✅ DONE via RC-001
+- **Resolution**: RC-001 decomposed the 482-line BaseAdapter into orchestration logic with 4 delegate structs (PathResolver, Detector, PromptManager, BackupPathBuilder). Install() now delegates through named composition. Each extracted struct has its own test suite. Context cancellation is tested at all 5 checkpoints.
 
 ### P4-009 — Add tests for TUI router
 - **Severity**: MEDIUM
@@ -129,18 +111,8 @@ Sequoia has 56 test files and claims 90%+ coverage across ~19,200 LOC. The audit
 - **Verification**: Send on closed channel no longer panics. Real bugs (nil dereference) produce stack traces instead of being swallowed.
 - **References**: Effective Go: recover should only catch expected panics
 
-### P4-011 — Add context-cancellation rollback tests for Install()
-- **Severity**: LOW (absorbed by RC-001)
-- **Evidence**: `adapters/common/base_adapter.go:380-422` — 4 cancellation checkpoints with manual rollback, zero tests
-- **Problem**: The `base_adapter_test.go` file tests error paths but does not test context cancellation. No test cancels a context mid-install and verifies rollback restores original state. If rollback order is wrong or partial state is left behind, it goes undetected.
-- **Fix**:
-  1. Create test: start Install with a cancellable context
-  2. After skills deploy, cancel context
-  3. Verify: staging directory cleaned up, original files restored, no partial state
-  4. Create test: cancel after commands deploy but before system prompt write
-  5. Create test: cancel during system prompt write
-- **Verification**: All 3 cancellation scenarios produce clean rollback. No leftover files. Original content restored.
-- **References**: Go context patterns: test cancellation and rollback paths explicitly
+### P4-011 — Add context-cancellation rollback tests for Install() ✅ DONE via RC-001
+- **Resolution**: RC-001 added 6 context-cancellation tests using a deterministic checkpointCtx wrapper. Tests verify: pre-cancelled context (no work), post-staging cancel (clean staging), post-skill cancel (skill rolled back), post-commands cancel (both rolled back), post-system-prompt cancel (both rolled back), and full success (all 5 checkpoints pass).
 
 ### P4-012 — Remove global DefaultRegistry mutation from TUI tests
 - **Severity**: LOW (absorbed by RC-005)

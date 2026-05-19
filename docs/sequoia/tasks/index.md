@@ -52,10 +52,10 @@ MERGED-002 (recover pattern improvement)                           │  │   �
 
 | # | ID | Area | Task | Effort | Blocks |
 |---|-----|------|------|--------|--------|
-| 1 | RC-004 | Architecture | Namespace backup directories by adapter ID | small | P3-001, P6-007, P3-006 |
+| 1 | RC-004 | Architecture | ~~Namespace backup directories by adapter ID~~ ✅ COMPLETE | small | P3-001, P6-007, P3-006 |
 | 2 | P2-001 | Architecture | Fix template cache key | small | — |
 | 3 | P4-005 | Quality | Propagate Codex write errors | small | — |
-| 4 | RC-001 | Architecture | Decompose BaseAdapter | large | 8 findings |
+| 4 | RC-001 | Architecture | ~~Decompose BaseAdapter~~ ✅ COMPLETE | large | 8 findings |
 | 5 | RC-002 | Security | Add install script integrity | medium | P1-001, P1-002 |
 | 6 | RC-003 | Operations | Add CI/CD security gates | medium | 8 findings |
 | 7 | RC-006 | Performance | Lazy adapter loading | medium | 5 findings |

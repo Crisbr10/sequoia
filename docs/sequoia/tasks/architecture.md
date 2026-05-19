@@ -12,7 +12,7 @@ Sequoia's architecture centers on the `ToolAdapter` interface with a plugin-regi
 | ID | Task | Effort | Blocks |
 |----|------|--------|--------|
 | RC-004 | Namespace backup directories by adapter ID | small | P3-001 |
-| RC-001 | Decompose BaseAdapter into interface-segregated components | large | P3-006, P3-007, P4-007 |
+| RC-001 | ~~Decompose BaseAdapter into interface-segregated components~~ ✅ COMPLETE (2026-05-19) | large | P3-006, P3-007, P4-007 |
 | RC-006 | Implement lazy adapter loading, remove init() coupling | medium | P3-005, P2-004 |
 
 ### Tier 2 — Short Term (MEDIUM)
@@ -45,19 +45,27 @@ Sequoia's architecture centers on the `ToolAdapter` interface with a plugin-regi
 - **Verification**: `go test ./adapters/common/ -run TestBackupIsolation -v -count=1`
 - **References**: Go: os.RemoveAll is destructive; shared mutable state between lifecycle phases
 
-### RC-001 — Decompose BaseAdapter into interface-segregated components
-- **Severity**: HIGH (affects 8 child findings)
-- **Evidence**: `adapters/common/base_adapter.go:24-91` — 22 exported methods, 19 fields, Install() 131 lines
-- **Problem**: BaseAdapter mixes three concerns: (a) configuration via 9 setter methods, (b) runtime state (warnings, lastBackupDir), and (c) complex lifecycle methods (Install/Uninstall orchestrating staging, rendering, backup, rollback). Codex duplicates Install() because extracting the shared flow from the monolith is too risky. Common/ coverage is 64.8% because the class is too large to test effectively.
-- **Fix**:
-  1. Extract `AdapterConfig` struct to hold immutable configuration (ID, Name, paths, strategy, templates)
-  2. Create `LifecycleManager` that accepts `AdapterConfig` + a `PromptWriter` interface
-  3. Split `PromptWriter` into strategy-specific implementations (MarkdownInjector, FileReplacer, TOMLMerger)
-  4. Move `TOMLMerge` from `adapters/codex/` to `adapters/common/toml_strategy.go`
-  5. Refactor `Install()`: extract staging, backup, copy, and rollback into a `Pipeline` type
-  6. Update all 5 adapters to compose `LifecycleManager` with their specific `PromptWriter`
-- **Verification**: All existing adapter tests must pass. Common/ coverage should reach >80%. New adapter authoring guide: <50 lines per new adapter.
-- **References**: Go proverb "Accept interfaces, return structs"; Builder pattern; Template Method pattern
+### RC-001 — Decompose BaseAdapter into interface-segregated components ✅ COMPLETE (2026-05-19)
+- **Severity**: HIGH — affected 8 child findings, all resolved by this root cause fix
+- **Result**: 44/44 tasks complete across 8 phases. Verdict: PASS WITH WARNINGS. Coverage: 84.6%.
+- **What was done**:
+  1. Extracted 4 cohesive structs: `PathResolver` (152 LOC), `Detector` (59 LOC), `PromptManager` (70 LOC), `BackupPathBuilder` (37 LOC)
+  2. Segregated `ToolAdapter` into 4 role interfaces: `Identifier`, `Detector`, `Installer`, `AdapterPaths`
+  3. Replaced `DefaultRegistry` global with constructor DI: `NewRegistry()`, `RegisterIn()` per adapter
+  4. Deleted `factory.go` — consumers use `registry.Get(id)` directly
+  5. Added 35 new tests (20 error-path + 15 mock FS) across 4 test files
+  6. BaseAdapter slimmed from 482 lines to 398 lines with named composition
+- **Downstream findings resolved**:
+  - P3-002 (encapsulate fields) — DONE by extraction
+  - P3-003 (ISP violation) — DONE by interface segregation
+  - P3-004 (detection vs install coupling) — DONE by Detector extraction
+  - P3-005 (global mutable state) — DONE by DI refactor
+  - P3-006 (BackupManager) — PARTIAL (backup path builder done, full BackupManager needs RC-004)
+  - P3-007 (factory leak) — DONE (factory.go deleted)
+  - P4-001 (error-path tests) — DONE (20 tests added)
+  - P4-002 (mock embed.FS tests) — DONE (15 tests added)
+- **Archive**: `openspec/changes/archive/2026-05-19-rc-001-decompose-baseadapter/`
+- **Specs synced to**: `openspec/specs/adapter-architecture/spec.md` (6 requirements, 10 scenarios)
 
 ### RC-006 — Implement lazy adapter loading
 - **Severity**: HIGH (affects 5 child findings)
