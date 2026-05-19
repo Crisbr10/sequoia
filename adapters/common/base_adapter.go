@@ -326,7 +326,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	defer func() { _ = os.RemoveAll(staging) }()
 
 	// Render and stage the skill file.
-	skillContent, err := RenderTemplate(a.templateFS, "templates/skill.md.tmpl", data)
+	skillContent, err := RenderTemplate(&a.templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -402,7 +402,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 
 	// Render and write the system prompt.
-	sectionContent, err := RenderTemplate(a.templateFS, a.systemPromptTemplate, data)
+	sectionContent, err := RenderTemplate(&a.templateFS, a.systemPromptTemplate, data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}

@@ -61,6 +61,7 @@ adapters/*/.opencode/
 # Local dev tools
 .atl/
 .gga
+.pi/
 
 # Duplicate docs artifacts
 docs/.atl/

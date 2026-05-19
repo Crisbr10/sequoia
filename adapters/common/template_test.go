@@ -16,6 +16,19 @@ import (
 //go:embed testdata/*.tmpl
 var templateTestFS embed.FS
 
+// cacheTestFSA and cacheTestFSB embed separate template directories with
+// different content but the same template file name. Used by
+// TestRenderTemplateCacheIsolation to verify that different *embed.FS
+// instances produce correct, isolated cache entries — FS A never returns
+// FS B's content and vice versa. The fix (pointer parameter) makes the
+// cache key stable per source, preventing cross-adapter contamination.
+//
+//go:embed testdata/isol_a/templates
+var cacheTestFSA embed.FS
+
+//go:embed testdata/isol_b/templates
+var cacheTestFSB embed.FS
+
 // =========================================================================
 // TestRenderTemplate_Caching
 // =========================================================================
@@ -33,11 +46,11 @@ func TestRenderTemplate_Caching(t *testing.T) {
 	}
 	d := data{Name: "World", Version: "0.1.0"}
 
-	r1, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d)
+	r1, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
 	require.NoError(t, err)
 	r1 = strings.ReplaceAll(r1, "\r\n", "\n")
 
-	r2, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d)
+	r2, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
 	require.NoError(t, err)
 	r2 = strings.ReplaceAll(r2, "\r\n", "\n")
 
@@ -67,11 +80,11 @@ func TestRenderTemplate_DifferentTemplates(t *testing.T) {
 	}
 	d2 := data2{Name: "Beta", Count: 42}
 
-	r1, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d1)
+	r1, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d1)
 	require.NoError(t, err)
 	r1 = strings.ReplaceAll(r1, "\r\n", "\n")
 
-	r2, err := common.RenderTemplate(templateTestFS, "testdata/test2.tmpl", d2)
+	r2, err := common.RenderTemplate(&templateTestFS, "testdata/test2.tmpl", d2)
 	require.NoError(t, err)
 	r2 = strings.ReplaceAll(r2, "\r\n", "\n")
 
@@ -99,17 +112,51 @@ func TestRenderTemplate_CacheIntegrity(t *testing.T) {
 	dA := data{Name: "First", Count: 1}
 	dB := data{Name: "Second", Count: 99}
 
-	rA, err := common.RenderTemplate(templateTestFS, "testdata/test2.tmpl", dA)
+	rA, err := common.RenderTemplate(&templateTestFS, "testdata/test2.tmpl", dA)
 	require.NoError(t, err)
 	rA = strings.ReplaceAll(rA, "\r\n", "\n")
 
-	rB, err := common.RenderTemplate(templateTestFS, "testdata/test2.tmpl", dB)
+	rB, err := common.RenderTemplate(&templateTestFS, "testdata/test2.tmpl", dB)
 	require.NoError(t, err)
 	rB = strings.ReplaceAll(rB, "\r\n", "\n")
 
 	assert.Equal(t, "Goodbye First! Count: 1\n", rA, "first call with data A")
 	assert.Equal(t, "Goodbye Second! Count: 99\n", rB, "second call with data B")
 	assert.NotEqual(t, rA, rB, "different data must produce different output")
+}
+
+// =========================================================================
+// TestRenderTemplateCacheIsolation
+// =========================================================================
+
+// TestRenderTemplateCacheIsolation verifies that two different embed.FS
+// instances with the same template name produce their own correct content.
+// With the bug (stack-local &fs in the cache key), stack frame reuse could
+// cause the second FS to hit the first's cached template — producing wrong
+// content. The fix (pointer parameter) makes the cache key stable per source.
+func TestRenderTemplateCacheIsolation(t *testing.T) {
+	t.Parallel()
+
+	aName := "testdata/isol_a/templates/skill.md.tmpl"
+	bName := "testdata/isol_b/templates/skill.md.tmpl"
+
+	// Call A first — caches template from cacheTestFSA.
+	rA1, err := common.RenderTemplate(&cacheTestFSA, aName, nil)
+	require.NoError(t, err)
+	rA1 = strings.ReplaceAll(rA1, "\r\n", "\n")
+	assert.Equal(t, "PARENT_A_SKILL\n", rA1, "first call with FS A")
+
+	// Call B — caches template from cacheTestFSB.
+	rB, err := common.RenderTemplate(&cacheTestFSB, bName, nil)
+	require.NoError(t, err)
+	rB = strings.ReplaceAll(rB, "\r\n", "\n")
+	assert.Equal(t, "PARENT_B_SKILL\n", rB, "call with FS B — must NOT return FS A content")
+
+	// Call A again — must still return A's content, proving isolation.
+	rA2, err := common.RenderTemplate(&cacheTestFSA, aName, nil)
+	require.NoError(t, err)
+	rA2 = strings.ReplaceAll(rA2, "\r\n", "\n")
+	assert.Equal(t, "PARENT_A_SKILL\n", rA2, "second call with FS A — must NOT be polluted by FS B")
 }
 
 // =========================================================================
@@ -126,7 +173,7 @@ func BenchmarkRenderTemplate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d)
+		_, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -147,14 +194,14 @@ func BenchmarkRenderTemplate_Cached(b *testing.B) {
 	d := data{Name: "Bench", Version: "1.0"}
 
 	// Prime the cache — first call parses and caches the template.
-	_, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d)
+	_, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := common.RenderTemplate(templateTestFS, "testdata/test.tmpl", d)
+		_, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -168,7 +168,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	defer os.RemoveAll(staging)
 
 	// Render and stage the skill file.
-	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
+	skillContent, err := common.RenderTemplate(&templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -229,7 +229,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	//   - StrategyConfigMerge: use InjectSection/RemoveSection
 	//   - StrategyTOMLMerge: implement TOML merge logic
 	// See existing adapters for examples of each approach.
-	rulesContent, err := common.RenderTemplate(templateFS, "templates/rules.md.tmpl", data)
+	rulesContent, err := common.RenderTemplate(&templateFS, "templates/rules.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}

@@ -88,7 +88,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	skillContent, err := common.RenderTemplate(templateFS, "templates/skill.md.tmpl", data)
+	skillContent, err := common.RenderTemplate(&templateFS, "templates/skill.md.tmpl", data)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}

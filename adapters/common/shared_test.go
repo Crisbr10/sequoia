@@ -69,7 +69,7 @@ func TestRenderTemplate_RendersWithData(t *testing.T) {
 	}
 	d := data{Name: "World", Version: common.Version}
 
-	result, err := common.RenderTemplate(testFS, "testdata/test.tmpl", d)
+	result, err := common.RenderTemplate(&testFS, "testdata/test.tmpl", d)
 	require.NoError(t, err)
 	// Normalize CRLF → LF so the test works on Windows (git may checkout
 	// template files with CRLF line endings).
@@ -81,7 +81,7 @@ func TestRenderTemplate_RendersWithData(t *testing.T) {
 func TestRenderTemplate_FileNotFound(t *testing.T) {
 	t.Parallel()
 
-	_, err := common.RenderTemplate(testFS, "nonexistent.tmpl", nil)
+	_, err := common.RenderTemplate(&testFS, "nonexistent.tmpl", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read template")
 }
