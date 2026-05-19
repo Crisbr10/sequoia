@@ -83,6 +83,47 @@ func TestBackupPathBuilder_Build_IncludesSessionSuffix(t *testing.T) {
 }
 
 // =========================================================================
+// TestBackupPathBuilder_Build_DisjointPathsForDifferentAdapters
+// REQ-BACKUP-ISOLATION-002 Scenario 1
+// =========================================================================
+
+// TestBackupPathBuilder_Build_DisjointPathsForDifferentAdapters verifies that
+// two BackupPathBuilder instances with different adapter IDs produce disjoint
+// backup paths, preventing backup collisions between concurrent adapter installs.
+func TestBackupPathBuilder_Build_DisjointPathsForDifferentAdapters(t *testing.T) {
+	t.Parallel()
+
+	bpClaude := common.NewBackupPathBuilder(
+		func(base string) string { return filepath.Join(base, "backup") },
+		"claude",
+	)
+	bpOpenCode := common.NewBackupPathBuilder(
+		func(base string) string { return filepath.Join(base, "backup") },
+		"opencode",
+	)
+
+	resultA := bpClaude.Build("/tmp/home")
+	resultB := bpOpenCode.Build("/tmp/home")
+
+	// Both paths should include their respective adapter IDs.
+	assert.Contains(t, resultA, "claude",
+		"adapter A's backup path should contain its adapter ID")
+	assert.Contains(t, resultB, "opencode",
+		"adapter B's backup path should contain its adapter ID")
+
+	// The two paths must be different.
+	assert.NotEqual(t, resultA, resultB,
+		"different adapters should produce different backup paths")
+
+	// The backup directory trees must be entirely disjoint — neither path
+	// is a prefix of the other, so os.RemoveAll on one cannot destroy the other.
+	assert.False(t, strings.HasPrefix(resultA, resultB),
+		"adapter A's backup path should not be a child of adapter B's path")
+	assert.False(t, strings.HasPrefix(resultB, resultA),
+		"adapter B's backup path should not be a child of adapter A's path")
+}
+
+// =========================================================================
 // TestBackupPathBuilder_Build_ProducesUniquePaths
 // =========================================================================
 

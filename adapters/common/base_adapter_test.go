@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -431,4 +432,171 @@ func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
 	sp := a.SkillsPath()
 	assert.Contains(t, sp, tmp, "SkillsPath should use the explicit homeDir via override")
 	assert.Contains(t, sp, ".override", "SkillsPath should include the resolved base")
+}
+
+// =========================================================================
+// TestBackupIsolation_FreshInstallProducesIdenticalOutput
+// REQ-BACKUP-ISOLATION-003 Scenario 1
+// =========================================================================
+
+// TestBackupIsolation_FreshInstallProducesIdenticalOutput verifies that a
+// fresh install with the new namespaced backup paths produces identical
+// output files as before the backup isolation change. The backup directory
+// structure should be the only difference; installed file content must be
+// byte-for-byte identical regardless of backup path changes.
+func TestBackupIsolation_FreshInstallProducesIdenticalOutput(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	a := fullInstallTestAdapter(t, home)
+
+	err := a.Install(adapters.InstallOpts{})
+	require.NoError(t, err, "fresh install with namespaced backup paths should succeed")
+
+	// Verify SKILL.md at target has expected rendered content.
+	skillsDir := a.SkillsPath()
+	skillBytes, err := os.ReadFile(filepath.Join(skillsDir, "SKILL.md"))
+	require.NoError(t, err)
+	skillContent := strings.ReplaceAll(string(skillBytes), "\r\n", "\n")
+	// installembed.FS template "templates/skill.md.tmpl" is:
+	//   {{.Name}} skill template for testing
+	// With data {"Name": "err-test"}, the rendered output is:
+	//   err-test skill template for testing
+	assert.Contains(t, skillContent, "err-test",
+		"installed SKILL.md should contain adapter name")
+	assert.Contains(t, skillContent, "skill template for testing",
+		"installed SKILL.md should contain template content")
+
+	// Verify command files at target have the correct static content.
+	cmdsDir := a.CommandsPath()
+	for _, cmd := range common.CommandFiles {
+		cmdPath := filepath.Join(cmdsDir, cmd)
+		assert.FileExists(t, cmdPath,
+			"command %s should exist at target after install", cmd)
+
+		cmdBytes, err := os.ReadFile(cmdPath)
+		require.NoError(t, err, "command file %s should be readable", cmd)
+		assert.NotEmpty(t, cmdBytes,
+			"command file %s should have non-empty content", cmd)
+
+		// Command files come from CommandFS (static, no rendering).
+		// Verify they match the embedded template content byte-for-byte.
+		expectedBytes, err := common.CommandFS.ReadFile("templates/commands/" + cmd)
+		require.NoError(t, err, "CommandFS should contain %s", cmd)
+		// Normalize line endings for cross-platform comparison.
+		got := strings.ReplaceAll(string(cmdBytes), "\r\n", "\n")
+		want := strings.ReplaceAll(string(expectedBytes), "\r\n", "\n")
+		assert.Equal(t, want, got,
+			"installed command %s should match CommandFS content byte-for-byte", cmd)
+	}
+
+	// Verify version file exists and has correct content.
+	versionPath := filepath.Join(home, "version")
+	assert.FileExists(t, versionPath, "version file should exist after successful install")
+	versionBytes, err := os.ReadFile(versionPath)
+	require.NoError(t, err)
+	assert.Equal(t, common.Version, strings.TrimSpace(string(versionBytes)),
+		"version file should contain the current Sequoia version")
+}
+
+// =========================================================================
+// TestBackupIsolation_NamespacedBackupStructure
+// REQ-BACKUP-ISOLATION-003 Scenario 2
+// =========================================================================
+
+// TestBackupIsolation_NamespacedBackupStructure verifies that after a
+// successful install (no rollback), the backup directory uses the namespaced
+// structure {base}-{adapterID}-{suffix} with type-specific subdirectories
+// for skills and commands. It also verifies that no backup cleanup is
+// performed after a successful install.
+func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	a := fullInstallTestAdapter(t, home)
+
+	// Pre-create files at target so the installer backs them up.
+	// This lets us verify the backup directory has real content.
+	skillsDir := a.SkillsPath()
+	cmdsDir := a.CommandsPath()
+	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
+	require.NoError(t, os.MkdirAll(cmdsDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(skillsDir, "SKILL.md"),
+		[]byte("original skill content"), 0o644,
+	))
+	for _, cmd := range common.CommandFiles {
+		require.NoError(t, os.WriteFile(
+			filepath.Join(cmdsDir, cmd),
+			[]byte("original "+cmd), 0o644,
+		))
+	}
+
+	err := a.Install(adapters.InstallOpts{})
+	require.NoError(t, err, "install should succeed with pre-existing target files")
+
+	// --- Verify backup directory uses namespaced structure ---
+	backupDir := a.LastBackupDir()
+	require.NotEmpty(t, backupDir, "LastBackupDir should be set after successful install")
+
+	// Backup path should contain the adapter ID.
+	assert.Contains(t, backupDir, "err-test",
+		"backup path should contain the adapter ID")
+
+	// Backup path should have format: {base}-{adapterID}-{sessionSuffix}
+	// The session suffix is a base-36 timestamp, so after "err-test-" there
+	// should be another segment (the suffix).
+	adapterIdx := strings.LastIndex(backupDir, "err-test")
+	require.True(t, adapterIdx >= 0, "backup path should contain adapter ID")
+	suffixStart := adapterIdx + len("err-test")
+	assert.True(t, suffixStart < len(backupDir),
+		"backup path should have a session suffix after the adapter ID")
+	// The character right after the adapter ID should be "-".
+	assert.Equal(t, byte('-'), backupDir[suffixStart],
+		"backup path should separate adapter ID and suffix with '-'")
+
+	// --- Verify type-specific backup subdirectories ---
+	skillBackupDir := filepath.Join(backupDir, "skills")
+	cmdBackupDir := filepath.Join(backupDir, "commands")
+
+	assert.True(t, fileExists(skillBackupDir),
+		"skills backup subdirectory should exist under namespaced backup dir")
+	assert.True(t, fileExists(cmdBackupDir),
+		"commands backup subdirectory should exist under namespaced backup dir")
+
+	// --- Verify backed-up files have original content ---
+	skillBackupPath := filepath.Join(skillBackupDir, "SKILL.md")
+	assert.True(t, fileExists(skillBackupPath),
+		"SKILL.md should be backed up under skills subdirectory")
+	skillBackupBytes, err := os.ReadFile(skillBackupPath)
+	require.NoError(t, err)
+	assert.Equal(t, "original skill content", string(skillBackupBytes),
+		"backed-up SKILL.md should have original content")
+
+	for _, cmd := range common.CommandFiles {
+		cmdBackupPath := filepath.Join(cmdBackupDir, cmd)
+		assert.True(t, fileExists(cmdBackupPath),
+			"command %s should be backed up under commands subdirectory", cmd)
+		cmdBackupBytes, err := os.ReadFile(cmdBackupPath)
+		require.NoError(t, err)
+		assert.Equal(t, "original "+cmd, string(cmdBackupBytes),
+			"backed-up command %s should have original content", cmd)
+	}
+
+	// --- Verify target files have NEW (installed) content ---
+	// SKILL.md should be overwritten with new rendered content.
+	newSkillBytes, err := os.ReadFile(filepath.Join(skillsDir, "SKILL.md"))
+	require.NoError(t, err)
+	newSkillContent := strings.ReplaceAll(string(newSkillBytes), "\r\n", "\n")
+	assert.Contains(t, newSkillContent, "err-test",
+		"installed SKILL.md should have new content, not original")
+	assert.NotEqual(t, "original skill content", strings.TrimSpace(newSkillContent),
+		"installed SKILL.md should differ from original backed-up content")
+
+	// --- Verify no backup cleanup was performed ---
+	// After a successful install, the backup directory should remain intact.
+	assert.True(t, fileExists(backupDir),
+		"backup directory should NOT be cleaned up after successful install")
+	assert.True(t, fileExists(skillBackupPath),
+		"backed-up SKILL.md should still exist after successful install (no cleanup)")
 }
