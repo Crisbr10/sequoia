@@ -107,7 +107,7 @@ func TestFactory_NewAdapter_KnownID(t *testing.T) {
 	a := &testutil.MockAdapter{IDVal: "factory-test-known", NameVal: "Factory Known"}
 	adapters.DefaultRegistry.Register(a)
 
-	got, err := adapters.NewAdapter("factory-test-known")
+	got, err := adapters.DefaultRegistry.Get("factory-test-known")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, "factory-test-known", got.ID())
@@ -116,7 +116,7 @@ func TestFactory_NewAdapter_KnownID(t *testing.T) {
 func TestFactory_NewAdapter_UnknownID(t *testing.T) {
 	t.Parallel()
 
-	_, err := adapters.NewAdapter("this-id-was-never-registered-xyz123")
+	_, err := adapters.DefaultRegistry.Get("this-id-was-never-registered-xyz123")
 	assert.ErrorIs(t, err, adapters.ErrUnknownAdapter)
 }
 
