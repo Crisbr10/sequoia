@@ -41,7 +41,7 @@ Standalone HIGH (no blockers, fix immediately):                    │  │   �
                                                                     │  │   │ │
 RC-005, RC-007 (medium root causes — no downstream blockers)      │  │   │ │
                                                                     │  │   │ │
-MERGED-001 (go-figure consolidation)                               │  │   │ │
+MERGED-001 (go-figure consolidation) ✅                              │  │   │ │
 MERGED-002 (recover pattern improvement)                           │  │   │ │
 ```
 
@@ -58,14 +58,14 @@ MERGED-002 (recover pattern improvement)                           │  │   �
 | 4 | RC-001 | Architecture | ~~Decompose BaseAdapter~~ ✅ COMPLETE | large | 8 findings |
 | 5 | RC-002 | Security | Add install script integrity | medium | P1-001, P1-002 |
 | 6 | RC-003 | Operations | Add CI/CD security gates | medium | 8 findings |
-| 7 | RC-006 | Performance | Lazy adapter loading | medium | 5 findings |
+| 7 | RC-006 | Performance | ~~Lazy adapter loading~~ ✅ COMPLETE | medium | 5 findings |
 
 ### Tier 2 — Short Term (Medium)
 **Risk**: Degraded reliability, missing security hardening, architectural debt accumulation
 
 | # | ID | Area | Task | Effort |
 |---|-----|------|------|--------|
-| 8 | MERGED-001 | Quality | Consolidate go-figure usage | small |
+| 8 | MERGED-001 | Quality | ~~Consolidate go-figure usage~~ ✅ COMPLETE | small |
 | 9 | P6-002 | Operations | Script verification in CI | small |
 | 10 | P4-007 | Architecture | Deduplicate shared types | small |
 | 11 | P3-002 | Architecture | Encapsulate BaseAdapter fields | medium |

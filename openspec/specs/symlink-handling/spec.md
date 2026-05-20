@@ -85,3 +85,24 @@ Gemini and Codex adapter Install and Uninstall methods SHALL use `a.base()` for 
 | 4 | No orphaned files after uninstall | Sequoia installed for Gemini/Codex via homeDir="" | Uninstall completes | Zero sequoia files remain in tool config directory |
 | 5 | Uninstall when files already absent | Adapter never had Sequoia installed | Uninstall runs | Reports success without error; no filesystem mutation |
 | 6 | Partial uninstall — some files pre-deleted | Only Skills file exists; Commands/Prompt already absent | Uninstall runs | Removes Skills; reports success without error on pre-absent files |
+
+---
+
+### Requirement: Cache EvalSymlinks per PathResolver (REQ-SYMLINK-RESOLVE)
+
+`PathResolver.Base()` SHALL call `filepath.EvalSymlinks(homeDir)` at most once per instance via `sync.Once`. `SetHomeDir()` SHALL reset cache.
+
+**Scenario: Cache hit on repeat call**
+- GIVEN a PathResolver whose homeDir is a symlink
+- WHEN `Base()` is called twice
+- THEN `EvalSymlinks` is called once; both calls return the same resolved path
+
+**Scenario: SetHomeDir invalidates cache**
+- GIVEN a PathResolver with a cached resolution
+- WHEN `SetHomeDir("/new")` is called, then `Base()`
+- THEN a fresh `EvalSymlinks` is performed for the new homeDir; the old warning is not re-emitted
+
+**Scenario: Non-symlink path still cached**
+- GIVEN a PathResolver whose homeDir is NOT a symlink
+- WHEN `Base()` is called twice
+- THEN `EvalSymlinks` is called once; both calls return the same path

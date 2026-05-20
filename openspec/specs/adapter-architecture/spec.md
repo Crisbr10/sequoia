@@ -57,9 +57,11 @@ A composite `ToolAdapter` interface SHALL embed all four role interfaces for bac
 
 ---
 
-### REQ-DI: Registry SHALL be injected via constructor, not global variable
+### REQ-DI: Registry SHALL support constructor injection and factory registration
 
 `DefaultRegistry` SHALL remain as a deprecated backward-compat shim. All new code paths SHALL receive `*Registry` via constructor parameters. A `NewRegistry() *Registry` constructor SHALL be provided for tests and DI consumers.
+
+Registry SHALL expose `RegisterFactory(id string, factory func() ToolAdapter)`. Factory MUST NOT construct until first `Get(id)`. `Register()` SHALL remain eager (backward-compat). `init() → DefaultRegistry` MUST still compile.
 
 #### Scenario: Test constructs local registry via constructor
 - GIVEN a test function
@@ -73,6 +75,21 @@ A composite `ToolAdapter` interface SHALL embed all four role interfaces for bac
 - THEN `reg := adapters.NewRegistry()` is constructed
 - AND adapter packages register via `RegisterIn(reg)` instead of `init() → DefaultRegistry`
 - AND `reg` is threaded through `runStatus()`, `ScanTools()`, `runInstall()`, `runUninstall()`
+
+#### Scenario: Factory stored, not constructed
+- GIVEN an empty Registry
+- WHEN `RegisterFactory("claude", fn)` is called
+- THEN the factory is stored; `fn()` is not invoked
+
+#### Scenario: Register still eager
+- GIVEN any Registry
+- WHEN `Register(concrete)` is called
+- THEN the adapter is immediately available via `Get(id)`
+
+#### Scenario: RegisterFactory overwrites previous factory
+- GIVEN `RegisterFactory("a", fn1)` was called
+- WHEN `RegisterFactory("a", fn2)` is called
+- THEN `fn2` replaces `fn1`; neither is invoked yet
 
 ---
 
@@ -116,14 +133,75 @@ Tests SHALL use mock embed.FS instances to verify per-adapter template rendering
 - WHEN each adapter's Install is tested
 - THEN each produces content matching its own template, not a shared template
 
+### REQ-LAZY-CONST: Lazy construction via sync.Once
+
+`Get(id)` SHALL invoke factory (via `sync.Once`) when factory exists and no concrete adapter cached. Subsequent `Get(id)` MUST return same instance. Untouched adapters MUST NOT be constructed.
+
+#### Scenario: First Get triggers construction
+- GIVEN `RegisterFactory("gemini", fn)`
+- WHEN `Get("gemini")` is called
+- THEN `fn()` is invoked once; the result is cached
+
+#### Scenario: Second Get reuses cached instance
+- GIVEN `Get("gemini")` was already called
+- WHEN `Get("gemini")` is called again
+- THEN the cached adapter is returned; `fn()` is not re-invoked
+
+#### Scenario: Never accessed, never built
+- GIVEN 5 `RegisterFactory` calls
+- WHEN only `Get("claude-code")` is called
+- THEN only the Claude factory is invoked; the other 4 factories never run
+
+---
+
+### REQ-ALL-PENDING: All() materializes pending factories
+
+`All()` SHALL call `Get(id)` for each registered ID before snapshot, triggering pending factories. Already-materialized adapters MUST NOT be re-triggered. Order MUST match registration order.
+
+#### Scenario: All triggers pending factories
+- GIVEN `RegisterFactory("a", fnA)` and `RegisterFactory("b", fnB)`
+- WHEN `All()` is called
+- THEN both `fnA` and `fnB` are invoked; 2 concrete adapters are returned in registration order
+
+#### Scenario: All skips already-constructed adapters
+- GIVEN `Get("a")` already triggered construction
+- WHEN `All()` is called
+- THEN `fnA` is NOT re-invoked; `fnB` is invoked
+
+#### Scenario: All after Get returns unified snapshot
+- GIVEN mixed state: `Get("a")` called plus `RegisterFactory("b", fnB)`
+- WHEN `All()` is called
+- THEN both concrete adapters are present; no factory stubs in the result
+
+---
+
+### REQ-TEST-MIGRATE: Fresh registries per test
+
+Tests SHALL use `NewRegistry()` per test case. `cmd/sequoia/main_test.go` SHALL not reference `DefaultRegistry`. `t.Parallel()` MUST be race-free.
+
+#### Scenario: Parallel test isolation
+- GIVEN two tests, each with its own `NewRegistry()`
+- WHEN `t.Parallel()` is used
+- THEN no shared state exists; the race detector is clean
+
+#### Scenario: main_test uses fresh registry
+- GIVEN `main_test.go`
+- WHEN any test runs
+- THEN zero references to `DefaultRegistry` exist
+
+---
+
 ## Coverage Summary
 
 | Category | Requirements | Scenarios |
 |----------|-------------|-----------|
 | Composition pattern | 1 | 2 |
 | Interface segregation | 1 | 2 |
-| Dependency injection | 1 | 2 |
+| Dependency injection | 1 | 5 |
 | Factory removal | 1 | 1 |
 | Error-path tests | 1 | 2 |
 | Mock FS tests | 1 | 1 |
-| **Total** | **6** | **10** |
+| Lazy construction | 1 | 3 |
+| All() pending factories | 1 | 3 |
+| Test migration | 1 | 2 |
+| **Total** | **9** | **21** |

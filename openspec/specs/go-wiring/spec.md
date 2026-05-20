@@ -141,3 +141,19 @@ The system SHALL ensure that backup files and directories created during install
 - **GIVEN** `ReplaceFile` is called on a non-Sequoia-managed, existing file
 - **WHEN** `AtomicWriteFile` for `.sequoia-session` succeeds
 - **THEN** `ReplaceFile` SHALL write the replacement content and return nil
+
+---
+
+### Requirement: Eager Path Preserved (REQ-BACKWARD-COMPAT)
+
+`Register()` SHALL remain eager. `init()` blocks in adapter packages SHALL compile and execute unchanged. `DefaultRegistry` SHALL continue working for external consumers.
+
+#### Scenario: init() still compiles
+- GIVEN each adapter package with `init() → DefaultRegistry`
+- WHEN `go build ./...` is executed
+- THEN zero compilation errors occur
+
+#### Scenario: DefaultRegistry usable externally
+- GIVEN an external Go module importing the `adapters` package
+- WHEN `adapters.DefaultRegistry.Get("claude-code")` is called
+- THEN the expected adapter or `ErrUnknownAdapter` is returned
