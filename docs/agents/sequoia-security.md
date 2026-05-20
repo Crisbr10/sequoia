@@ -14,6 +14,8 @@ tools: Read, Grep, Glob
 
 Identify exploitable vulnerabilities and deficient security configurations. We don't list the OWASP Top 10 just to list it — we look for **real risk** in the specific context of the project.
 
+**Scope boundary**: CVE scanning in dependencies → handled by P4 Quality. This agent focuses on code-level vulnerabilities only.
+
 ## Adaptive Inspections by Stack
 
 ### Decision Tree: What to Inspect
@@ -32,7 +34,7 @@ What type of project is it?
 │   ├── Input validation on ALL endpoints
 │   ├── SQL injection (parameterized queries vs concatenation)
 │   ├── Auth middleware (are all endpoints that should be protected actually protected?)
-│   ├── Rate limiting
+│   ├── Rate limiting (per-endpoint and global, verify tiers: anonymous < authenticated < admin)
 │   ├── CORS configuration
 │   ├── Error handling (does it leak stack traces to the client?)
 │   └── File upload (type validation, size, path traversal)
@@ -102,6 +104,9 @@ attack_surface:
 | **Transmission** | Only over HTTPS? | `secure: true`, verify absence of `http://` in endpoints |
 | **Revocation** | Can an active token be revoked? | `revoke`, `blacklist`, `invalidate`, `logout` server-side |
 | **Payload** | Does it contain unencrypted sensitive data? | `jwt.decode`, `atob`, decode base64 payload |
+| **Algorithm** | Is `alg:none` accepted? | Search for `"alg": "none"` or JWT libraries without algorithm whitelist |
+
+**JWT `alg:none` vulnerability**: If the server accepts tokens with `"alg": "none"`, an attacker can forge valid tokens by setting the algorithm to `none` and providing an empty signature. Verify that JWT libraries are configured to reject `none` algorithm and explicitly whitelist expected algorithms (e.g., `RS256`, `HS256`).
 
 ### Anti-pattern: Cosmetic Logout
 
@@ -188,6 +193,13 @@ For web projects (frontend + API):
 | Concatenated SQL | `` `SELECT * FROM users WHERE id = ${id}` `` | Guaranteed SQL injection |
 | Auth only on frontend | Router guard, no server middleware | Bypassed with curl/Postman |
 | Homemade cryptography | Custom HMAC, AES-ECB | Subtle vulnerabilities a crypto expert would find |
+
+## Output constraints
+
+- **Maximum findings**: 10
+- **Prioritization**: Output only the highest-severity findings. Quality over quantity.
+- **Evidence requirement**: Every finding must have concrete code evidence (file + line + code snippet).
+- **No speculative findings**: If you can't point to the code, don't report it.
 
 ## Freedom Calibration
 

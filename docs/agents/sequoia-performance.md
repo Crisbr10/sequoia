@@ -16,7 +16,33 @@ Identify performance bottlenecks that affect user experience or system efficienc
 
 ## Performance Budget Template
 
+Budgets are **contextual by project size and maturity**. Use these tables to calibrate thresholds:
+
+### Bundle Size Budgets by Project Size
+
+| Budget | Micro (<50 files) | Small (50-200) | Medium (200-1000) | Large (1000+) |
+|--------|-------------------|----------------|-------------------|---------------|
+| JS bundle (gzip) | <100KB | <200KB | <350KB | <500KB |
+| CSS bundle (gzip) | <30KB | <50KB | <80KB | <100KB |
+| Total images | <500KB | <1MB | <2MB | <3MB |
+| Fonts count | <3 | <4 | <5 | <5 |
+
+### API Budgets by Maturity
+
+| Budget | Prototype | Active Dev | Production |
+|--------|-----------|------------|------------|
+| p50 response | <500ms | <300ms | <200ms |
+| p95 response | <2s | <1.5s | <1s |
+| Max payload | <500KB | <200KB | <100KB |
+
+### Maturity Adjustments
+
+- **Prototype/Incubation**: Budgets are aspirational. Flag only extreme violations (>5x threshold).
+- **Active Development**: Budgets are targets. Flag violations >2x threshold.
+- **Production**: Budgets are contracts. Flag ANY violation.
+
 ```yaml
+# Reference budget (medium project, production)
 performance_budget:
   frontend:
     first_contentful_paint: "< 1.8s"
@@ -79,20 +105,27 @@ Bundle Analysis:
 Latency Analysis:
 ├── N+1 queries?
 │   ├── Search for loops that query per element
-│   ├── Verify ORMs: .select_related(), .preload(), .include()
-│   └── Batch loading: DataLoader pattern
+│   ├── ORM eager loading patterns by ecosystem:
+│   │   Active Record: `.includes(:posts)`, `.joins(:comments)`
+│   │   Django ORM: `.select_related('author')`, `.prefetch_related('posts')`
+│   │   Prisma: `.include({ posts: true })`
+│   │   GORM: `.Preload("Posts")`, `.Joins("Author")`
+│   │   Sequelize: `.include([{ model: Post }])`
+│   │   SQLAlchemy: `.joinedload()`, `.selectinload()`
+│   ├── Batch loading: DataLoader pattern (GraphQL, generic)
+│   └── Absence of `.include()` / `.select_related()` in query chains is a red flag
 │
 ├── Is caching implemented?
-│   ├── Response caching (ETags, Cache-Control)
+│   ├── Response caching (ETags, Cache-Control, max-age)
 │   ├── Application-level cache (Redis, Memcached)
-│   ├── Query result caching
-│   └── CDN for static responses
+│   ├── Query result caching (ORM-level: Dataloader, cache plans)
+│   ├── CDN for static responses
+│   └── Cache invalidation strategy: TTL-based? Event-driven? Manual? (no strategy = CRITICAL)
 │
 ├── Connection management?
 │   ├── Connection pooling configured
 │   ├── Keep-alive enabled
-│   ├── Timeout configured at all levels
-│   └── Circuit breaker for downstream services
+│   └── → Timeouts and circuit breakers: handled by P6 Operations
 │
 └── Is serialization efficient?
     ├── Over-fetching data (SELECT * vs needed fields)
@@ -173,6 +206,39 @@ useEffect without cleanup return
 subscriptions without unsubscribe
 ```
 
+### Memory Leak Patterns by Framework
+
+| Framework | Leak pattern | What to search |
+|-----------|-------------|----------------|
+| **React** | useEffect without cleanup | `useEffect\(.*=>\s*\{` — verify cleanup return for subscriptions, timers, event listeners |
+| **React** | setState on unmounted | `if (mounted) setState(...)` — verify isMounted guard or AbortController |
+| **Vue** | onMounted without onUnmounted | watches, event listeners, timers created in `onMounted` must be cleaned in `onUnmounted` |
+| **Angular** | Subscriptions without takeUntil | `this.subscription = ...` without `takeUntil(this.destroy$)` in ngOnDestroy |
+| **Node.js** | EventEmitter without removeListener | `emitter.on('data', ...)` without corresponding `removeListener` or `once` |
+| **Node.js** | Unbounded caches | `new Map()` or `{}` used as cache without max size or TTL |
+
+### Core Web Vitals Verification
+
+For frontend projects, verify the three Core Web Vitals:
+
+**LCP (Largest Contentful Paint) — target <2.5s**:
+- Is the LCP element an image? → Verify: preload, correct format (WebP/AVIF), responsive srcset, not lazy-loaded
+- Is it a text block? → Verify: web fonts use `font-display: swap`, no render-blocking CSS
+- Is it dynamically injected? → Verify: server-rendered or static, not client-side only
+
+**INP (Interaction to Next Paint) — target <200ms**:
+- Long tasks (>50ms): search for heavy synchronous operations in event handlers
+- Expensive selectors: `document.querySelectorAll` in frequent handlers
+- Layout thrashing: alternating style reads and writes in loops
+
+**CLS (Cumulative Layout Shift) — target <0.1**:
+- Images without dimensions → every `<img>` must have `width`/`height` or aspect-ratio
+- Dynamically injected content above the fold → should be server-rendered or have reserved space
+- Web fonts without `font-display: swap` → causes FOIT/FOUT with layout shift
+- Ads/embeds without reserved space → must have fixed dimensions or aspect-ratio container
+
+```
+
 ## Performance Anti-patterns
 
 | Anti-pattern | Example | Impact |
@@ -185,6 +251,12 @@ subscriptions without unsubscribe
 | Missing debounce/throttle | Scroll/input handlers without protection | Main thread saturated |
 | Synchronous XHR | `await fetch()` in startup critical path | Blocks interactivity |
 | Runtime CSS-in-JS | Styled-components without SSR compilation | Overhead on every render |
+
+## Output constraints
+
+- **Maximum findings**: 12
+- **Prioritization**: Highest user-impact findings first (blocking render, N+1 queries, oversized bundles).
+- **Evidence requirement**: Every finding must cite a specific file, metric, or measurement.
 
 ## Freedom Calibration
 

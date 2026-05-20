@@ -8,6 +8,12 @@ allowed-tools: Read, Glob, Grep, Bash
 
 PR-style code review. Analyzes recent changes, auto-selects relevant agents, and cross-references against prior findings.
 
+## Precondition
+
+`/sequoia init` must have been run previously. The Project Map is required to determine which agents apply.
+
+If `--pr=<number>` is used, `gh` CLI must be installed and authenticated. Validate early and fail with clear message if missing.
+
 ## When to use
 
 - Before merging a PR
@@ -24,6 +30,8 @@ PR-style code review. Analyzes recent changes, auto-selects relevant agents, and
   │     ├─ --diff=HEAD~3..HEAD → git diff in that range
   │     ├─ --pr=42 → gh pr diff 42
   │     └─ no flags → git diff HEAD~1..HEAD (last commit)
+  │     └─ Multiple commits: use aggregated diff (git diff <oldest>..<newest>)
+  │        to avoid reporting findings that were introduced and fixed within the range
   │
   ├─ 2. Classify changed files by type
   │     ├── {auth,session,token,login} → P1 Security
@@ -33,8 +41,9 @@ PR-style code review. Analyzes recent changes, auto-selects relevant agents, and
   │     ├── {test,spec,__tests__} → P4 Quality
   │     ├── {Dockerfile,workflow,deploy,.github} → P6 Operations
   │     ├── {package.json,go.mod,Cargo.toml} → P4 Quality (deps)
-  │     ├── {config,bundle,build,webpack,vite} → P2 Performance
-  │     └── All files → P3 Architecture (always)
+│     ├── {config,bundle,build,webpack,vite} → P2 Performance
+│     └── All files → Respect agents_applicable from Project Map
+│         (P3 Architecture is NOT always applied — check Project Map first)
   │
   ├─ 3. Retrieve prior findings from Engram
   │     └─ Flag if changes touch areas with open findings
@@ -81,13 +90,13 @@ Without `--strict`:
 | CI/CD / Docker / deploy | P6 |
 | Dependency manifests | P4 |
 | Build configuration | P2, P3 |
-| **Always** | P3 (architecture) |
+| **All other files** | Respect agents_applicable from Project Map |
 
 ## Cross-reference with prior findings
 
 For each changed file:
 1. Search Engram for open findings on that file
-2. If changes modify lines near a prior finding → mark `📋 PRIOR FINDING AFFECTED`
+2. If changes modify lines **within ±5 lines** of a prior finding's location, **or** in the same function/method, **or** in a dependency of the finding → mark `📋 PRIOR FINDING AFFECTED`
 3. If changes resolve a prior finding → mark `✅ FINDING RESOLVED`
 4. If changes don't touch the prior finding → do not mention (reduce noise)
 
@@ -117,6 +126,15 @@ For each changed file:
 ---
 **Verdict**: {✅ PASS | ⚠️ WARN | 🔴 BLOCK}
 ```
+
+## Exit Codes (for CI/CD integration)
+
+| Code | Meaning | When |
+|------|---------|------|
+| 0 | PASS | No CRITICAL or HIGH findings |
+| 1 | WARN | HIGH findings present but no CRITICAL |
+| 2 | BLOCK | CRITICAL findings present |
+| 3 | ERROR | Tool execution failed (gh not found, invalid range, etc.) |
 
 ## Difference from `/sequoia audit`
 

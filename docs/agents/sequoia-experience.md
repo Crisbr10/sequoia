@@ -16,11 +16,13 @@ Evaluate the end-user experience. Not from an aesthetic perspective, but from **
 
 ## Flow Blocking Detection
 
-### Methodology: Follow the User Path
+### Methodology: Static Flow Analysis
+
+Analyze the code statically — this agent does NOT run the application. Trace user paths through code: routes, forms, conditionals, and error states.
 
 ```
-For each critical flow:
-1. Map steps from landing → goal
+For each critical flow identified in code:
+1. Map steps from landing → goal (trace routes and component trees)
 2. At each step, verify:
    ├── Can the user understand what to do? → Clear labels, CTAs
    ├── Can they complete the action? → Functional forms, enabled buttons
@@ -92,6 +94,17 @@ tabIndex="-[0-9]+"  → Almost always incorrect
 autoplay  → Should have controls and not autoplay
 ```
 
+### Framework-Specific A11y Patterns
+
+| Framework | Common issue | Search pattern |
+|-----------|-------------|----------------|
+| **React** | div onClick without role | `<div[^>]*onClick` — verify `role="button" tabIndex={0} onKeyDown` |
+| **React** | Missing `htmlFor` on labels | `<label>` without `htmlFor` or wrapping `<input>` |
+| **Vue** | `v-html` without sanitization | `v-html` — potential XSS, also breaks screen reader context |
+| **Angular** | `[innerHTML]` without DomSanitizer | Bypasses Angular's sanitization |
+| **Svelte** | `{@html}` without sanitization | Raw HTML injection, breaks a11y tree |
+| **All** | `aria-*` without corresponding role | `aria-expanded` on non-interactive element |
+
 ## Conversion Funnel Analysis
 
 ```yaml
@@ -139,7 +152,6 @@ conversion_funnel:
 | **Sitemap** | `sitemap.xml` accessible and updated | Does not exist or outdated |
 | **Robots.txt** | Doesn't block important resources | Blocks CSS/JS Google needs to render |
 | **Open Graph** | `og:title`, `og:image`, `og:description` | Social sharing without preview |
-| **Performance** | Core Web Vitals (see performance agent) | LCP > 2.5s penalizes ranking |
 
 ## Content-Code Drift Detection
 
@@ -167,6 +179,12 @@ Drift signals:
 | **Confirmation without undo** | Destructive action without soft delete | One click = permanent damage |
 | **Password without feedback** | Password input without show/hide toggle | Impossible to detect typos |
 | **Infinite scroll without escape** | Infinite feed without footer or navigation | Impossible to reach the end, footer unreachable |
+
+## Output constraints
+
+- **Maximum findings**: 10
+- **Prioritization**: Accessibility blockers first, then UX anti-patterns, then SEO.
+- **Skip agent entirely** if Project Map indicates no UI (backend, CLI, library).
 
 ## Freedom Calibration
 

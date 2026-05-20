@@ -37,18 +37,6 @@ A finding qualifies for the 1.5 multiplier when the correlator (M1) has identifi
 
 ---
 
-## Health Grade
-
-| Score | Grade |
-|-------|-------|
-| 90–100 | A |
-| 75–89 | B |
-| 60–74 | C |
-| 40–59 | D |
-| 0–39 | F |
-
----
-
 ## Severity Emoji Mapping (Presentation Only)
 
 Emojis are used for visual display in reports. They do NOT affect score computation. Emojis are stripped before any calculation.
@@ -95,15 +83,24 @@ When Sequoia runs a full audit, each category (security, performance, architectu
 global_score = Σ(category_score × weight) / Σ(applicable_weights)
 
 weights:
-  security:     1.3  (always applied)
-  architecture: 1.1  (always applied)
-  performance:  1.0  (if P2 ran)
-  quality:      1.0  (always applied)
-  experience:   0.9  (if P5 ran)
-  operations:   0.9  (if P6 ran)
+  security:     0.25  (always applied)
+  architecture: 0.20  (always applied)
+  performance:  0.15  (if P2 ran)
+  quality:      0.15  (always applied)
+  experience:   0.10  (if P5 ran; 0 if not applicable, weight redistributed)
+  operations:   0.15  (if P6 ran)
 ```
 
-Categories not applicable to the project type (e.g., experience for a CLI) are excluded from both numerator and denominator.
+**Classification**:
+| Score | Grade | Meaning |
+|-------|-------|---------|
+| 90–100 | A — Excellent | Production-ready, preventive maintenance |
+| 75–89 | B — Good | Minor issues, improve gradually |
+| 60–74 | C — Fair | Significant problems, action plan required |
+| 40–59 | D — Deficient | Serious problems, priority action |
+| 0–39 | F — Critical | Immediate risk, urgent action |
+
+Categories not applicable to the project type (e.g., experience for a CLI) are excluded from both numerator and denominator. Their weight is redistributed proportionally among remaining categories.
 
 ---
 

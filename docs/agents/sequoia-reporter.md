@@ -16,6 +16,23 @@ Transform all findings into actionable deliverables. A report nobody can act on 
 
 ## Health Score Methodology
 
+### Report Versioning
+
+Every report must include:
+```yaml
+versioning:
+  audit_id: "audit-{timestamp}-{project}"
+  previous_audit_id: string | null
+  schema_version: "1.0"
+  generated_at: "{ISO 8601 timestamp}"
+```
+
+### Backup and Overwrite Policy
+
+- **Before overwriting** any existing report, create a backup: `docs/sequoia/backups/{audit_id}/`
+- **Retention**: Keep last 5 audit backups; auto-delete older ones
+- **Append mode**: If `--output=tasks` and tasks already exist, new tasks are appended (not overwritten) unless running a full re-audit
+
 ### Phase Scoring
 
 ```yaml
@@ -150,49 +167,74 @@ global_score:
 1. **{action}** → Resolves {N} findings in {M} domains
 2. **{action}** → Resolves {N} findings in {M} domains
 3. **{action}** → Resolves {N} findings in {M} domains
+
+## Score Trends (if previous audit exists)
+
+| Phase | Previous | Current | Change |
+|-------|----------|---------|--------|
+| 🔒 Security | 72 | 78 | ↗️ +6 |
+| ⚡ Performance | 50 | 45 | ↘️ -5 |
+| 🏗️ Architecture | 88 | 92 | ↗️ +4 |
+| **GLOBAL** | **65** | **70** | **↗️ +5** |
+```
+
+### Quick Wins (< 1 hour, high impact)
+
+Tasks that can be completed in under 1 hour and resolve at least one HIGH/CRITICAL finding:
+
+```yaml
+quick_wins:
+  - task_id: "P1-012"
+    action: "Add missing CSP header"
+    effort: "15 min"
+    impact: "Closes 1 CRITICAL finding"
+  - task_id: "P4-003"
+    action: "Update abandoned dependency 'left-pad' to maintained alternative"
+    effort: "30 min"
+    impact: "Closes 1 HIGH finding, removes supply-chain risk"
 ```
 
 ## Task Plan Format (Optimized for Implementers)
 
 ```yaml
 task_plan:
-  - id: SEQ-001
+  - id: P3-001
     title: "Split UserService into specialized modules"
-    priority: P0  # P0=urgent, P1=high, P2=medium, P3=low
+    priority: 🔴 Blocking
     phase: architecture
-    root_cause: true  # Is root cause of multiple findings
+    root_cause: true
     resolves:
-      - SEC-003 (auth without separation)
-      - PERF-007 (N+1 in dashboard)
-      - QUA-012 (fragile tests)
-      - EXP-004 (slow profile)
+      - P1-003
+      - P2-007
+      - P4-012
     acceptance_criteria:
       - "UserService < 200 LOC"
       - "Auth logic in independent module"
-      - "UserService tests < 10 mocks"
       - "Dashboard loads < 500ms"
-    effort: medium  # small/medium/large
-    risk: medium    # low/medium/high
+    effort: medium
+    risk: medium
     blocked_by: null
-    blocks: [SEQ-002, SEQ-003]
+    blocks: [P1-005, P3-003]
 
-  - id: SEQ-002
+  - id: P1-005
     title: "Add server-side auth middleware"
-    priority: P0
+    priority: 🔴 Blocking
     phase: security
     root_cause: false
     resolves:
-      - SEC-001 (auth only frontend)
-      - SEC-005 (API without protection)
+      - P1-001
     acceptance_criteria:
       - "All /api/* endpoints verify token"
       - "Token invalidated on server-side logout"
-      - "Rate limiting per authenticated user"
     effort: small
     risk: low
-    blocked_by: [SEQ-001]
+    blocked_by: [P3-001]
     blocks: null
 ```
+
+**Task ID format**: `{phase_agent}-{NNN}` (e.g., P1-003, P3-012, M1-001). This matches the finding format defined in SKILL.md.
+
+**Priority levels**: 🔴 Blocking | 🟠 High leverage | 🟡 Backlog
 
 ## Reporter Anti-patterns
 
@@ -205,6 +247,16 @@ task_plan:
 | **Everything is CRITICAL** | 30 findings marked as critical | If everything is urgent, nothing is urgent. Alert fatigue. |
 | **No business context** | "The score is 65/100" | Is it good or bad for THIS project at THIS stage? |
 | **Technical jargon for non-technical** | "Dependency injection for decoupling" | Stakeholders don't understand, don't approve budget |
+
+## Output constraints
+
+- **Per-section limits**:
+  - Critical findings: max 10
+  - High findings: max 15
+  - Medium findings: max 20
+  - Root causes: max 5 (grouped from correlated findings)
+  - Actionable tasks: max 15
+- **Precondition**: M1 Correlator must have completed successfully before running.
 
 ## Freedom Calibration
 

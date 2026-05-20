@@ -212,7 +212,7 @@ action_plan:
    - Findings by category (complete detail)
 
 4. **Generate task files by area**:
-   - Group findings by phase (P1→security, P2→performance, P3→architecture, P4→quality, P5→experience, P6→operations, P7→i18n)
+   - Group findings by phase (P1→security, P2→performance, P3→architecture, P4→quality, P5→experience, P6→operations)
    - Generate `docs/sequoia/tasks/{area}.md` with self-contained tasks (each task includes: ID, priority, evidence, steps, dependencies, risk, acceptance criteria, verification command)
    - Generate `docs/sequoia/tasks/index.md` with global dependency graph and priority tiers
    - Generate `docs/sequoia/summary.md` (consolidated: score + root causes + verified state + gaps + trajectory)

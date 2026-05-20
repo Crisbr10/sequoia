@@ -5,7 +5,7 @@ Mandatory format for ALL Sequoia agents. No exceptions.
 ## Markdown template
 
 ```markdown
-### [PHASE-ID] · [Finding title]  [🔴 CRITICAL | 🟠 RISK | 🟡 ATTENTION]
+### [{AGENT}-{NNN}] · [Finding title]  [🔴 CRITICAL | 🟠 RISK | 🟡 ATTENTION]
 
 **Status**: Confirmed | Partial | Not verifiable | Outdated
 
@@ -36,9 +36,9 @@ How to verify that the finding was resolved.
 
 ### Finding ID
 
-Format: `[AGENT-ID}-{NNN}]`
+Format: `[{AGENT}-{NNN}]`
 
-- `C1` = Context, `P1` = Security, `P2` = Performance, `P3` = Architecture, `P4` = Quality, `P5` = Experience, `P6` = Operations
+- `P1` = Security, `P2` = Performance, `P3` = Architecture, `P4` = Quality, `P5` = Experience, `P6` = Operations
 - `M1` = Correlator, `M2` = Reporter
 - `NNN` = sequential number within the phase
 - Example: `[P1-001]`, `[P3-012]`, `[P4-003]`
@@ -52,6 +52,8 @@ Format: `[AGENT-ID}-{NNN}]`
 | ATTENTION | 🟡 | Prioritizable technical debt, quality improvement, future-proofing |
 
 **Rule**: if you hesitate between two levels, use the lower one. It's better to under-estimate than generate alert fatigue.
+
+**Output constraints**: Each agent has a maximum finding count. Respect your agent's limit (P1=10, P2=12, P3=10, P4=12, P5=10, P6=15). Prioritize by severity — output only the highest-impact findings. Every finding must have concrete code evidence (file + line + code snippet).
 
 ### Status
 

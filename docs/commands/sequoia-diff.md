@@ -1,5 +1,6 @@
 ---
-description: "Compares current project state against the last recorded audit. Shows: resolved, new, worsened, unchanged. Useful for tracking project evolution."
+description: "Compares current project state against the last recorded audit. Shows: resolved, new, worsened, unchanged. Supports --baseline, --since, --skip-scan, --only-verified."
+argument-hint: "[--baseline=<audit-id>] [--since=<date>] [--skip-scan] [--only-verified]"
 allowed-tools: Read, Glob, Grep
 ---
 
@@ -9,7 +10,11 @@ Compares the current project state against the last audit recorded in Engram. Sh
 
 ## Precondition
 
-There must be at least one prior audit in Engram. If no prior audit exists, suggest running `/sequoia audit` first.
+There must be at least one prior audit in Engram, **less than 60 days old**. If no prior audit exists, suggest running `/sequoia audit` first.
+
+**Obsolescence policy**:
+- 30-60 days old → Warning: "Baseline audit is {N} days old. Results may be incomplete."
+- >60 days old → Error: "Baseline audit is too old (>60 days). Run `/sequoia audit` to establish a fresh baseline."
 
 ## What it does
 
@@ -39,21 +44,35 @@ There must be at least one prior audit in Engram. If no prior audit exists, sugg
   │     ├─ Health scores
   │     └─ Project Map snapshot
   │
-  ├─ 2. Verify changes in project structure
-  │     ├─ New or deleted files since the last audit?
-  │     ├─ Did the stack or dependencies change?
-  │     └─ Did project maturity change?
-  │
-  ├─ 3. Re-verify each previous finding
-  │     ├─ For each finding, read the cited files
-  │     ├─ Is the evidence still present?
-  │     ├─ Was the recommendation implemented?
-  │     └─ Classify: resolved | unchanged | worsened | partial
-  │
-  ├─ 4. Detect new findings
-  │     ├─ Quick scan of areas not previously covered
-  │     ├─ Only 🔴 and 🟠 findings (not a full audit)
-  │     └─ List as "new"
+├─ 2. Verify changes in project structure
+│     ├─ New or deleted files since the last audit?
+│     │   • >5 new files → moderate change
+│     │   • >20 new files → major change (recommend full audit)
+│     ├─ Did the stack or dependencies change?
+│     └─ Did project maturity change?
+│
+├─ 3. Re-verify each previous finding
+│     ├─ For each finding, read the cited files
+│     ├─ Does the file still exist? If NOT → "resolved by deletion"
+│     ├─ Is the evidence still present?
+│     ├─ Was the recommendation implemented?
+│     └─ Classify: resolved | unchanged | worsened | partial
+│
+├─ 4. Quick scan for new findings (unless --skip-scan)
+│     ├─ Targeted scan: each agent checks only its highest-signal patterns
+│     ├─ Only 🔴 and 🟠 findings (not a full audit)
+│     └─ List as "new"
+
+### Quick Scan Specification
+
+| Agent | What it checks in quick scan | What it skips |
+|-------|------------------------------|---------------|
+| P1 Security | Hardcoded secrets (regex), missing CSP headers, SQL injection patterns in changed files | Full attack surface matrix, PII audit, token rotation analysis |
+| P2 Performance | N+1 patterns in new code, missing image dimensions, render-blocking resources | Full bundle budgets, Core Web Vitals simulation, waterfall analysis |
+| P3 Architecture | New circular imports, new god object signals in changed modules | Full dependency matrix, coupling analysis, API contract audit |
+| P4 Quality | New CVEs in updated dependencies, new assertion-less tests | Transitive license tree, SBOM generation, full test smell audit |
+| P5 Experience | Missing alt text in new components, div onClick without semantics | Full flow analysis, conversion funnel, WCAG AA compliance audit |
+| P6 Operations | Secrets in new CI/CD configs, missing health checks in new services | Full pipeline audit, resilience patterns, backup verification |
   │
   └─ 5. Generate evolution report
         ├─ Summary table by category
@@ -71,9 +90,23 @@ For each previous finding:
 
 Classification:
 - If the file changed and the problem is gone → ✅ Resolved
+- If the file no longer exists → ✅ Resolved by deletion
 - If the file changed but the problem partially persists → 🔸 Partial
 - If the file hasn't changed → ⏸️ Unchanged
-- If the file changed and there are additional problems → 🔻 Worsened
+- If the file changed and ANY of these criteria apply → 🔻 Worsened:
+  1. **Severity increased**: finding severity escalated (medium → high)
+  2. **Scope expanded**: affected lines increased by >50%
+  3. **Impact increased**: new files/modules are now affected
+  4. **New related problems**: changes introduced additional issues in the same area
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--baseline=<audit-id>` | Compare against a specific audit by ID instead of the most recent |
+| `--since=<date>` | Compare against the last audit before a given date (ISO 8601) |
+| `--skip-scan` | Skip the quick scan for new findings — only re-verify previous findings |
+| `--only-verified` | Only show findings that were verified (resolved/unchanged), skip new detections |
 
 ## Output format
 
@@ -97,11 +130,30 @@ Classification:
 
 ### Health Score comparison
 
+**Current score calculation**: Base score from previous audit, adjusted by:
+- Resolved findings: +severity_weight per finding
+- New findings: -severity_weight per finding
+- Worsened findings: -(severity_weight × 1.5)
+
 | Phase | Previous score | Current score | Trend |
 |------|---------------|--------------|-----------|
-| Security | 🟠 | 🟢 | ↗️ Improving |
-| Performance | 🟡 | 🟡 | → Stable |
-| ... | | | |
+| 🔒 Security | 72 | 78 | ↗️ +6 |
+| ⚡ Performance | 50 | 45 | ↘️ -5 |
+| 🏗️ Architecture | 88 | 92 | ↗️ +4 |
+| ✅ Quality | 62 | 62 | → 0 |
+| 🎨 Experience | 75 | 80 | ↗️ +5 |
+| 🔧 Operations | 35 | 42 | ↗️ +7 |
+| **GLOBAL** | **65** | **70** | **↗️ +5** |
+
+### Trend Analysis
+
+| Metric | Value |
+|--------|-------|
+| Total resolved | {N} (↑ from previous period) |
+| Total worsened | {N} (↓ from previous period) |
+| Net health change | +{N} or -{N} |
+| Resolution rate | {resolved}/{total_previous} = {N}% |
+| New finding rate | {new}/{total_current} = {N}% |
 
 ### Detail of resolved findings ✅
 {list of findings with what changed}

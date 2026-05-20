@@ -10,7 +10,11 @@ Runs the comprehensive technical audit. Orchestrates phase agents, correlation m
 
 ## Precondition
 
-`/sequoia init` must have been run previously. If there is no Project Map in Engram, ask the user to run init first.
+`/sequoia init` must have been run previously. The Project Map must exist in Engram and be **less than 30 days old**. If the map is >30 days old, error: "Project Map is stale (>30 days). Run `/sequoia init` to refresh."
+
+Before execution, validate:
+- **Scope**: If `--scope=module=<path>`, verify the path exists. If not, error with available module suggestions.
+- **Phase**: If `--phase=<value>`, validate against `security|performance|architecture|quality|experience|operations`. If invalid, suggest valid values.
 
 ## Execution flow
 
@@ -71,6 +75,18 @@ Runs the comprehensive technical audit. Orchestrates phase agents, correlation m
 - No deep correlation (simplified correlator)
 - Estimated time: 5-15 min depending on size
 
+**Quick mode exclusions**:
+| Excluded | Reason |
+|----------|--------|
+| Performance budgets | Full analysis only |
+| Attack surface matrix | Full analysis only |
+| Module dependency map | Full analysis only |
+| Deep correlation (M1) | Simplified: only ≥3 symptoms, ≥3 domains |
+| CVE transitive tree scan | Direct deps only |
+| License compliance tree | Direct deps only |
+| SBOM generation | Skipped |
+| Experience agent (P5) | Skipped unless CRITICAL a11y violations detectable via simple grep |
+
 ## `--scope` options
 
 | Value | What it does |
@@ -103,6 +119,18 @@ With `--output=report`, only `summary.md` is generated (tasks are skipped). With
 ### Meta-agents (always sequential):
 - M1 Correlator → M2 Reporter (in that order; scoring is part of M2)
 
+### Parallel Error Handling
+
+If a phase agent fails (timeout, error), the audit MUST continue with remaining agents:
+- **Isolate failures**: A P2 timeout does NOT block P1, P3, P4.
+- **Report failures**: Failed agents are listed in the final report with the error reason.
+- **Meta-agents adapt**: M1 Correlator works with available findings. M2 Reporter notes missing phases.
+- **Minimum viable audit**: If ALL phase agents fail, abort with error. At least 2 must succeed.
+
+### Agent Validation
+
+Before execution, validate that each agent's prompt file exists (`docs/agents/sequoia-{name}.md`). If missing, fail early with: "Agent file not found: docs/agents/sequoia-{name}.md". Do NOT silently skip agents.
+
 ## Orchestrator delegation
 
 The orchestrator delegates to each agent by providing:
@@ -127,8 +155,7 @@ docs/sequoia/
     ├── architecture.md         # Self-contained task file (P3 findings)
     ├── quality.md              # Self-contained task file (P4 findings)
     ├── experience.md           # Self-contained task file (P5 findings, if applicable)
-    ├── operations.md           # Self-contained task file (P6 findings)
-    └── i18n.md                 # Self-contained task file (P7 findings, if applicable)
+    └── operations.md           # Self-contained task file (P6 findings)
 ```
 
 Each area task file is self-contained: an implementing agent opens ONE file (~150-250 lines) instead of the full report.

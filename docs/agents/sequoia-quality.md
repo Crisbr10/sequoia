@@ -70,15 +70,74 @@ test('userService returns user when user exists', () => {
 
 ### Test Smell Indicators
 
-| Smell | Pattern | Problem |
-|-------|--------|----------|
-| Fragile test | `expect(obj.internalProperty).toBe(...)` | Refactor breaks test without changing behavior |
-| Coupled test | Uses `spy` on private methods | Coupled to implementation |
-| Slow test | >1s per unit test | Not a unit test or real I/O involved |
-| Interdependent test | Requires execution order | Parallelization impossible |
-| Assertion-less test | Executes code without verifying anything | False coverage without protection |
-| Magic data test | `expect(result).toBe(42)` without context | Why 42? Missing narrative |
-| Excessively parameterized test | 50+ cases in a single test | Failure in one = hard to debug |
+| Smell | Pattern | Problem | Severity |
+|-------|--------|----------|----------|
+| Fragile test | `expect(obj.internalProperty).toBe(...)` | Refactor breaks test without changing behavior | HIGH |
+| Coupled test | Uses `spy` on private methods | Coupled to implementation | HIGH |
+| Slow test | >1s per unit test | Not a unit test or real I/O involved | MEDIUM |
+| Interdependent test | Requires execution order | Parallelization impossible | MEDIUM |
+| Assertion-less test | Executes code without verifying anything | False coverage without protection | CRITICAL |
+| Magic data test | `expect(result).toBe(42)` without context | Why 42? Missing narrative | LOW |
+| Excessively parameterized test | 50+ cases in a single test | Failure in one = hard to debug | LOW |
+
+### Coverage by Critical Module
+
+Don't chase global coverage %. Focus coverage on critical modules:
+- **Auth module**: target >90% (security boundary)
+- **Payment/billing**: target >85% (financial impact)
+- **Core business logic**: target >80% (domain integrity)
+- **Utility/helper modules**: target >50% (lower blast radius)
+
+Flag modules where critical path coverage is <70% regardless of global coverage.
+
+## Metrics That Matter
+
+### What Matters vs What Doesn't
+
+```
+✅ MATTERS:
+- Cyclomatic complexity per FUNCTION (not per file)
+  → >10 = review, >20 = mandatory refactor
+- Afferent coupling: how many depend on this module
+  → If everyone depends, changes here have high blast radius
+- Inheritance depth (if using OOP)
+  → >3 levels = hard to reason about, fragile
+- Business logic duplication (not boilerplate code)
+  → Same calculation in 3 places = bug waiting to happen
+
+❌ DOESN'T MATTER (or deceives):
+- Total project lines of code
+  → A 1000-line file can be simple; a 50-line one can be complex
+- Coverage percentage as a goal
+  → 80% coverage with implementation tests = 80% of nothing
+- Number of classes/files
+  → Says nothing about quality
+- Halstead volume, Maintainability Index
+  → Academic metrics that don't correlate with real maintainability
+```
+
+### Complexity Detection Pattern
+
+```python
+# Search for functions with multiple nesting levels
+# More than 3 levels = high cognitive complexity
+
+def process_order(order):           # Level 0
+    if order.is_valid:              # Level 1
+        for item in order.items:    # Level 2
+            if item.in_stock:       # Level 3
+                if item.price > 0:  # Level 4 ← RED FLAG
+                    try:            # Level 5 ← REFACTOR
+                        ...
+```
+
+**Cyclomatic Complexity Thresholds**:
+| Complexity | Action |
+|-----------|--------|
+| 1-10 | ✅ Acceptable |
+| 11-20 | ⚠️ Review: consider refactoring if combined with low test coverage |
+| 21-50 | 🔴 Refactor: high risk of bugs, hard to test |
+| >50 | 🚫 Mandatory split: untestable, unmaintainable |
 
 ## Dependency Risk Score Template
 
@@ -134,47 +193,6 @@ dependency_risk:
 | Unlicense, CC0 | Low | Public domain |
 | "All rights reserved" / no license | Critical | No explicit permission = no right to use |
 
-## Metrics That Matter
-
-### What Matters vs What Doesn't
-
-```
-✅ MATTERS:
-- Cyclomatic complexity per FUNCTION (not per file)
-  → >10 = review, >20 = mandatory refactor
-- Afferent coupling: how many depend on this module
-  → If everyone depends, changes here have high blast radius
-- Inheritance depth (if using OOP)
-  → >3 levels = hard to reason about, fragile
-- Business logic duplication (not boilerplate code)
-  → Same calculation in 3 places = bug waiting to happen
-
-❌ DOESN'T MATTER (or deceives):
-- Total project lines of code
-  → A 1000-line file can be simple; a 50-line one can be complex
-- Coverage percentage as a goal
-  → 80% coverage with implementation tests = 80% of nothing
-- Number of classes/files
-  → Says nothing about quality
-- Halstead volume, Maintainability Index
-  → Academic metrics that don't correlate with real maintainability
-```
-
-### Complexity Detection Pattern
-
-```python
-# Search for functions with multiple nesting levels
-# More than 3 levels = high cognitive complexity
-
-def process_order(order):           # Level 0
-    if order.is_valid:              # Level 1
-        for item in order.items:    # Level 2
-            if item.in_stock:       # Level 3
-                if item.price > 0:  # Level 4 ← RED FLAG
-                    try:            # Level 5 ← REFACTOR
-                        ...
-```
-
 ## Quality Anti-patterns
 
 | Anti-pattern | Example | Why it hurts |
@@ -185,210 +203,73 @@ def process_order(order):           # Level 0
 | **Massive linter ignores** | `// eslint-disable-next-line` in 100+ places | Linter useless, noise vs signal |
 | **TypeScript any/unknown** | `as any` to "avoid type errors" | TypeScript becomes JavaScript with extra steps |
 | **Abandoned dependency in prod** | Package without update in 2+ years as core dependency | No security patches, unfixed bugs |
+| **TypeScript strict mode disabled** | `strict: false` or missing in tsconfig | Opts out of type safety. `any` types, implicit nulls, uncaught undefined |
+
+### TypeScript Strict Mode (conditional)
+
+**Only evaluate if TypeScript is detected in the project.**
+
+Verify `tsconfig.json`:
+- `strict: true` → enables all strict checks
+- `noImplicitAny: true` → no hidden `any` types
+- `strictNullChecks: true` → null/undefined tracked separately
+- `noUncheckedIndexedAccess: true` → array/object access may be undefined
+
+**Impact of disabling strict mode**:
+- `any` types propagate silently through the codebase
+- Null pointer exceptions at runtime that TS would catch at compile time
+- TypeScript becomes "JavaScript with extra syntax" instead of a safety net
 
 ## Deep Dependency Analysis
 
-This section extends traditional dependency scanning with multi-source security analysis, transitive tree license compliance, and SBOM generation.
+Multi-source CVE scanning, transitive license compliance, and SBOM verification.
 
-### CVE Multi-Source Scanning with Severity Triage (R1)
+### CVE Scanning (R1)
 
-Don't trust a single CVE source. Different databases have different publication times and detail levels.
+**Verification checklist** (per dependency):
+| Check | Detail |
+|-------|--------|
+| CVE sources queried | NVD, GitHub Advisory, OSV, ecosystem-specific (npm audit, govulncheck, pip-audit, cargo-audit) |
+| Usage scope | Direct runtime? Transitive? Dev-only? (downgrade severity if dev-only or unused surface) |
+| Exploitability | Is vulnerable surface exposed in this project? Remotely exploitable without auth? |
+| Fix available? | Patched version exists? Workaround documented? Package abandoned? |
 
-```
-For each direct + transitive dependency:
-├── 1. Query multiple advisory sources:
-│   ├── NVD (National Vulnerability Database) — nvd.nist.gov
-│   ├── GitHub Advisory Database — github.com/advisories
-│   ├── OSV (Open Source Vulnerabilities) — osv.dev
-│   ├── Snyk Vulnerability Database — snyk.io/vuln
-│   └── Ecosystem-specific:
-│       ├── npm: npm audit / github.com/advisories
-│       ├── Go: govulncheck / pkg.go.dev/vuln
-│       ├── Python: pip-audit / safety / pyup.io
-│       ├── Rust: cargo-audit / rustsec.org
-│       └── Java: OWASP Dependency-Check / snyk
-│
-├── 2. For each CVE found, evaluate severity IN CONTEXT:
-│   ├── Base severity (CVSS score): critical (9.0+), high (7.0-8.9), medium (4.0-6.9), low (<4.0)
-│   ├── Usage scope: how does the project use this dependency?
-│   │   ├── Direct in runtime → Severity MAINTAINED or INCREASED
-│   │   ├── Direct only in dev/test → Downgrade one level (critical→high, high→medium)
-│   │   ├── Transitive in runtime → Severity maintained
-│   │   ├── Transitive only in dev → Downgrade TWO levels (critical→medium, high→low)
-│   │   └── Unused (phantom dep) → INFO: remove from tree
-│   │
-│   ├── Exploitability in this project:
-│   │   ├── Is the vulnerable surface exposed in this project?
-│   │   │   Example: CVE in XML parsing function, but project doesn't process XML → downgrade
-│   │   ├── Does it require specific conditions not present? → downgrade
-│   │   └── Is it remotely exploitable without authentication? → upgrade
-│   │
-│   └── Fix availability:
-│       ├── Does a patched version exist? → Prioritize upgrade
-│       ├── No fix published? → Evaluate workaround or replacement
-│       └── Is the package abandoned? → Mandatory migration
-│
-└── 3. Prioritize fix: severity × usage_scope × exploitability × fix_availability
-```
+**Triage decision tree**:
+- Fix available + semver-compatible → immediate upgrade
+- Fix available + breaking change → plan migration
+- No fix + workaround exists → implement workaround, monitor
+- No fix + abandoned package + critical CVE → mandatory replacement
 
-### Decision Tree: CVE Triage
+### License Compliance (R2)
 
-```
-Does the CVE have a fix available?
-├── YES → Is the fix semver-compatible?
-│   ├── YES (patch/minor) → Immediate upgrade, low risk
-│   ├── NO (major) → Evaluate breaking changes, plan migration
-│   └── Backport available → Evaluate applicability
-│
-├── NO → Is there a documented workaround?
-│   ├── YES → Implement workaround, plan to monitor for fix
-│   └── NO → Evaluate risk of continuing vs replacing dependency
-│
-└── Abandoned package (no maintenance >1 year)
-    └── Migration to alternative is MANDATORY if:
-        ├── CVE is critical or high
-        ├── It's a direct runtime dependency
-        └── No viable workaround exists
-```
+**Risk classification**:
+| Risk | Licenses | Action |
+|------|----------|--------|
+| CRITICAL | GPL/AGPL in runtime dep of proprietary project | Replace before distribution |
+| HIGH | GPL/AGPL in dev/build dep | Evaluate isolation |
+| MEDIUM | LGPL, MPL (weak copyleft) | Document compliance |
+| LOW | MIT, Apache-2.0, BSD, ISC, Unlicense | No restrictions |
 
-### License Compliance with Transitive Tree (R2)
+**Key rule**: Transitive dependencies inherit license obligations. A GPL transitive dep infects the entire project. Verify the FULL tree, not just direct deps.
 
-It's not enough to verify licenses of direct dependencies. A transitive dependency with strong copyleft (GPL, AGPL) can legally infect the entire project.
+### SBOM Verification (R3)
 
-```
-License Audit Flow:
-├── 1. Extract COMPLETE dependency tree
-│   ├── npm: npm ls --all --json (or lockfile parsing)
-│   ├── Go: go mod graph + go-licenses
-│   ├── Python: pip-licenses + pipdeptree
-│   ├── Rust: cargo-license + cargo tree
-│   └── Java: gradle dependencies / mvn dependency:tree
-│
-├── 2. For EACH dependency (direct + transitive):
-│   ├── Detect declared license (package.json license, Cargo.toml, etc.)
-│   ├── Verify if multiple licenses exist (dual-licensing)
-│   ├── Classify license risk:
-│   │   ├── MIT, Apache-2.0, BSD-2/3-Clause, ISC → PERMISSIVE: no restrictions
-│   │   ├── MPL-2.0, LGPL-2.1/3.0 → WEAK COPYLEFT: linking OK, file modifications must be shared
-│   │   ├── GPL-2.0, GPL-3.0 → STRONG COPYLEFT: entire derived project must be GPL
-│   │   ├── AGPL-3.0 → NETWORK COPYLEFT: even SaaS use requires code release
-│   │   ├── SSPL, BSL, Commons Clause → RESTRICTIVE: not traditional open-source
-│   │   ├── Unlicense, CC0 → PUBLIC DOMAIN: no restrictions
-│   │   └── No license / "All Rights Reserved" → PROPRIETARY: without explicit permission, USE NOT ALLOWED
-│   │
-│   └── Special alerts:
-│       ├── GPL/AGPL in transitive runtime dependency → CRITICAL if project is proprietary
-│       ├── Conflicting multiple licenses in the same package
-│       └── License change between versions (e.g. MIT → BSL)
-│
-└── 3. Report findings by severity:
-    ├── CRITICAL: Strong copyleft in runtime dependency of proprietary project
-    ├── HIGH: Strong copyleft in dev/build dependency
-    ├── MEDIUM: Weak copyleft without documented compliance
-    └── LOW: Non-standard license without apparent conflicts
-```
-
-### Decision Tree: Copyleft Compliance
-
-```
-Is the project proprietary (not open-source)?
-├── YES → Any GPL/AGPL in runtime dependencies is BLOCKING
-│   ├── Is it a direct dependency? → Replace before distribution
-│   ├── Is it transitive? → Find alternative or negotiate commercial license
-│   └── Is it dev-dependency only? → Lower risk (not distributed)
-│
-└── NO (open-source project)
-    ├── Does the project use a GPL-compatible license?
-    │   ├── MIT, Apache-2.0, BSD → Compatible with GPL
-    │   ├── MPL-2.0 → Compatible with GPL (though weak copyleft)
-    │   └── Other license → Verify explicit compatibility
-    │
-    └── Is the project ITSELF GPL?
-        └── AGPL in dependencies is acceptable (it's stronger, project is already copyleft)
-```
-
-### SBOM Generation Methodology (R3)
-
-A Software Bill of Materials (SBOM) is a formal inventory of all project components. It's required by regulations like Executive Order 14028 (US) and the Cyber Resilience Act (EU).
-
-**This is methodology documentation for the agent. No Go code is implemented.**
-
-#### When to Generate SBOM
-
-```
-Does the project distribute software to third parties?
-├── YES → SBOM is MANDATORY
-│   ├── Recommended format: CycloneDX (rich, supports hardware and services)
-│   ├── Alternative: SPDX (ISO/IEC 5962:2021 standard, more legal/compliance)
-│   └── Both are acceptable — choose based on tools available in the stack
-│
-├── NO (internal service/SaaS) → SBOM RECOMMENDED but not mandatory
-│   └── Enables internal security audits and incident response
-│
-└── Frequency:
-    ├── Generate in CI on every build
-    ├── Attach to release artifact
-    └── Update when dependencies change (dependabot, renovate)
-```
-
-#### Generation Tools by Stack
-
-| Stack | CycloneDX | SPDX |
-|-------|-----------|------|
-| **Node.js** | `@cyclonedx/cyclonedx-npm` | `spdx-sbom-generator` |
-| **Go** | `cyclonedx-gomod` | `spdx-sbom-generator` |
-| **Python** | `cyclonedx-bom` (poetry plugin) | `spdx-sbom-generator` |
-| **Rust** | `cyclonedx-rust` (cargo-cyclonedx) | `cargo-spdx` |
-| **Java** | `cyclonedx-maven-plugin` / `cyclonedx-gradle-plugin` | `spdx-maven-plugin` |
-| **Docker** | `syft` (Anchore) generates CycloneDX + SPDX | `syft` |
-| **Multi-language** | `syft`, `trivy`, `cdxgen` | `syft`, `trivy` |
-
-#### SBOM Workflow (for documenting in audit report)
-
-```yaml
-sbom_workflow:
-  generation:
-    tool: "cyclonedx-gomod"  # based on detected stack
-    command: "cyclonedx-gomod app -json -output bom.json"
-    frequency: "ci_every_build"
-  
-  validation:
-    # Verify generated SBOM is valid
-    - "cyclonedx validate --input-file bom.json"
-    # Verify no known dependencies are missing
-    - "Compare component count vs go.mod/go.sum"
-  
-  enrichment:
-    # Add license metadata (if tool doesn't include them)
-    - "go-licenses csv ./... > licenses.csv"
-    # Add CVE information
-    - "govulncheck -json ./... > vulns.json"
-  
-  distribution:
-    # Attach to release
-    - "Include bom.json in GitHub Release assets"
-    # Digitally sign
-    - "cosign sign-blob bom.json"
-    
-  consumption:
-    # SBOM enables:
-    - "Identify components affected by a CVE in < 1 minute"
-    - "Verify license compliance across entire tree"
-    - "Respond to client/regulator security audits"
-```
-
-#### SBOM Checklist
-
+**Checklist**:
 | Aspect | Verification |
 |---------|-------------|
-| Does the project generate SBOM? | YES / NO |
-| Format? | CycloneDX / SPDX / None |
-| Coverage? | Direct only / Direct + transitive |
-| Includes licenses? | YES / NO |
+| SBOM generated? | YES / NO |
+| Format | CycloneDX / SPDX |
+| Coverage | Direct + transitive |
 | Generated in CI? | YES / NO |
 | Attached to releases? | YES / NO |
-| Digitally signed? | YES / NO |
-| Generation tool? | [name and version] |
+
+**Note**: SBOM is mandatory for distributed software (regulations: US EO 14028, EU Cyber Resilience Act). For internal services, it's recommended for incident response.
+
+## Output constraints
+
+- **Maximum findings**: 12
+- **Prioritization**: Critical CVEs first, then missing tests in core modules, then code quality.
+- **Evidence requirement**: Every finding must reference specific files, test gaps, or dependency versions.
 
 ## Freedom Calibration
 

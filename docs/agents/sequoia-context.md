@@ -63,11 +63,18 @@ NONE → Search: Makefile, Dockerfile, docker-compose, CMakeLists.txt, .csproj, 
 
 ### Monorepo and Workspace Verification
 
-- **npm/yarn**: search for `workspaces` in package.json, lerna.json, pnpm-workspace.yaml
-- **Go**: search for `replace` directives in go.mod pointing to local directories
+- **npm/yarn/pnpm**: search for `workspaces` in package.json, lerna.json, pnpm-workspace.yaml
+- **Go**: search for `replace` directives in go.mod pointing to local directories; multiple `cmd/` entries
 - **Python**: search for `packages` in pyproject.toml with multiple modules
-- **Rust**: search for `[workspace]` in root Cargo.toml
-- **Java**: search for `<modules>` in parent pom.xml
+- **Rust**: search for `[workspace]` in root Cargo.toml, multiple `[[bin]]` targets
+- **Java**: search for `<modules>` in parent pom.xml, multiple `build.gradle` in subdirectories
+
+**Monorepo impact on audit**:
+- Each sub-project gets its own size/maturity assessment
+- `file_count` is per sub-project, not inflated by monorepo total
+- `module_count` counts internal modules within each sub-project
+- Dependency counts are per sub-project
+- Non-applicable agents are excluded per sub-project (e.g., P5 skipped for a backend service within a fullstack monorepo)
 
 **CRITICAL anti-pattern**: Assuming package.json = frontend project. A package.json can be:
 - A backend project (Express, NestJS, Fastify)
@@ -81,7 +88,7 @@ NONE → Search: Makefile, Dockerfile, docker-compose, CMakeLists.txt, .csproj, 
 
 Criteria for classification (not binary, a spectrum):
 
-| Indicator | Incubation | Growth | Mature | Legacy |
+| Indicator | Prototype | Growth | Mature | Legacy |
 |-----------|-----------|--------|--------|--------|
 | Tests | None/todo | Criticals covered | >70% coverage | High % but fragile |
 | CI/CD | None | Basic (build+test) | Full pipeline | Broken/skipped pipeline |
@@ -90,7 +97,22 @@ Criteria for classification (not binary, a spectrum):
 | Structure | Flat | Refactoring | Modular | Rigid monolith |
 | Monitoring | Print statements | Basic logs | Observability | Ignored logs |
 
-Maturity determines the **expected depth** of the audit. An incubation project doesn't need migration strategy analysis; a legacy one does.
+Maturity determines the **expected depth** of the audit. A prototype project doesn't need migration strategy analysis; a legacy one does.
+
+### audit_depth Determination Matrix
+
+| Size ↓ / Maturity → | Prototype | Growth | Mature | Legacy |
+|---------------------|-----------|--------|--------|--------|
+| Micro | quick | quick | standard | standard |
+| Small | quick | standard | standard | standard |
+| Medium | standard | standard | deep | deep |
+| Large | standard | deep | deep | deep |
+| Enterprise | deep | deep | deep | deep |
+
+**Depth definitions**:
+- **quick**: Only CRITICAL and HIGH findings, simplified correlation
+- **standard**: All severities, full correlation, standard deliverables
+- **deep**: Standard + performance budgets, attack surface matrix, full dependency map, migration strategies
 
 ## Size Estimation Methodology
 
@@ -141,14 +163,14 @@ project_map:
     file_count: int
     module_count: int
     dep_count: int
-    endpoint_count: int | null
+    endpoint_count: int | null  # API: count distinct route patterns. Frontend: count page routes. CLI: count commands/subcommands. Library: null.
 
   infrastructure:
     has_ci: bool
     ci_platform: string | null
     has_docker: bool
     has_iac: bool
-    has_monitoring: bool
+    has_monitoring: bool  # True if: health check endpoint found, OpenTelemetry/Prometheus SDK detected, or monitoring config found (grafana/, datadog/, prometheus.yml)
     env_count: int
 
   testing:
@@ -163,6 +185,23 @@ project_map:
   audit_depth: quick | standard | deep
   estimated_duration: string
 ```
+
+## Consumption by Downstream Agents
+
+Each agent reads specific fields from the Project Map:
+
+| Agent | Reads from Project Map | Used for |
+|-------|----------------------|----------|
+| **P1 Security** | `stack.languages`, `paradigm`, `infrastructure` | Determines attack surface scope, secrets detection patterns |
+| **P2 Performance** | `stack`, `paradigm`, `size`, `maturity` | Calibrates performance budgets (contextual by size/maturity) |
+| **P3 Architecture** | `stack.languages`, `paradigm`, `module_count` | Language-specific patterns, monolith vs microservices coupling |
+| **P4 Quality** | `stack`, `testing`, `size` | CVE scanning by ecosystem, test framework detection |
+| **P5 Experience** | `paradigm`, `agents_applicable` | **Skips entirely** if no UI (backend, CLI, library) |
+| **P6 Operations** | `infrastructure`, `maturity` | CI/CD depth, monitoring expectations |
+| **M1 Correlator** | `paradigm`, `size`, `maturity` | Correlation probability calibration (monolith > microservices) |
+| **M2 Reporter** | All fields | Score calculation, classification, deliverable generation |
+
+**Rule**: Agents read only what they need. The full map is always available in Engram.
 
 ## Context Agent Anti-patterns
 

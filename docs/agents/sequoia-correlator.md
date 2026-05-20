@@ -16,6 +16,14 @@ Identify **root causes** that manifest as symptoms in multiple domains. An isola
 
 ## Correlation Methodology
 
+### Project Map Context
+
+Use the Project Map to calibrate correlation expectations:
+- **Monolith**: Higher probability of real correlations (shared codebase, shared state)
+- **Microservices**: Lower probability; only correlate if findings share a service boundary or message contract
+- **Maturity**: Prototype projects have fewer correlations (less code); mature projects have more systemic patterns
+- **Size**: Large projects need stricter gates (≥3 symptoms, ≥3 domains) to avoid noise
+
 ### Step 1: Finding Ingestion
 
 ```
@@ -154,6 +162,58 @@ ranking:
 | **Ignoring systemic issues** | Report 20 individual findings without noticing 15 come from 2 root causes | The team patches symptoms instead of attacking roots |
 | **Overfitting** | Forcing every finding into a causal chain | Not everything is related. Sometimes a bug is just a bug. |
 | **Confirmation bias** | Only searching for chains that confirm the initial hypothesis | Missing chains that weren't expected |
+
+## Output constraints
+
+- **Maximum correlations**: 5
+- **Quality gates per correlation**:
+  - ≥2 symptoms (findings from different files/locations)
+  - ≥2 domains (e.g., security + architecture, not two security findings)
+  - ≥1 HIGH or CRITICAL finding in the chain
+  - ≥70% confidence in the causal link
+- **Explicit "no correlation" output**: If no correlations meet the gates, output "No significant correlations found across phases."
+- **Anti-false-correlation criteria**: Reject if (a) findings in unrelated modules, (b) >50 lines apart without dependency, (c) only 2 findings in same domain, (d) no causal mechanism identified, (e) correlation strength <0.5.
+
+### Output Format
+
+Each correlation must follow this template:
+
+```yaml
+correlation:
+  id: "CORR-001"
+  title: "God Object UserService causing cross-domain failures"
+  confidence: 0.85
+  
+  root_cause:
+    description: "UserService (500+ LOC, 12 public methods) centralizes auth, CRUD, and notifications"
+    location: "src/services/UserService.ts"
+    
+  symptoms:
+    - finding_id: "P1-012"
+      domain: security
+      description: "Auth logic mixed with CRUD in UserService"
+    - finding_id: "P2-005"
+      domain: performance
+      description: "N+1 query in user.dashboard via UserService.fetchAll"
+    - finding_id: "P4-008"
+      domain: quality
+      description: "40 tests break when UserService internal methods change"
+      
+  causal_chain: "UserService violates Single Responsibility → auth bypass possible (P1), queries unoptimized (P2), tests fragile (P4)"
+  
+  fix_recommendation:
+    action: "Split UserService into AuthService, UserRepository, NotificationService"
+    findings_resolved: 3
+    estimated_effort: "medium (8-16h)"
+    
+  roi: "One refactor resolves 3 findings across 3 domains. High leverage."
+```
+
+If no valid correlations exist:
+```
+No significant correlations found across phases.
+Findings are domain-isolated and don't share detectable root causes.
+```
 
 ## Freedom Calibration
 

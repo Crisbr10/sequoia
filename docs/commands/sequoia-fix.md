@@ -12,7 +12,9 @@ Generates implementable tasks from audit findings. Each task is self-contained: 
 
 ## Precondition
 
-There must be at least one prior audit in Engram (run via `/sequoia audit` or `/sequoia review`).
+A prior audit must exist in Engram (via `/sequoia audit` or `/sequoia review`). **Validate blocking**: search Engram for the most recent audit. If none found, error: "No prior audit found. Run `/sequoia audit` first." Do not proceed without an audit.
+
+Each finding used to generate a task must have: (a) a valid file location, (b) a description ≥20 characters. Skip insufficient findings with a warning.
 
 ## What it does
 
@@ -105,13 +107,18 @@ A well-generated task meets these rules:
 
 ## Implementation order optimization
 
-Tasks are ordered following these criteria:
+Tasks are ordered using a deterministic algorithm:
 
-1. **Production blockers** → first (without exception)
-2. **Root causes** → before their symptoms (from correlator)
-3. **Technical dependencies** → if task B requires A to be done
-4. **High leverage** → maximum impact with minimum change
-5. **Implementation risk** → low risk first (quick wins)
+1. **Priority scoring**: `score = severity × findings_resolved × (1/estimated_hours)`
+   - severity: critical=4, high=3, medium=2, low=1
+2. **Topological sort** by dependencies (task B requiring task A → A before B)
+3. **Cycle detection**: if A requires B and B requires A → flag as "dependency cycle" and group together
+4. **Tiebreaker**: lower risk first, then lower effort
+
+**Output grouping**:
+- 🔴 Blocking (must be done this sprint)
+- 🟠 High Leverage (high impact / low effort ratio)
+- 🟡 Backlog (important but not urgent)
 
 ## Deduplication rule
 
@@ -128,8 +135,7 @@ docs/sequoia/tasks/
 ├── architecture.md    # Architecture tasks with full evidence
 ├── performance.md     # Performance tasks with full evidence
 ├── quality.md         # Quality tasks with full evidence
-├── operations.md      # Operations tasks with full evidence
-└── i18n.md            # i18n tasks with full evidence (if applicable)
+└── operations.md      # Operations tasks with full evidence
 ```
 
 When filtering by phase (`/sequoia fix security`), only the corresponding area file is generated. When running `all`, all area files + `index.md` are generated.
@@ -148,3 +154,37 @@ Each task follows the standard template defined in Sequoia's SKILL.md. See `/seq
 # Implement a specific task
 /sequoia fix security --task=P1-003
 ```
+
+## --task Validation
+
+When `--task=<id>` is specified:
+1. Validate that the task ID exists in the target phase's findings.
+2. If not found, search ALL phases and suggest: "Task P1-003 not found in security. Did you mean --task=P3-003 (found in architecture)?"
+3. Only generate the single specified task.
+
+## Fix vs Audit — When to Use Which
+
+| Aspect | `/sequoia fix` | `/sequoia audit` |
+|--------|---------------|-----------------|
+| Source | Last audit in Engram | Fresh code analysis |
+| Speed | Fast (reads from memory) | Slow (re-runs all agents) |
+| Freshness | Stale if code changed | Current state |
+| Use case | Regenerate tasks from existing findings | Full re-analysis after major changes |
+| Output | Task files only | Summary + task files + health score |
+| Precondition | Prior audit exists | Init completed |
+
+**Rule of thumb**: Use `fix` when you want to regenerate tasks without re-auditing. Use `audit` when code has changed significantly.
+
+## Manual Edits Preservation
+
+If a task file contains `<!-- MANUAL_EDIT -->` markers, those sections must NOT be overwritten:
+
+```markdown
+### P1-003 · Add CSP headers
+<!-- MANUAL_EDIT -->
+**Files involved**:
+- nginx.conf (override the policy set by the CDN)
+<!-- /MANUAL_EDIT -->
+```
+
+When regenerating tasks, preserve any content between `<!-- MANUAL_EDIT -->` and `<!-- /MANUAL_EDIT -->` markers. Only regenerate the non-marked sections.
