@@ -110,12 +110,10 @@ jobs:
         run: chmod +x sequoia
       - name: Install Smoke
         run: ./sequoia install --no-tui
-        continue-on-error: true
       - name: Status Smoke
         run: ./sequoia status
       - name: Uninstall Smoke
         run: ./sequoia uninstall --all --yes
-        continue-on-error: true
 
   action-pinning:
     name: Action Pinning Check

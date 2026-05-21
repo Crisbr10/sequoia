@@ -22,8 +22,24 @@ permissions:
   contents: write   # needed to upload release assets
 
 jobs:
+  vulncheck:
+    name: Vulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+      - name: Setup Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
+        with:
+          go-version: "1.24"
+          cache: true
+      - name: Vulncheck
+        # govulncheck exits non-zero on CVE discovery — this WILL block the release
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
+
   test:
     name: Pre-release tests (${{ matrix.os }})
+    needs: [vulncheck]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
