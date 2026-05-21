@@ -347,7 +347,7 @@ fi
 
 # -- Cosign signature verification --------------------------------------------
 # Attempt cryptographic signature verification (REQ-IV-001).
-# cosign absence → warn + continue (SHA-256 remains the baseline)
+# cosign absence → warn + offer install (SHA-256 remains the baseline)
 # .sig/.cert download failure → warn + continue (network issue, not tampering)
 # Verification failure → error exit (signature does not match → tampered binary)
 # Cosign is additive — SKIP_CHECKSUMS does NOT skip this step.
@@ -356,8 +356,17 @@ CERT_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.cer
 COSIGN_SIG_FILE="${TMPDIR}/${TARBALL}.sig"
 CERT_FILE="${TMPDIR}/${TARBALL}.cert"
 
-if command -v cosign >/dev/null 2>&1; then
-    log_info "Cosign detected — verifying cryptographic signature..."
+# Detect cosign under any known binary name
+COSIGN_CMD=""
+for name in cosign cosign-windows-amd64 cosign-linux-amd64 cosign-darwin-amd64 cosign-linux-arm64 cosign-darwin-arm64; do
+    if command -v "$name" >/dev/null 2>&1; then
+        COSIGN_CMD="$name"
+        break
+    fi
+done
+
+if [ -n "$COSIGN_CMD" ]; then
+    log_info "Cosign detected ($COSIGN_CMD) — verifying cryptographic signature..."
 
     SIG_DOWNLOAD_OK=true
     if [ "$DOWNLOADER" = "curl" ]; then
@@ -372,7 +381,7 @@ if command -v cosign >/dev/null 2>&1; then
         log_warn "Failed to download .sig or .cert file. Skipping cosign verification."
         log_warn "SHA-256 checksum remains the integrity baseline."
     else
-        if cosign verify-blob \
+        if "$COSIGN_CMD" verify-blob \
             --signature "$COSIGN_SIG_FILE" \
             --certificate "$CERT_FILE" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
@@ -387,10 +396,83 @@ if command -v cosign >/dev/null 2>&1; then
     fi
 else
     log_warn "Cosign is not installed. Skipping cryptographic signature verification."
-    log_warn "Install cosign for stronger integrity guarantees:"
-    log_warn "  macOS:  brew install cosign"
-    log_warn "  Linux:  See https://docs.sigstore.dev/cosign/installation/"
-    log_warn "SHA-256 checksum remains the integrity baseline."
+
+    # Offer automatic installation when running interactively
+    if [ -t 0 ]; then
+        printf "${YELLOW}Install cosign now for stronger integrity guarantees?${NC} [y/N] " >&2
+        read -r INSTALL_CHOICE
+        if [ "$INSTALL_CHOICE" = "y" ] || [ "$INSTALL_CHOICE" = "Y" ]; then
+            # Detect package manager
+            COSIGN_INSTALLED=false
+            if command -v brew >/dev/null 2>&1; then
+                log_info "Installing cosign via Homebrew..."
+                brew install cosign >/dev/null 2>&1 && COSIGN_INSTALLED=true
+            elif command -v apt-get >/dev/null 2>&1; then
+                log_info "Installing cosign via apt..."
+                sudo apt-get update -qq && sudo apt-get install -y cosign >/dev/null 2>&1 && COSIGN_INSTALLED=true
+            elif command -v dnf >/dev/null 2>&1; then
+                log_info "Installing cosign via dnf..."
+                sudo dnf install -y cosign >/dev/null 2>&1 && COSIGN_INSTALLED=true
+            elif command -v pacman >/dev/null 2>&1; then
+                log_info "Installing cosign via pacman..."
+                sudo pacman -S --noconfirm cosign >/dev/null 2>&1 && COSIGN_INSTALLED=true
+            elif command -v apk >/dev/null 2>&1; then
+                log_info "Installing cosign via apk..."
+                sudo apk add cosign >/dev/null 2>&1 && COSIGN_INSTALLED=true
+            fi
+
+            if [ "$COSIGN_INSTALLED" = "true" ]; then
+                # Re-detect
+                COSIGN_CMD=""
+                for name in cosign cosign-windows-amd64 cosign-linux-amd64 cosign-darwin-amd64 cosign-linux-arm64 cosign-darwin-arm64; do
+                    if command -v "$name" >/dev/null 2>&1; then
+                        COSIGN_CMD="$name"
+                        break
+                    fi
+                done
+                if [ -n "$COSIGN_CMD" ]; then
+                    log_info "Cosign installed successfully. Verifying signature..."
+                    SIG_DOWNLOAD_OK=true
+                    if [ "$DOWNLOADER" = "curl" ]; then
+                        curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                    else
+                        wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                    fi
+                    if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
+                        log_warn "Failed to download .sig or .cert file. Skipping cosign verification."
+                        log_warn "SHA-256 checksum remains the integrity baseline."
+                    else
+                        if "$COSIGN_CMD" verify-blob \
+                            --signature "$COSIGN_SIG_FILE" \
+                            --certificate "$CERT_FILE" \
+                            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                            --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
+                            "${TMPDIR}/${TARBALL}" 2>/dev/null; then
+                            log_info "Cosign signature verified"
+                        else
+                            log_error "Cosign signature verification FAILED."
+                            log_error "The downloaded binary may have been tampered with. Aborting."
+                            exit $EXIT_CHECKSUM
+                        fi
+                    fi
+                fi
+            else
+                log_warn "Automatic cosign installation failed."
+            fi
+        fi
+    fi
+
+    if [ -z "$COSIGN_CMD" ]; then
+        log_warn "Install cosign for stronger integrity guarantees:"
+        if [ "$OS" = "darwin" ]; then
+            log_warn "  brew install cosign"
+        else
+            log_warn "  See https://docs.sigstore.dev/cosign/installation/"
+        fi
+        log_warn "SHA-256 checksum remains the integrity baseline."
+    fi
 fi
 
 # -- Extract ------------------------------------------------------------------

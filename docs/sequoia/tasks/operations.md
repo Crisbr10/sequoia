@@ -21,13 +21,14 @@
 **Fix**: Remove `continue-on-error: true`. Add vulncheck to release.yml before GoReleaser. Verify exit code behavior on CVE discovery. Split CI into phased jobs so failures are visible.
 
 **Acceptance Criteria**:
-- [ ] `continue-on-error: true` removed from all workflow steps
-- [ ] Vulncheck added to release.yml (runs before GoReleaser)
-- [ ] CI phased: lint → test → build → smoke (each gates the next)
-- [ ] Release blocked if any security check fails
-- [ ] Documented: vulncheck exit behavior and how to handle CVEs
+- [x] `continue-on-error: true` removed from all workflow steps
+- [x] Vulncheck added to release.yml (runs before GoReleaser)
+- [x] CI phased: lint → test → build → smoke (each gates the next)
+- [x] Release blocked if any security check fails
+- [x] Documented: vulncheck exit behavior and how to handle CVEs
 
 **Effort**: small (<30m, part of CORR-001) | **Risk**: medium (may surface existing CVEs) | **Blocks**: CORR-001
+**Status**: ✅ Completed — `0466002` | **SDD cycle**: fast-forward (score=1) | **Pipeline**: vulncheck → test → goreleaser → smoke
 
 ---
 

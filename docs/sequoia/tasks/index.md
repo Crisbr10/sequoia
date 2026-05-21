@@ -20,11 +20,11 @@
    ├──► P6-006 (post-deploy smoke) ✅
    └──► P6-008 (retry in installer) ✅
 
-CORR-002 (Global Mutable State)         CORR-003 (TUI Rendering)
-├──► P3-001 (DefaultRegistry)          ├──► P2-002 (precompute logo)
-├──► P3-008 (CommandFiles)             ├──► P2-005 (cache styles)
-├──► P3-009 (templateCache)            ├──► P2-006 (Grow hints)
-└──► P1-004 (init removal)             └──► P2-011 (lazy adapter)
+CORR-002 (Global Mutable State)         ✅ CORR-003 (TUI Rendering) — COMPLETED
+├──► P3-001 (DefaultRegistry)          ├──► P2-002 (precompute logo) ✅
+├──► P3-008 (CommandFiles)             ├──► P2-005 (cache styles) ✅
+├──► P3-009 (templateCache)            ├──► P2-006 (Grow hints) ✅
+└──► P1-004 (init removal)             └──► P2-011 (lazy adapter) ✅
 
 CORR-004 (Common Package Split)
 ├──► P3-002 (pipeline refactor) ───► P3-003 (ISP fix)
@@ -48,7 +48,7 @@ Tasks that unblock other tasks or close multiple findings:
 | Task | Phase | Resolves | Effort | Status |
 |------|-------|----------|--------|--------|
 | CORR-001 | Sec+Ops | 10 findings (P1-001,P1-007,P1-008,P6-001–P6-006,P6-008) | large | ✅ COMPLETED |
-| CORR-003 | Perf | 4 findings (P2-002,P2-005,P2-006,P2-011) | small | — |
+| CORR-003 | Perf | 4 findings (P2-002,P2-005,P2-006,P2-011) | small | ✅ COMPLETED |
 | ~~P6-001~~ | Ops | ~~1 finding + unblocks CORR-001~~ | small | ✅ (in CORR-001) |
 | ~~P6-002~~ | Ops | ~~1 finding + unblocks CORR-001~~ | small | ✅ (in CORR-001) |
 
@@ -106,10 +106,10 @@ Structural improvements, lower urgency, can schedule after Tier 1+2:
 
 | Tier | Tasks | Estimated Total Effort |
 |------|-------|----------------------|
-| 🔴 Tier 1 (Blocking) | ~~4~~ 1 remaining | ~~40–56~~ 2–4 hours |
+| 🔴 Tier 1 (Blocking) | ~~4~~ ✅ COMPLETED | ✅ Done |
 | 🟠 Tier 2 (High Leverage) | ~~7~~ 6 remaining | ~~36–56~~ 28–48 hours |
 | 🟡 Tier 3 (Backlog) | 14 tasks | 20–36 hours |
-| **Total** | **~~25~~ 21 remaining** | **~~96–148~~ 50–88 hours** |
+| **Total** | **~~25~~ 20 remaining** | **~~96–148~~ 48–84 hours** |
 
 ---
 
