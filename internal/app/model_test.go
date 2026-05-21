@@ -57,7 +57,9 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
 	m := app.NewModel("", "test", reg)
-	require.Len(t, m.Tools, 2, "Tools should be populated from DefaultRegistry")
+	// Tools are loaded lazily — call LoadTools to populate.
+	m.LoadTools("")
+	require.Len(t, m.Tools, 2, "Tools should be populated from registry via LoadTools")
 
 	// Verify ToolState wraps the adapter.
 	assert.Equal(t, "claude-code", m.Tools[0].Adapter.ID())
@@ -218,6 +220,7 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
+	m.LoadTools("") // Lazy load after screen is set.
 	// NewModel("") selects all tools — deselect first to test [ ] rendering.
 	m.Tools[0].Selected = false
 
@@ -256,6 +259,7 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
+	m.LoadTools("") // Lazy load — must happen before Tools manipulation.
 	// Ensure no tool is selected.
 	for i := range m.Tools {
 		m.Tools[i].Selected = false
@@ -279,6 +283,7 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
+	m.LoadTools("") // Lazy load tools after screen is set.
 	// Select the first tool.
 	if len(m.Tools) > 0 {
 		m.Tools[0].Selected = true
@@ -319,6 +324,7 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenConfiguration
+	m.LoadTools("") // Lazy load tools after screen is set.
 	// Select the tool so that confirm builds progress.
 	m.Tools[0].Selected = true
 
@@ -452,6 +458,7 @@ func TestStatusView_RendersToolTable(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
+	m.LoadTools("") // Lazy load tools after screen is set.
 
 	view := m.View()
 	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view)
@@ -578,7 +585,7 @@ func TestStatus_RKeyClearsStaleSelections(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
-	m.Cursor = 0
+	m.LoadTools("") // Lazy load tools after screen is set.
 	// Simulate stale selections from prior flows.
 	m.Tools[0].Selected = true
 	m.Tools[1].Selected = true
@@ -604,6 +611,7 @@ func TestUninstallView_RendersCheckboxList(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.Tools[0].Selected = false
 
 	view := m.View()
@@ -619,6 +627,7 @@ func TestUninstall_EnterConfirmsWhenToolSelected(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.Tools[0].Selected = true
 	m.UninstallConfirming = false
 
@@ -637,6 +646,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.Tools[0].Selected = false
 
 	msg := tea.KeyMsg{Type: tea.KeySpace}
@@ -670,6 +680,7 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.UninstallConfirming = true
 	m.Tools[0].Selected = true
 
@@ -922,6 +933,7 @@ func TestToolSelection_SpaceToggles(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
+	m.LoadTools("") // Lazy load tools after screen is set.
 	// Initially not selected.
 	m.Tools[0].Selected = false
 

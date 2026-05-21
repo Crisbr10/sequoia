@@ -107,29 +107,43 @@ func (a toolInfoAdapter) Status() model.ToolStatus {
 //
 // Engram detection is deferred to Init() via detectEngram() to avoid
 // blocking the first TUI render on exec.LookPath.
+//
+// Adapter construction is deferred past the first frame render. The Welcome
+// screen does not need the adapter list, so reg.All() is NOT called here.
+// Tools are loaded lazily via loadTools() when the user navigates to a screen
+// that requires adapter data (ToolSelection, Status, Uninstall).
 func NewModel(toolID string, version string, reg *adapters.Registry) Model {
-	all := reg.All()
-	tools := make([]model.ToolState, 0, len(all))
-	for _, a := range all {
-		ts := model.ToolState{
-			Adapter:  toolInfoAdapter{a},
-			Selected: toolID == "" || a.ID() == toolID,
-		}
-		tools = append(tools, ts)
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return Model{
 		Version:         version,
 		Screen:          model.ScreenWelcome,
-		Tools:           tools,
+		Tools:           nil, // loaded lazily by loadTools()
 		Config:          model.TUIConfig{Persistence: "engram"},
 		Progress:        make(chan model.ProgressMsg, 64),
 		EngramAvailable: false,
 		reg:             reg,
 		ctx:             ctx,
 		cancel:          cancel,
+	}
+}
+
+// LoadTools populates m.Tools from the registry if not already loaded.
+// It is safe to call multiple times; subsequent calls are no-ops.
+// toolID is the optional adapter ID to pre-select; empty means select all.
+// Exported for test use; production code calls this internally in updateScreenKey.
+func (m *Model) LoadTools(toolID string) {
+	if m.Tools != nil {
+		return // already loaded
+	}
+	all := m.reg.All()
+	m.Tools = make([]model.ToolState, 0, len(all))
+	for _, a := range all {
+		ts := model.ToolState{
+			Adapter:  toolInfoAdapter{a},
+			Selected: toolID == "" || a.ID() == toolID,
+		}
+		m.Tools = append(m.Tools, ts)
 	}
 }
 

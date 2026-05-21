@@ -33,8 +33,11 @@ type Adapter struct {
 
 // RegisterIn registers this adapter in the given registry.
 // Use this for constructor DI; init() delegates to it for backward compatibility.
+// Uses RegisterFactory for lazy construction — adapters are built on first
+// Get()/All() call, not at registry registration time. This keeps the first
+// TUI frame fast by deferring adapter initialization past the welcome screen.
 func RegisterIn(reg *adapters.Registry) {
-	reg.Register(&Adapter{})
+	reg.RegisterFactory("template", func() adapters.ToolAdapter { return NewAdapter("") })
 }
 
 func init() {

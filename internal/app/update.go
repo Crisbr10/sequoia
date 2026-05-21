@@ -54,14 +54,17 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.Cursor = newCursor
 		switch action {
 		case "install":
+			m.LoadTools("") // Lazy construction: defer past first frame render.
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenToolSelection}
 			}
 		case "status":
+			m.LoadTools("")
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenStatus}
 			}
 		case "uninstall":
+			m.LoadTools("")
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenUninstall}
 			}
@@ -73,6 +76,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ScreenToolSelection:
+		m.LoadTools("")
 		newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))
 		m.Cursor = newCursor
 		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
@@ -164,6 +168,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ScreenStatus:
+		m.LoadTools("")
 		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
 		m.Cursor = newCursor
 
@@ -193,6 +198,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ScreenUninstall:
+		m.LoadTools("")
 		// Confirmation mode: only y, n, and Esc matter.
 		if m.UninstallConfirming {
 			if msg.Type == tea.KeyEsc {

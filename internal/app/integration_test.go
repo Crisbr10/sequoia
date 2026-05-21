@@ -494,6 +494,7 @@ func TestIntegration_StatusAndUninstall_Flow(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenStatus
+	m.LoadTools("") // Lazy load tools for the Status screen.
 
 	view := m.View()
 	assert.Contains(t, view, "Test Tool", "Status should show tool name")
@@ -510,6 +511,7 @@ func TestIntegration_UninstallConfirmation_EscCancels(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools for the Uninstall screen.
 	// Tool is installed, so select it for uninstall.
 	m.Tools[0].Selected = true
 	m.Cursor = 0
@@ -567,6 +569,7 @@ func TestIntegration_ErrorRetryPipeline(t *testing.T) {
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenError
 	m.OperationMode = "install"
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.Tools[0].Selected = true
 
 	// Set up failed ProgressTools (pre-existing failure state).
@@ -616,6 +619,7 @@ func TestIntegration_UninstallFlowLabels(t *testing.T) {
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenUninstall
+	m.LoadTools("") // Lazy load tools after screen is set.
 	m.Tools[0].Selected = true
 	m.Cursor = 0
 
