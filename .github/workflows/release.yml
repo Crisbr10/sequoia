@@ -170,12 +170,12 @@ jobs:
 
       - name: Download checksums.txt
         run: |
-          curl -fsSL -o checksums.txt \
+          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o checksums.txt \
             "https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/sequoia_${{ steps.tag.outputs.version }}_checksums.txt"
 
       - name: Download Linux AMD64 Binary
         run: |
-          curl -fsSL -o sequoia_linux_amd64.tar.gz \
+          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o sequoia_linux_amd64.tar.gz \
             "https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/sequoia_${{ steps.tag.outputs.version }}_linux_amd64.tar.gz"
 
       - name: Verify SHA-256 of Published Binary
