@@ -7,6 +7,9 @@
 # If this file is deleted, /sequoia-dev falls back to the defaults shown below.
 
 sdd:
+  # Execution mode: auto (run all phases back-to-back) or interactive (pause after each phase)
+  execution_mode: auto
+
   # TDD mode: strict (red-green-refactor) or standard (tests optional)
   tdd: strict
 

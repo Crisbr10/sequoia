@@ -28,10 +28,16 @@ Do NOT proceed without SDD init.
 
 ## Config Loading
 
-Read configuration from `~/.config/opencode/.sequoia-dev.yaml`. Merge with defaults — user config values override defaults, missing keys fall back to defaults, unknown keys are ignored silently:
+**CRITICAL — Path resolution**: The config file lives at `~/.config/opencode/.sequoia-dev.yaml`, which is OUTSIDE the project workspace. You MUST use an absolute path to read it. Do NOT use workspace-scoped tools like `glob` — they will only search within the project directory and silently miss the config file.
+
+1. **Resolve the absolute path**: On Linux/macOS, expand `~` to `$HOME`. On Windows, resolve to `$env:USERPROFILE\.config\opencode\.sequoia-dev.yaml`.
+2. **Read the file directly** using the absolute path (e.g., `read` with the full resolved path).
+3. If the file does not exist → use defaults silently (first run, no config yet).
+4. If the file exists → parse it and merge with defaults. User config values override defaults, missing keys fall back to defaults, unknown keys are ignored silently.
 
 | Key | Default | Description |
 |-----|---------|-------------|
+| `sdd.execution_mode` | `interactive` | Execution mode: `auto` (run all phases back-to-back) or `interactive` (pause after each phase) |
 | `sdd.tdd` | `strict` | TDD mode: `strict` (red-green-refactor) or `standard` (tests optional) |
 | `sdd.delivery` | `ask-on-risk` | Delivery strategy for PR review workflow |
 | `sdd.chain` | `stacked-to-main` | Chain strategy when PRs are split |
@@ -116,7 +122,7 @@ When the score is ≤ `ff_max_score` or `--ff` is passed:
 3. Implement the task directly (apply phase)
 4. Verify the implementation (verify phase)
 
-Pass `tdd={sdd.tdd}`, `delivery={sdd.delivery}`, `chain={sdd.chain}` to all subagents.
+Pass `execution_mode={sdd.execution_mode}`, `tdd={sdd.tdd}`, `delivery={sdd.delivery}`, `chain={sdd.chain}` to all subagents.
 
 ### Full SDD Cycle
 When the score is > `ff_max_score` or `--full` is passed:
@@ -128,7 +134,7 @@ When the score is > `ff_max_score` or `--full` is passed:
 6. `sdd-verify` → Verify against specs
 7. `sdd-archive` → Sync delta specs
 
-Pass `tdd={sdd.tdd}`, `delivery={sdd.delivery}`, `chain={sdd.chain}` to all subagents.
+Pass `execution_mode={sdd.execution_mode}`, `tdd={sdd.tdd}`, `delivery={sdd.delivery}`, `chain={sdd.chain}` to all subagents.
 
 ## Override Flags
 
@@ -157,6 +163,7 @@ Always report BEFORE launching any subagents:
 ```
 🔧 /sequoia-dev {task-id}
    Mode: {fast-forward | full SDD cycle}
+   Execution: {auto | interactive}
    TDD: {strict | standard}
    Delivery: {ask-on-risk | auto-chain | single-pr | exception-ok}
    Chain: {stacked-to-main | feature-branch-chain}
@@ -171,12 +178,13 @@ Your `~/.config/opencode/.sequoia-dev.yaml` controls all strategies:
 
 ```yaml
 sdd:
-  tdd: strict              # strict | standard
-  delivery: ask-on-risk    # ask-on-risk | auto-chain | single-pr | exception-ok
-  chain: stacked-to-main   # stacked-to-main | feature-branch-chain
-  auto_ff: true            # true | false
+  execution_mode: interactive  # auto | interactive
+  tdd: strict                  # strict | standard
+  delivery: ask-on-risk        # ask-on-risk | auto-chain | single-pr | exception-ok
+  chain: stacked-to-main       # stacked-to-main | feature-branch-chain
+  auto_ff: true                # true | false
   complexity:
-    ff_max_score: 2        # 0-9
+    ff_max_score: 2            # 0-9
 
 paths:
   tasks_dir: docs/sequoia/tasks/
