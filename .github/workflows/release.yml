@@ -169,20 +169,28 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download checksums.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o checksums.txt \
-            "https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/sequoia_${{ steps.tag.outputs.version }}_checksums.txt"
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "*_checksums.txt"
 
       - name: Download Linux AMD64 Binary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o sequoia_linux_amd64.tar.gz \
-            "https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/sequoia_${{ steps.tag.outputs.version }}_linux_amd64.tar.gz"
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "*_linux_amd64.tar.gz"
 
       - name: Verify SHA-256 of Published Binary
         run: |
           echo "Verifying published binary checksum..."
-          EXPECTED=$(grep "sequoia_${{ steps.tag.outputs.version }}_linux_amd64.tar.gz" checksums.txt | awk '{print $1}')
-          ACTUAL=$(sha256sum sequoia_linux_amd64.tar.gz | awk '{print $1}')
+          CHECKSUMS=$(ls *_checksums.txt)
+          TARBALL=$(ls *_linux_amd64.tar.gz)
+          EXPECTED=$(grep "$TARBALL" "$CHECKSUMS" | awk '{print $1}')
+          ACTUAL=$(sha256sum "$TARBALL" | awk '{print $1}')
           if [ "$EXPECTED" != "$ACTUAL" ]; then
             echo "ERROR: Published binary checksum mismatch!"
             echo "  Expected: $EXPECTED"
@@ -193,7 +201,8 @@ jobs:
 
       - name: Extract and Smoke Test
         run: |
-          tar xzf sequoia_linux_amd64.tar.gz
+          TARBALL=$(ls *_linux_amd64.tar.gz)
+          tar xzf "$TARBALL"
           chmod +x sequoia
           echo "Running 'sequoia version'..."
           ./sequoia version
