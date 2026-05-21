@@ -44,4 +44,3 @@ func RenderTemplate(fs *embed.FS, name string, data interface{}) (string, error)
 	}
 	return buf.String(), nil
 }
-

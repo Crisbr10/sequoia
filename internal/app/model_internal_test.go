@@ -28,7 +28,7 @@ func (s *stubAdapter) Detect() bool                              { return s.inst
 func (s *stubAdapter) IsInstalled() bool                         { return s.installed }
 func (s *stubAdapter) Install(opts adapters.InstallOpts) error   { _ = opts.Context; return nil }
 func (s *stubAdapter) Uninstall(opts adapters.InstallOpts) error { _ = opts.Context; return nil }
-func (s *stubAdapter) Status() model.ToolStatus                   { return model.ToolStatus{} }
+func (s *stubAdapter) Status() model.ToolStatus                  { return model.ToolStatus{} }
 
 // Compile-time check: stubAdapter satisfies model.ToolInfo.
 var _ model.ToolInfo = (*stubAdapter)(nil)

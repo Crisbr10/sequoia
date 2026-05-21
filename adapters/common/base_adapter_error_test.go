@@ -26,11 +26,13 @@ import (
 // is polled by the select in checkContext.
 //
 // cancelAt   = which checkpoint triggers cancellation
-//  1 → before any work (line 284)
-//  2 → after staging + rendering (line 323)
-//  3 → after skill install      (line 355)
-//  4 → after commands install   (line 373)
-//  5 → after system prompt      (line 393)
+//
+//	1 → before any work (line 284)
+//	2 → after staging + rendering (line 323)
+//	3 → after skill install      (line 355)
+//	4 → after commands install   (line 373)
+//	5 → after system prompt      (line 393)
+//
 // =========================================================================
 type checkpointCtx struct {
 	context.Context

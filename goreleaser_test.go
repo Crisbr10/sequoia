@@ -59,8 +59,8 @@ type goreleaserExtraFile struct {
 }
 
 type goreleaserChecksum struct {
-	NameTemplate string              `yaml:"name_template"`
-	Algorithm    string              `yaml:"algorithm,omitempty"`
+	NameTemplate string                `yaml:"name_template"`
+	Algorithm    string                `yaml:"algorithm,omitempty"`
 	ExtraFiles   []goreleaserExtraFile `yaml:"extra_files,omitempty"`
 }
 

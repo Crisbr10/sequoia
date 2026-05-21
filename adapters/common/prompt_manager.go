@@ -10,10 +10,10 @@ import "github.com/Crisbr10/sequoia/adapters"
 // via SetPromptManager(). All methods are safe to call with nil function
 // fields (they return nil, matching Codex's no-op system prompt behavior).
 type PromptManager struct {
-	promptStrategy          adapters.PromptStrategy
-	writeSystemPrompt       func(base, content string) error
-	removeSystemPrompt      func(base string) error
-	rollbackOnSysPromptErr  bool
+	promptStrategy         adapters.PromptStrategy
+	writeSystemPrompt      func(base, content string) error
+	removeSystemPrompt     func(base string) error
+	rollbackOnSysPromptErr bool
 }
 
 // NewPromptManager creates a PromptManager with the given strategy and
