@@ -1,0 +1,42 @@
+# Sequoia Dev — SDD Strategy Configuration
+# https://github.com/Crisbr10/sequoia
+#
+# This file is read by /sequoia-dev to determine how tasks are developed.
+# Edit it to match your preferred workflow.
+#
+# If this file is deleted, /sequoia-dev falls back to the defaults shown below.
+
+sdd:
+  # TDD mode: strict (red-green-refactor) or standard (tests optional)
+  tdd: strict
+
+  # Delivery strategy for PR review workflow
+  #   ask-on-risk    — Ask before splitting large PRs (>400 lines)
+  #   auto-chain     — Auto-split into chained PRs
+  #   single-pr      — One PR, require size exception if >400 lines
+  #   exception-ok   — One PR, no size limit, maintainer accepts risk
+  delivery: ask-on-risk
+
+  # Chain strategy (only used when PRs are split)
+  #   stacked-to-main     — Each PR merges to main in order
+  #   feature-branch-chain — Tracker branch accumulates, one merge to main
+  chain: stacked-to-main
+
+  # Automatic fast-forward for simple tasks
+  # When true, tasks scoring ≤ complexity.ff_max_score use sdd-ff
+  auto_ff: true
+
+  complexity:
+    # Tasks with score ≤ this value use fast-forward (sdd-ff)
+    # Tasks with score > this value use full SDD cycle
+    ff_max_score: 2
+    # Score components:
+    #   Implementation risk: Low=0 Medium=1 High=3
+    #   Effort: small=0 medium=1 large=3
+    #   Files involved: 1-2=0 3-4=1 5+=2
+    #   Dependencies: none=0 has_deps=1
+
+# Paths for task file discovery
+paths:
+  # Directory where Sequoia task files are stored (relative to project root)
+  tasks_dir: docs/sequoia/tasks/
