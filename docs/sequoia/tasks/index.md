@@ -1,126 +1,128 @@
-# Global Task Index — Sequoia Audit
+# Sequoia Task Index — sequoia-ai
 
-## Dependency Graph
-
-```
-RC-004 (backup namespace) ─────────────────────────────────────────────────┐
-  └─► P3-001 (cross-installer restore)                                     │
-  └─► P6-007 (backup cleanup)                                              │
-                                                                            │
-RC-001 (god-object) ─────────────────────────────────────────────────────┐ │
-  └─► P3-002 (22 function fields)                                        │ │
-  └─► P3-003 (ISP violation, 12 methods)                                 │ │
-  └─► P3-004 (detection vs install coupling)                             │ │
-  └─► P3-005 (global mutable state)                                      │ │
-  └─► P3-006 (BackupManager missing — DEPENDS ON RC-004 ▲)              │ │
-  └─► P3-007 (factory leak)                                              │ │
-  └─► P4-001 (error-path tests)                                          │ │
-  └─► P4-002 (mock embed.FS tests)                                       │ │
-                                                                            │
-RC-006 (eager init) ──────────────────────────────────────────────────────┐ │
-  └─► P2-002 (init() blocks)                                              │ │
-  └─► P2-003 (symlink on every call)                                      │ │
-  └─► P2-004 (template re-execution)                                      │ │
-  └─► P2-005 (sequential embed reads)                                     │ │
-                                                                            │ │
-RC-002 (script integrity) ────────────────────────────────────────────┐   │ │
-  └─► P1-001 (path sanitization)                                       │   │ │
-  └─► P1-002 (PATH injection)                                          │   │ │
-  └─► P6-002 (script verification in release)                          │   │ │
-                                                                       │   │ │
-RC-003 (CI/CD gates) ──────────────────────────────────────────────┐  │   │ │
-  └─► P6-001 (SBOM missing)                                         │  │   │ │
-  └─► P6-003 (no vuln scanning)                                     │  │   │ │
-  └─► P6-004 (no arm64 in matrix)                                   │  │   │ │
-  └─► P6-005 (Dependabot only GH Actions)                          │  │   │ │
-  └─► P6-008 (no checksum signing)                                  │  │   │ │
-                                                                    │  │   │ │
-Standalone HIGH (no blockers, fix immediately):                    │  │   │ │
-  P2-001 (template cache key)                                       │  │   │ │
-  P4-005 (Codex write error swallowed)                             │  │   │ │
-                                                                    │  │   │ │
-RC-005, RC-007 (medium root causes — no downstream blockers)      │  │   │ │
-                                                                    │  │   │ │
-MERGED-001 (go-figure consolidation) ✅                              │  │   │ │
-MERGED-002 (recover pattern improvement)                           │  │   │ │
-```
-
-## Priority Tiers (All Areas)
-
-### Tier 1 — Immediate (Critical + High)
-**Risk**: Silent data loss, wrong content installation, potential supply-chain compromise
-
-| # | ID | Area | Task | Effort | Blocks |
-|---|-----|------|------|--------|--------|
-| 1 | RC-004 | Architecture | ~~Namespace backup directories by adapter ID~~ ✅ COMPLETE | small | P3-001, P6-007, P3-006 |
-| 2 | P2-001 | Architecture | Fix template cache key | small | — |
-| 3 | P4-005 | Quality | Propagate Codex write errors | small | — |
-| 4 | RC-001 | Architecture | ~~Decompose BaseAdapter~~ ✅ COMPLETE | large | 8 findings |
-| 5 | RC-002 | Security | Add install script integrity | medium | P1-001, P1-002 |
-| 6 | RC-003 | Operations | Add CI/CD security gates | medium | 8 findings |
-| 7 | RC-006 | Performance | ~~Lazy adapter loading~~ ✅ COMPLETE | medium | 5 findings |
-
-### Tier 2 — Short Term (Medium)
-**Risk**: Degraded reliability, missing security hardening, architectural debt accumulation
-
-| # | ID | Area | Task | Effort |
-|---|-----|------|------|--------|
-| 8 | MERGED-001 | Quality | ~~Consolidate go-figure usage~~ ✅ COMPLETE | small |
-| 9 | P6-002 | Operations | Script verification in CI | small |
-| 10 | P4-007 | Architecture | Deduplicate shared types | small |
-| 11 | P3-002 | Architecture | Encapsulate BaseAdapter fields | medium |
-| 12 | P4-001 | Quality | Error-path test coverage | medium |
-| 13 | P3-004 | Architecture | Separate detection from installation | medium |
-
-### Tier 3 — Long Term (Low + Info)
-**Risk**: Code hygiene, minor hardening, non-critical improvements
-
-## Risk Estimate
-
-### If we fix nothing
-- **Blast radius**: Any user who runs Sequoia in headless/TUI mode (P2-001) or has multiple adapters installed (P3-001/RC-004) **will experience data loss**. The silent error swallowing (P4-005) means they won't know their Codex config is corrupt.
-- **Supply chain**: A compromised install script (RC-002) would affect 100% of users. With no verification, no SBOM, and no vuln scanning (RC-003), detection would be impossible until post-mortem.
-- **Architecture**: The god-object (RC-001) means any bug fix in BaseAdapter risks breaking all 6 adapters. Without refactoring, every new adapter adds coupling.
-
-### If we fix Tier 1 only
-- Health Score improves from 3/100 to approximately **65/100**
-- Silent data loss eliminated
-- Supply-chain integrity established
-- Architecture becomes testable and adaptable
-
-### If we fix Tier 1 + Tier 2
-- Health Score reaches approximately **82/100**
-- All medium-severity issues resolved
-- CI/CD includes comprehensive gates
-- Test coverage covers error paths
-
-### Time estimate
-- Tier 1: 3-4 weeks (RC-001 is the long pole at ~2 weeks)
-- Tier 2: 2-3 weeks
-- Tier 3: 1-2 weeks spread over maintenance cycles
-
-## Cross-Area Dependencies
-
-| Task | Depends On | Area |
-|------|-----------|------|
-| P3-006 (BackupManager) | RC-001 (god-object decomposition) + RC-004 (backup namespace) | Architecture |
-| P4-001 (error-path tests) | RC-001 (stable adapter interface) | Quality |
-| P2-002..P2-005 (perf improvements) | RC-006 (lazy loading foundation) | Performance |
-| P1-001, P1-002 (security hardening) | RC-002 (integrity infrastructure first) | Security |
-| P6-001..P6-010 (CI/CD improvements) | RC-003 (CI/CD foundation) | Operations |
-
-## Relevant Files
-
-- `adapters/common/base_adapter.go` — Monolithic 482-line god-object (RC-001)
-- `adapters/common/template.go` — Template cache with stack-address key (P2-001)
-- `adapters/common/installer.go` — Installer lifecycle with shared backup dir (RC-004)
-- `adapters/codex/toml_merge.go` — TOML merge with silent write error (P4-005)
-- `adapters/interface.go` — 12-method ToolAdapter interface (P3-003)
-- `adapters/registry.go` — Global mutable DefaultRegistry (P3-005)
-- `.github/workflows/ci.yml` — CI pipeline lacking security gates (RC-003)
-- `.golangci.yaml` — Linter config excluding main.go from errcheck (P4-008)
-- `install.ps1` — Unverified install script (RC-002)
+**Audit Date**: 2026-05-21 | **Audit ID**: audit-20260521-sequoia-ai | **Global Score**: 32/100 (Critical)
 
 ---
 
-*Generated by M2 Reporter — Sequoia v1.0.7 audit framework*
+## Global Dependency Graph
+
+```
+```
+✅ CORR-001 (Release Pipeline Hardening) — COMPLETED
+   ├──► P1-001 (binary verification) ✅
+   ├──► P1-007 (pin actions) ✅
+   ├──► P1-008 (env protection) ✅
+   ├──► P6-001 (block continue-on-error) ✅
+   ├──► P6-002 (approval gate) ✅
+   ├──► P6-003 (cross-platform tests) ✅
+   ├──► P6-004 (workflow_dispatch) ✅
+   ├──► P6-005 (CODEOWNERS) ✅
+   ├──► P6-006 (post-deploy smoke) ✅
+   └──► P6-008 (retry in installer) ✅
+
+CORR-002 (Global Mutable State)         CORR-003 (TUI Rendering)
+├──► P3-001 (DefaultRegistry)          ├──► P2-002 (precompute logo)
+├──► P3-008 (CommandFiles)             ├──► P2-005 (cache styles)
+├──► P3-009 (templateCache)            ├──► P2-006 (Grow hints)
+└──► P1-004 (init removal)             └──► P2-011 (lazy adapter)
+
+CORR-004 (Common Package Split)
+├──► P3-002 (pipeline refactor) ───► P3-003 (ISP fix)
+├──► P3-010 (strategy pattern)   ───► P4-007 (gosec fix)
+└──► P4-003 (error context)
+
+Independent Quick Wins:
+P2-001  Detect caching          P4-001  go.sum cleanup
+P4-004  Magic number 64         P6-007  Audit command
+P6-009  Separate tokens         P6-010  Structured logging
+```
+
+---
+
+## Priority Tiers
+
+### 🔴 Tier 1 — Blocking (resolve first)
+
+Tasks that unblock other tasks or close multiple findings:
+
+| Task | Phase | Resolves | Effort | Status |
+|------|-------|----------|--------|--------|
+| CORR-001 | Sec+Ops | 10 findings (P1-001,P1-007,P1-008,P6-001–P6-006,P6-008) | large | ✅ COMPLETED |
+| CORR-003 | Perf | 4 findings (P2-002,P2-005,P2-006,P2-011) | small | — |
+| ~~P6-001~~ | Ops | ~~1 finding + unblocks CORR-001~~ | small | ✅ (in CORR-001) |
+| ~~P6-002~~ | Ops | ~~1 finding + unblocks CORR-001~~ | small | ✅ (in CORR-001) |
+
+### 🟠 Tier 2 — High Leverage
+
+High impact, independent, can be done in parallel:
+
+| Task | Phase | Resolves | Effort |
+|------|-------|----------|--------|
+| P2-001 | Perf | Uncached PATH scans → reduces CLI latency ~40% | small |
+| P4-001 | Quality | Typosquat entry in go.sum → supply chain safe | small |
+| P4-004 | Quality | Magic number constant → consistency across 22+ files | small |
+| ~~P6-005~~ | Ops | CODEOWNERS → enforces review on release path | small | ✅ (in CORR-001) |
+| P6-009 | Ops | Separate tokens → least privilege | small |
+| CORR-002 | Arch+Sec | 4 findings, removes global mutable state | medium |
+| CORR-004 | Arch+Quality | 5 findings, splits god package | large |
+
+### 🟡 Tier 3 — Backlog
+
+Structural improvements, lower urgency, can schedule after Tier 1+2:
+
+| Task | Phase | Resolves | Effort |
+|------|-------|----------|--------|
+| P1-002 | Security | File permission hardening | small |
+| P1-003 | Security | Probe file permissions | small |
+| P1-005 | Security | Sanitize home path in output | small |
+| P1-006 | Security | Validate working-directory input | small |
+| P1-009 | Quality | Verify go.sum cleanup | small |
+| P1-010 | Security | Signature verification for adapters | medium |
+| P3-004 | Arch | Fix double error wrapping | small |
+| P3-007 | Arch | Align _template adapter | small |
+| P4-009 | Quality | Standardize error wrapping | small |
+| P6-007 | Ops | Implement audit command output | medium |
+| P6-010 | Ops | Structured logging with slog | medium |
+| P6-011 | Ops | Enable -race on Windows CI | small |
+| P6-013 | Ops | Sync CHANGELOG with releases | small |
+
+---
+
+## Risk Estimate per Area
+
+| Area | Risk Level | Rationale |
+|------|-----------|-----------|
+| **Release Safety** | **LOW** | ✅ CORR-001 resolved — approval gates, binary verification, CODEOWNERS, smoke tests, and cross-platform testing now in place. |
+| **CI Integrity** | **LOW** | ✅ CI phased with blocking vulncheck, coverage gate at 70%, 5-OS matrix (CORR-001). |
+| **Supply Chain** | **MEDIUM** | ✅ Actions pinned to commit SHAs (CORR-001). Binary verification in place. Typosquat entry in go.sum still pending. |
+| **TUI Performance** | **MEDIUM** | Frame-rate I/O causing jank on slow storage. Easily fixable — all fixes are caching changes. |
+| **Architecture Debt** | **MEDIUM** | God package growing, broad interfaces, init() side effects. Currently manageable but growing with each adapter. |
+| **Code Quality** | **LOW** | Strong fundamentals: 65 test files, parallel tests, zero lint suppressions. Issues are small, isolated improvements. |
+| **User Security** | **LOW** | Only minor file permission concerns found. No PII handling, no network I/O, no authentication. |
+
+---
+
+## Effort Summary
+
+| Tier | Tasks | Estimated Total Effort |
+|------|-------|----------------------|
+| 🔴 Tier 1 (Blocking) | ~~4~~ 1 remaining | ~~40–56~~ 2–4 hours |
+| 🟠 Tier 2 (High Leverage) | ~~7~~ 6 remaining | ~~36–56~~ 28–48 hours |
+| 🟡 Tier 3 (Backlog) | 14 tasks | 20–36 hours |
+| **Total** | **~~25~~ 21 remaining** | **~~96–148~~ 50–88 hours** |
+
+---
+
+## Area Task Files
+
+| Area | File | Score | CRITICAL | HIGH | MEDIUM |
+|------|------|-------|----------|------|--------|
+| 🔒 Security | [security.md](security.md) | 35 | 1 | 0 | 9 |
+| ⚡ Performance | [performance.md](performance.md) | 38 | 0 | 2 | 9 |
+| 🏗️ Architecture | [architecture.md](architecture.md) | 36 | 0 | 2 | 8 |
+| ✅ Quality | [quality.md](quality.md) | 48 | 0 | 0 | 10 |
+| 🔧 Operations | [operations.md](operations.md) | 0 | 2 | 4 | 9 |
+
+---
+
+*Generated by Sequoia M2 Reporter — audit-20260521-sequoia-ai | Schema v1.0*

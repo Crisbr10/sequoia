@@ -1,90 +1,219 @@
-# Performance Tasks — Sequoia Audit
+# Performance Tasks — sequoia-ai
 
-## Context
+**Score**: 38/100 (Critical) | **Findings**: 11 (0 CRITICAL, 2 HIGH, 9 MEDIUM) | **Audit ID**: audit-20260521-sequoia-ai
 
-Sequoia is a Go CLI tool where performance is measured in startup latency, install/uninstall throughput, and memory footprint. The tool initializes all adapters eagerly at import time and performs blocking I/O during installation. Performance findings exclude P2-001 (mapped to Architecture as a correctness bug).
+---
 
-9 findings: 4 medium, 3 low, 2 info. Root cause RC-006 (eager adapter initialization) drives the medium findings P2-002 through P2-005.
+## 🔴 HIGH Findings
 
-## Priority Tiers
+### P2-001: Cache Detect() results for process lifetime
 
-### Tier 1 — Immediate (critical + high)
+**Problem**: Every adapter's `Detect()` (`adapters/claude/adapter.go:64` and siblings) calls `exec.LookPath` on every CLI command and TUI screen with zero caching. `sequoia status` makes up to 5 PATH scans, each spawning a subprocess enumeration.
 
-| ID | Task | Effort | Blocks |
-|----|------|--------|--------|
-| RC-006 | Implement lazy adapter loading — defer construction to first use | medium | P2-002, P2-003, P2-004, P2-005 |
+**Evidence**:
+- `Detect()` in `BaseAdapter` delegates to `Detector.Detect()` which calls `exec.LookPath`
+- Called from `runStatus`, `runInstall`, `runUninstall`, and `ToolSelectionModel.Init`
+- Process lifetime: PATH doesn't change during execution — results are stable
 
-### Tier 2 — Short Term (medium)
+**Fix**: Add `detectedOnce sync.Once` and `detectedResult bool` to `BaseAdapter`. `Detect()` calls `sync.Once.Do()` wrapping the `exec.LookPath` + install check. Subsequent calls return cached result immediately.
 
-| ID | Task | Effort | Blocks |
-|----|------|--------|--------|
-| P2-002 | Profile and reduce adapter init() overhead | small | — |
-| P2-003 | Cache symlink resolution result per adapter instance | small | — |
-| P2-004 | Add template rendering output cache (content-addressed) | small | — |
-| P2-005 | Batch-read command templates from embed.FS | small | — |
+**Acceptance Criteria**:
+- [ ] `sync.Once` memoization added to `BaseAdapter.Detect()`
+- [ ] `exec.LookPath` called exactly once per adapter per process
+- [ ] Test verifies single invocation for repeated `Detect()` calls
+- [ ] CLI commands: `sequoia status` PATH scans reduced from 5 to 0 (first call cached)
 
-### Tier 3 — Long Term (low + info)
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: P2-003, P2-008
 
-| ID | Task | Effort | Blocks |
-|----|------|--------|--------|
-| P2-006 | Consolidate redundant os.Stat calls in verification path | small | — |
-| P2-007 | Parallelize file copy operations in Installer.Apply() | medium | — |
-| P2-008 | Add pprof HTTP endpoint (dev mode only) for profiling | small | — |
-| P2-009 | Stream version file reads instead of loading entire file | small | — |
-| P2-010 | Add benchmark suite (`go test -bench=.`) to CI | small | — |
+---
 
-## Detailed Tasks
+### P2-002: Pre-render Logo at init time
 
-### RC-006 — Eager Adapter Initialization Couples All Adapters to Main
-- **Severity**: HIGH (drives 5 child findings)
-- **Evidence**: `adapters/registry.go:20` — `DefaultRegistry` is initialized at package level. Each adapter's `init()` function calls `DefaultRegistry.Register()` at import time (e.g., `adapters/claude/adapter.go` init block). All adapters are loaded regardless of which tools the user has installed.
-- **Problem**: Startup latency scales linearly with adapter count. Unused adapters consume memory for their embed.FS and template data. `init()` ordering dependencies create non-deterministic behavior when adapters reference shared infrastructure.
-- **Fix**:
-  1. Create a lazy `AdapterLoader` that stores only metadata (ID, name, detect function) at init time
-  2. Defer full adapter construction (BaseAdapter, template loading, path resolution) to first call to `NewAdapter()` or `Registry.Get()`
-  3. Remove `init()` functions from adapter packages — replace with explicit `Register()` calls in `cmd/sequoia/main.go`
-  4. Add `sync.Once` guards to constructed adapters to ensure thread-safe lazy init
-  5. Benchmark startup time before/after: `hyperfine "sequoia --help"`
-- **Verification**: Run `hyperfine "sequoia --help"` before and after. Target: <50ms reduction in startup time. Verify that adapters for tools not installed on the system are never fully constructed. Confirm `go test -race ./...` passes (lazy init must be thread-safe).
-- **References**: Effective Go — Initialization, Go memory model for sync.Once, Composition Root pattern
+**Problem**: `Logo()` in `internal/tui/styles/logo.go:19-29` splits the logo string, creates a new lipgloss style, and renders through the style pipeline on every frame. At 60fps this is ~60 allocations/sec of multi-line strings.
 
-### P2-002 — Adapter init() Blocks Exist for All Adapters
-- **Severity**: MEDIUM
-- **Evidence**: Every adapter package (claude, codex, cursor, gemini, opencode) contains an `init()` function that calls `adapters.DefaultRegistry.Register()`. This runs during program startup before `main()`.
-- **Problem**: init() execution is serialized and blocks startup. With 6+ adapters, each initializing templates and path functions, startup can take hundreds of milliseconds unnecessarily. Tools the user doesn't have installed still consume startup time and memory.
-- **Fix**: Subsumed by RC-006 (lazy adapter loading). After RC-006 refactoring, verify that init() blocks are removed or reduced to lightweight metadata registration only.
-- **Verification**: Add a test that imports the main package and checks `time.Since(start)` for import time. Should be <10ms.
-- **References**: Go FAQ — "Why is my program slow to start?"
+**Root Cause**: CORR-003 (TUI Rendering Path Inefficiency)
 
-### P2-003 — Symlink Resolution on Every Base() Call
-- **Severity**: MEDIUM
-- **Evidence**: `adapters/common/base_adapter.go:204` — `resolved, warning := ResolveSymlink(homeDir)` is called every time `Base()` is invoked, including from `SkillsPath()`, `CommandsPath()`, `SystemPromptPath()`, `IsInstalled()`, `Status()`. User home symlinks don't change during a process lifetime.
-- **Problem**: Unnecessary filesystem calls on every adapter status check. Each `Status()` call (called once per adapter in the TUI pipeline) resolves the same symlink. Multiply by 6+ adapters for a noticeable cumulative cost.
-- **Fix**:
-  1. Cache the resolved home directory in BaseAdapter alongside `cachedHomeDir`
-  2. Resolve symlinks once during first `Base()` call, store in `cachedResolvedHome`
-  3. Use `sync.Once` to ensure thread-safe caching
-- **Verification**: Add a test that calls `Base()` 100 times and asserts `ResolveSymlink` is only called once (inject a counting wrapper). Benchmark shows O(1) not O(n) for repeated calls.
-- **References**: Effective Go — Avoiding Repeated Work with sync.Once
+**Fix**: Pre-render the logo string once as a package-level `var` in `init()` or at declaration. `Logo()` function returns the pre-rendered string directly.
 
-### P2-004 — Template Rendering Re-executes on Every Install
-- **Severity**: MEDIUM
-- **Evidence**: `adapters/common/base_adapter.go:329` — `RenderTemplate(a.templateFS, "templates/skill.md.tmpl", data)` is called on every `Install()`. The template is parsed once (cached in `templateCache`) but executed against data on every call, even when data is identical.
-- **Problem**: Template execution allocates bytes.Buffer and walks the template AST every install, even when the output hasn't changed. For repeat installs (update/reinstall flows), this is wasted work.
-- **Fix**:
-  1. After RC-006 enables lazy construction, cache rendered template output with a content-addressable key (hash of template data)
-  2. Invalidate cache when version string or data changes
-  3. Use `bytes.Buffer` pooling (`sync.Pool`) for template execution buffers
-- **Verification**: Benchmark `Install()` with identical data — second call should be measurably faster. Profile with `-benchmem` to confirm reduced allocations.
-- **References**: Go text/template performance, sync.Pool best practices
+**Acceptance Criteria**:
+- [ ] Logo pre-rendered as package-level var
+- [ ] `Logo()` function reads cached result, performs zero allocations
+- [ ] Golden test confirms logo output unchanged
+- [ ] Frame render time for TUI header reduced by ~0.3ms
 
-### P2-005 — Command Files Read from embed.FS Individually
-- **Severity**: MEDIUM (recalibrated from LOW)
-- **Evidence**: `adapters/common/base_adapter.go:338-346` — loop over `CommandFiles` calls `CommandFS.ReadFile()` for each file individually. Each call creates a new `bytes.Reader` and traverses the embedded filesystem structure.
-- **Problem**: embed.FS read performance scales with the number of files when read individually. With 10+ command files, this loop causes repeated filesystem-walk overhead inside the embedded binary.
-- **Fix**:
-  1. Read all command files into a `map[string][]byte` at adapter construction time (after RC-006 lazy loading)
-  2. Use the in-memory map during Install() instead of repeated embed.FS reads
-  3. This also eliminates filesystem access during Install, improving reliability
-- **Verification**: Profile Install() with `-cpuprofile`. Before fix, expect repeated `embed.(*FS).ReadFile` calls. After fix, expect a single batch read at construction.
-- **References**: Go embed.FS performance characteristics, premature optimization vs. hot-path optimization
+**Effort**: small (<30m) | **Risk**: low | **Blocks**: CORR-003
+
+---
+
+## 🟡 MEDIUM Findings
+
+### P2-003: Cache IsInstalled() results for process lifetime
+
+**Problem**: `BaseAdapter.IsInstalled()` (`adapters/common/base_adapter.go:225-230`) calls `Detector.IsInstalled()` which reads the system prompt file via `os.ReadFile`. Called in TUI `View()` at 60fps. UninstallView calls it up to 10 times per frame.
+
+**Fix**: Add `installedOnce sync.Once` and `installedResult bool` to `BaseAdapter`. Cache is process-lifetime (files don't change during a CLI session).
+
+**Acceptance Criteria**:
+- [ ] `sync.Once` memoization added to `BaseAdapter.IsInstalled()`
+- [ ] `os.ReadFile` called exactly once per adapter per process
+- [ ] Cache respects process lifetime — no invalidation needed
+- [ ] Test verifies single file read for repeated `IsInstalled()` calls
+
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: P2-007
+
+---
+
+### P2-004: Cache Status() version file reads
+
+**Problem**: `Status()` reads the version file via `os.ReadFile` on every invocation without caching. CLI `sequoia status` reads each adapter's version file on every call.
+
+**Fix**: Cache version string after first successful read in `BaseAdapter`. Return cached version on subsequent `Status()` calls.
+
+**Acceptance Criteria**:
+- [ ] Version string cached after first successful `os.ReadFile`
+- [ ] Subsequent `Status()` calls return cached result
+- [ ] Cache respects process lifetime (version file doesn't change during session)
+- [ ] Error on first read still returned (don't cache errors)
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: none
+
+---
+
+### P2-005: Pre-build Lipgloss styles as package-level vars
+
+**Problem**: All 8 style functions in `internal/tui/styles/styles.go` call `lipgloss.NewStyle()` on every invocation, creating ~200 bytes of heap per call. At 60fps with multiple styled elements this adds up to significant GC pressure.
+
+**Root Cause**: CORR-003 (TUI Rendering Path Inefficiency)
+
+**Fix**: Convert `Title()`, `Subtitle()`, `Body()`, `Accent()`, `Error()`, `Success()`, `Muted()`, `Highlight()` from functions to package-level `var` declarations. Lipgloss styles are immutable once built — no reason to recreate them.
+
+**Acceptance Criteria**:
+- [ ] All 8 style functions converted to package-level vars
+- [ ] Golden tests confirm visual output unchanged
+- [ ] Zero heap allocations in TUI style rendering path
+- [ ] ~1.3 MB/s reduction in GC pressure at 60fps
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: CORR-003
+
+---
+
+### P2-006: Add Grow() hints to strings.Builder usage
+
+**Problem**: Multiple `strings.Builder` instances in TUI views are created without `Grow()` hints. The builder reallocates its internal buffer multiple times as content is appended, causing unnecessary allocations and copies.
+
+**Root Cause**: CORR-003 (TUI Rendering Path Inefficiency)
+
+**Fix**: Audit all `strings.Builder` usage in `internal/tui/`. Add `b.Grow(estimatedSize)` before building where the output size is predictable. For list views, estimate based on item count × average line length.
+
+**Acceptance Criteria**:
+- [ ] `Grow()` hints added to all TUI `strings.Builder` instances
+- [ ] Estimates based on: logo (~500 bytes), status list (~80 bytes/item), menu (~200 bytes)
+- [ ] Benchmark shows reduced allocations in View() path
+- [ ] No behavioral change — same output, fewer reallocations
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: CORR-003
+
+---
+
+### P2-007: Compute installed count in Update(), not View()
+
+**Problem**: `UninstallView` loops through all tools calling `IsInstalled()` twice per frame — once for count, once for rendering. Combined with P2-003 caching, the first frame still does redundant work.
+
+**Fix**: Add `installedCount` field to `UninstallModel`. Compute once in `UninstallUpdate` when model is created. `UninstallView` reads pre-computed count.
+
+**Acceptance Criteria**:
+- [ ] `installedCount` computed once on model initialization
+- [ ] `UninstallView` reads cached count from model field
+- [ ] Loop in View() replaced with O(1) field access
+- [ ] Test verifies count is accurate after model initialization
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: P2-003 (depends on caching)
+
+---
+
+### P2-008: Eliminate redundant PATH scans in CLI commands
+
+**Problem**: `runStatus` in `cmd/sequoia/main.go` calls `Detect()` for each adapter even though the adapter list is already known from `reg.All()`. Multiple PATH scans for the same binary across different code paths.
+
+**Fix**: Remove redundant `Detect()` loops. If the adapter is already known to be registered, the Detect result is implicitly known. Only call `Detect()` when explicitly needed.
+
+**Acceptance Criteria**:
+- [ ] Redundant `Detect()` call in `runStatus` removed (use P2-001 cache instead)
+- [ ] `runInstall` skips Detect if adapter was explicitly specified
+- [ ] `sequoia status` runtime reduced by ~30ms on cold cache
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: P2-001 (depends on caching)
+
+---
+
+### P2-009: Add view rendering memoization
+
+**Problem**: TUI views are recomputed on every `Update()` call, even when the model state hasn't changed. Keyboard events that don't modify state still trigger full re-renders.
+
+**Fix**: Track a `dirty` flag on each model. Set `dirty = true` only when state actually changes. `View()` returns cached string when `!dirty`. Clear dirty after render.
+
+**Acceptance Criteria**:
+- [ ] `dirty` flag added to TUI model structs
+- [ ] `View()` returns cached output when state unchanged
+- [ ] `dirty` reset to false after each render
+- [ ] No visual regression in golden tests
+- [ ] Frame render time reduced to near-zero on idle frames
+
+**Effort**: medium (2-4h) | **Risk**: medium (state tracking complexity) | **Blocks**: none
+
+---
+
+### P2-010: Cache os.Stat() results in installer views
+
+**Problem**: Installer views call `os.Stat()` to check file existence on every model update. These files don't change during a TUI session. Combined with P2-003 caching, Stat calls become the remaining I/O hot path.
+
+**Fix**: Memoize `os.Stat()` results in the installer model. Files being installed/checked don't change paths during a session.
+
+**Acceptance Criteria**:
+- [ ] `os.Stat()` results cached in installer model
+- [ ] Cache keyed by file path, process-lifetime TTL
+- [ ] Test verifies single Stat call per file path
+- [ ] Install/uninstall flows verified via integration test
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: none
+
+---
+
+### P2-011: Defer adapter construction until needed
+
+**Problem**: All 5 adapters are constructed eagerly in `cmd/sequoia/main.go` before the first TUI frame renders. Each adapter initializes `BaseAdapter`, sets paths, creates detector, prompt manager, backup handler, and install templates — all before the user sees anything.
+
+**Root Cause**: CORR-003 (TUI Rendering Path Inefficiency)
+
+**Fix**: Use `RegisterFactory()` pattern (already supported). Construct adapters lazily when first accessed via the registry. Defer construction past the first frame render.
+
+**Acceptance Criteria**:
+- [ ] All adapters use `RegisterFactory()` instead of `Register()`
+- [ ] Factory construction deferred until first access
+- [ ] First-frame TTI (Time To Interactive) reduced by ~100ms
+- [ ] Test verifies adapter construction is lazy
+- [ ] `_template` updated to demonstrate factory pattern
+
+**Effort**: small (1-2h) | **Risk**: low | **Blocks**: CORR-003
+
+---
+
+## Summary
+
+| Priority | Finding | Title | Effort | Blocks |
+|----------|---------|-------|--------|--------|
+| 🔴 HIGH | P2-001 | Cache Detect() results | small | P2-003, P2-008 |
+| 🔴 HIGH | P2-002 | Pre-render Logo | small | CORR-003 |
+| 🟡 MED | P2-003 | Cache IsInstalled() | small | P2-007 |
+| 🟡 MED | P2-004 | Cache Status() reads | small | — |
+| 🟡 MED | P2-005 | Cache Lipgloss styles | small | CORR-003 |
+| 🟡 MED | P2-006 | Add Grow() hints | small | CORR-003 |
+| 🟡 MED | P2-007 | Compute count in Update | small | P2-003 |
+| 🟡 MED | P2-008 | Remove redundant PATH scans | small | P2-001 |
+| 🟡 MED | P2-009 | View rendering memoization | medium | — |
+| 🟡 MED | P2-010 | Cache os.Stat() results | small | — |
+| 🟡 MED | P2-011 | Defer adapter construction | small | CORR-003 |
+
+**Quick Win**: Fix P2-002 + P2-005 + P2-006 + P2-011 together (~3h) to eliminate ~95% of TUI rendering overhead.
+
+*Generated by Sequoia M2 Reporter — audit-20260521-sequoia-ai | Schema v1.0*

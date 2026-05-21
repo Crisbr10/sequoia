@@ -1,140 +1,245 @@
-# Architecture Tasks — Sequoia Audit
+# Architecture Tasks — sequoia-ai
 
-## Context
-Sequoia's architecture centers on the `ToolAdapter` interface with a plugin-registry pattern (`database/sql`-style self-registration). The codebase has 5 adapter implementations (claude-code, opencode, cursor, gemini-cli, codex) plus a `_template` scaffold, a shared `common/` framework, and a TUI pipeline. The dominant architectural issue is **BaseAdapter as god-object** (RC-001) which drives 8 child findings. The audit identified 12 architecture findings: 2 HIGH, 6 MEDIUM, 4 LOW.
-
-**Key files**: `adapters/common/base_adapter.go` (482 lines), `adapters/interface.go`, `adapters/registry.go`, `adapters/_template/adapter.go`, `internal/pipeline/runner.go`
-
-## Priority Tiers
-
-### Tier 1 — Immediate (HIGH)
-
-| ID | Task | Effort | Blocks |
-|----|------|--------|--------|
-| RC-004 | Namespace backup directories by adapter ID | small | P3-001 |
-| RC-001 | ~~Decompose BaseAdapter into interface-segregated components~~ ✅ COMPLETE (2026-05-19) | large | P3-006, P3-007, P4-007 |
-| RC-006 | Implement lazy adapter loading, remove init() coupling | medium | P3-005, P2-004 |
-
-### Tier 2 — Short Term (MEDIUM)
-
-| ID | Task | Effort |
-|----|------|--------|
-| P3-004 | Integrate or delete dead plugin system code | medium |
-| RC-005 | Dependency-inject registry, validate nil adapters | small |
-| RC-007 | Update _template to embed BaseAdapter, use shared templates | small |
-
-### Tier 3 — Long Term (LOW)
-
-| ID | Task | Effort |
-|----|------|--------|
-| P3-008 | Replace pipeline type assertions with interface methods | small |
-| P3-009 | Rename Go files from hyphens to underscores | small |
+**Score**: 36/100 (Critical) | **Findings**: 10 (0 CRITICAL, 2 HIGH, 8 MEDIUM) | **Audit ID**: audit-20260521-sequoia-ai
 
 ---
 
-## Detailed Tasks
+## 🔴 HIGH Findings
 
-### RC-004 — Namespace backup directories by adapter ID
-- **Severity**: HIGH
-- **Evidence**: `adapters/common/base_adapter.go:358` — `backupDir := a.backupPathFn(base) + "-" + sessionSuffix`
-- **Problem**: Both skillInstaller and cmdInstaller receive the same `backupDir`. When cmdInstaller.Run() fails and rolls back (removing backupDir via os.RemoveAll), the subsequent skillInstaller.Rollback() finds the directory gone — silently losing user's original skill file.
-- **Fix**:
-  1. In `base_adapter.go:358`, change to: `backupDir := filepath.Join(a.backupPathFn(base) + "-" + a.ID() + "-" + sessionSuffix)`
-  2. Verify each adapter's `backupPathFn` produces adapter-specific paths
-  3. Add test: simulate cmdInstaller failure, verify skillInstaller can still rollback independently
-- **Verification**: `go test ./adapters/common/ -run TestBackupIsolation -v -count=1`
-- **References**: Go: os.RemoveAll is destructive; shared mutable state between lifecycle phases
+### P3-001: Remove DefaultRegistry implicit coupling via init()
 
-### RC-001 — Decompose BaseAdapter into interface-segregated components ✅ COMPLETE (2026-05-19)
-- **Severity**: HIGH — affected 8 child findings, all resolved by this root cause fix
-- **Result**: 44/44 tasks complete across 8 phases. Verdict: PASS WITH WARNINGS. Coverage: 84.6%.
-- **What was done**:
-  1. Extracted 4 cohesive structs: `PathResolver` (152 LOC), `Detector` (59 LOC), `PromptManager` (70 LOC), `BackupPathBuilder` (37 LOC)
-  2. Segregated `ToolAdapter` into 4 role interfaces: `Identifier`, `Detector`, `Installer`, `AdapterPaths`
-  3. Replaced `DefaultRegistry` global with constructor DI: `NewRegistry()`, `RegisterIn()` per adapter
-  4. Deleted `factory.go` — consumers use `registry.Get(id)` directly
-  5. Added 35 new tests (20 error-path + 15 mock FS) across 4 test files
-  6. BaseAdapter slimmed from 482 lines to 398 lines with named composition
-- **Downstream findings resolved**:
-  - P3-002 (encapsulate fields) — DONE by extraction
-  - P3-003 (ISP violation) — DONE by interface segregation
-  - P3-004 (detection vs install coupling) — DONE by Detector extraction
-  - P3-005 (global mutable state) — DONE by DI refactor
-  - P3-006 (BackupManager) — PARTIAL (backup path builder done, full BackupManager needs RC-004)
-  - P3-007 (factory leak) — DONE (factory.go deleted)
-  - P4-001 (error-path tests) — DONE (20 tests added)
-  - P4-002 (mock embed.FS tests) — DONE (15 tests added)
-- **Archive**: `openspec/changes/archive/2026-05-19-rc-001-decompose-baseadapter/`
-- **Specs synced to**: `openspec/specs/adapter-architecture/spec.md` (6 requirements, 10 scenarios)
+**Problem**: All 5 adapters call `RegisterIn(adapters.DefaultRegistry)` in `init()`, creating global mutable state at import time. `cmd/sequoia/main.go:43` creates its own registry via `NewRegistry()`, making the init() registration dead data. Tests depend on this global pollution, making them fragile and order-dependent.
 
-### RC-006 — Implement lazy adapter loading
-- **Severity**: HIGH (affects 5 child findings)
-- **Evidence**: `cmd/sequoia/main.go:22-28` — blank imports for all 5 adapters; each `init()` calls `newAdapter("")` + `DefaultRegistry.Register()`
-- **Problem**: Every command including `sequoia version` pays the full init cost of all adapters. internal/app and internal/pipeline must import adapters/ because init() auto-registers everything. Headless install can't parallelize because adapters are loaded sequentially at init.
-- **Fix**:
-  1. Change adapter `init()` to only register metadata (ID, Name, DetectFn factory), not construct full BaseAdapter
-  2. Create `LazyAdapter` type that constructs `BaseAdapter` on first method call
-  3. Separate `ToolAdapter` interface into `ToolDetector` (Detect, ID, Name) and `ToolInstaller` (Install, Uninstall, Status)
-  4. Remove blank imports from main.go; use `adapters.All()` which returns pre-registered metadata
-  5. In headless install loop, construct only needed adapters via `NewAdapter(id)`, then launch goroutines
-- **Verification**: `sequoia version` time should drop by ~5ms. `go test -race ./...` must pass. Headless install of 5 tools should be parallel.
-- **References**: Lazy initialization pattern; database/sql driver registration (metadata-only at init)
+**Root Cause**: CORR-002 (Global Mutable State via init() Functions)
 
-### P3-004 — Integrate or delete dead plugin system code
-- **Severity**: MEDIUM
-- **Evidence**: `plugin/interface.go`, `plugin/loader.go` — no production code imports this package
-- **Problem**: The plugin subsystem (Plugin interface, YAML manifest loader, example plugin) has zero callers outside its own package. It increases binary size and creates a public API surface that may need breaking changes when actual integration begins.
-- **Fix**:
-  1. Option A (integrate): Add plugin discovery to main.go startup. On `sequoia install`, scan plugin dir, load manifests, register as additional adapters.
-  2. Option B (delete): Remove `plugin/` directory entirely. Re-add when v0.2 audit command needs plugin extensibility.
-  3. Decision: Option B recommended for v1.0.7 (YAGNI). Plugin system has no tests and no integration path.
-- **Verification**: Binary size should decrease. `go build ./...` must succeed. No import of plugin/ from any package.
-- **References**: YAGNI principle; Go packages with no importers are dead code
+**Evidence**:
+- `adapters/registry.go` exports `var DefaultRegistry = NewRegistry()`
+- Each adapter's `init()` calls `RegisterIn(adapters.DefaultRegistry)`
+- `cmd/sequoia/main.go:43` creates `reg := adapters.NewRegistry()` — ignores DefaultRegistry
+- Tests in adapter packages import the package and rely on DefaultRegistry being pre-populated
 
-### RC-005 — Dependency-inject registry, validate nil adapters
-- **Severity**: MEDIUM
-- **Evidence**: `adapters/registry.go:25-40` — Register() accepts nil with no validation, panics at a.ID()
-- **Problem**: Global `DefaultRegistry` is shared mutable state. Tests manually mutex-lock around it. A nil registration in any adapter's init() crashes the entire binary at import time — all commands become unreachable.
-- **Fix**:
-  1. Add nil check in Register(): `if a == nil { panic("adapters: Register(nil)") }` or return error
-  2. Replace `var DefaultRegistry = &Registry{}` with `func DefaultRegistry() *Registry` that returns a singleton via sync.Once
-  3. Add `NewRegistry() *Registry` constructor for tests to use their own registry
-  4. Update all adapter init() and test files
-- **Verification**: Tests no longer need `registryMu.Lock()`. Test with nil adapter must not crash.
-- **References**: Defensive programming; Go nil interface values are not nil
+**Fix**: Remove all `init()` functions. Remove `DefaultRegistry`. Make `NewRegistry()` + `RegisterIn()` the only registration path. Update tests to use explicit registry creation.
 
-### RC-007 — Update _template to embed BaseAdapter
-- **Severity**: MEDIUM
-- **Evidence**: `adapters/_template/adapter.go` — 267 lines, no BaseAdapter embedding; all 5 real adapters embed BaseAdapter and average ~60 lines
-- **Problem**: New contributors who copy the template produce 200+ line adapters that duplicate install/uninstall orchestration, diverging from the established pattern. The template has 17 TODO markers and no test file.
-- **Fix**:
-  1. Rewrite `_template/adapter.go` to embed `common.BaseAdapter` (like real adapters)
-  2. Remove duplicated staging, template rendering, installer lifecycle code
-  3. Add `//go:build ignore` directive to prevent compilation
-  4. Remove 17 TODO markers; replace with concise doc comments
-  5. Add `_template/adapter_test.go` showing how to test a new adapter
-  6. Move shared `skill.md.tmpl` from claude+gemini to `adapters/common/templates/`
-- **Verification**: Template adapter compiles under build tag. New adapter author can copy template and have <70 lines of code.
-- **References**: DRY principle; Template Method pattern
+**Acceptance Criteria**:
+- [ ] All `init()` functions removed from 5 adapters + `_template`
+- [ ] `DefaultRegistry` variable removed from `adapters/registry.go`
+- [ ] Tests updated to create explicit registries: `reg := NewRegistry(); adapter.RegisterIn(reg)`
+- [ ] `_template` demonstrates the correct `RegisterFactory()` pattern
+- [ ] No test order dependencies remain
 
-### P3-008 — Replace pipeline type assertions with interface methods
-- **Severity**: LOW
-- **Evidence**: `internal/pipeline/runner.go:162,178` — `a := t.Adapter.(pipelineInstaller)` (unchecked, would panic)
-- **Problem**: Pipeline uses 3 type assertions on `model.ToolInfo` to recover the full `ToolAdapter`. The `pipelineInstaller` assertion is unchecked — a wrapper change causes runtime panic. `BackupDirGetter` and `WarningEmitter` assertions silently degrade if wrapping changes.
-- **Fix**:
-  1. Add `Install(InstallOpts) error` and `Uninstall(UninstallOpts) error` to `model.ToolInfo` interface
-  2. Or: create `PipelineAdapter` interface with exactly the methods pipeline needs
-  3. Remove all type assertions from runner.go
-- **Verification**: Compile-time safety. Wrapping changes caught at build time, not runtime.
-- **References**: Interface segregation; Go type assertions are runtime-only checks
+**Effort**: medium (4-8h) | **Risk**: medium (tests need updating) | **Blocks**: CORR-002
 
-### P3-009 — Rename Go files from hyphens to underscores
-- **Severity**: LOW
-- **Evidence**: `internal/tui/screens/tool-selection.go`, `internal/tui/screens/install-progress.go`
-- **Problem**: Go convention uses lowercase without separators or underscores only in `_test.go`. Hyphens in source filenames are not idiomatic. Test files use underscores correctly (`tool_selection_test.go`), creating inconsistency.
-- **Fix**:
-  1. Rename: `tool-selection.go` → `tool_selection.go`
-  2. Rename: `install-progress.go` → `install_progress.go`
-  3. Update any internal references (should be none — Go doesn't reference files by name)
-- **Verification**: `go build ./...` succeeds. `go test ./...` succeeds. Golden file tests pass.
-- **References**: Go source file naming conventions (golang.org/doc)
+---
+
+### P3-002: Refactor pipeline to expose per-phase progress
+
+**Problem**: `internal/pipeline/runner.go` collapses the entire install lifecycle (Prepare → Download → Verify → Stage → Apply) into a single function. Callers can't observe per-phase progress, can't cancel at phase boundaries, and can't recover from partial failures.
+
+**Root Cause**: CORR-004 (Common Package Architectural Bottleneck)
+
+**Evidence**:
+- `pipeline/runner.go` exposes a single `Run(ctx, adapter, tools)` function
+- Progress messages (channel-based) only indicate "working" or "done"
+- No distinction between "downloading" vs "installing" vs "verifying"
+- Error handling can't differentiate between download failure and install failure
+
+**Fix**: Refactor pipeline into exposed phases: `Prepare()`, `Download()`, `Verify()`, `Stage()`, `Apply()`. Each phase returns typed progress. Allow consumers to compose phases or run the full pipeline as a convenience.
+
+**Acceptance Criteria**:
+- [ ] Pipeline phases exposed as public functions
+- [ ] Each phase returns typed progress updates via channel
+- [ ] Phases can be composed or run individually
+- [ ] Backward-compatible `Run()` convenience function preserves existing behavior
+- [ ] Progress channel carries phase-level detail (e.g., `PhaseDownloading`, `PhaseInstalling`)
+
+**Effort**: medium (8-16h) | **Risk**: medium (pipeline consumers need updates) | **Blocks**: CORR-004
+
+---
+
+## 🟡 MEDIUM Findings
+
+### P3-003: Narrow ToolAdapter interface consumption
+
+**Problem**: `ToolAdapter` at `adapters/interface.go:53-59` combines 4 sub-interfaces into an 11-method monolith. Consumers in `cmd/sequoia/main.go` all accept `[]adapters.ToolAdapter` instead of the narrow interfaces they actually need (typically 2-3 methods each).
+
+**Root Cause**: CORR-004 (Common Package Architectural Bottleneck)
+
+**Fix**: Accept narrow interfaces at consumption points:
+- `targetAdapters()` returns `[]adapters.Identifier` (only needs ID/Name)
+- `runStatus()` accepts `[]adapters.Detector` + `[]adapters.InstallStatus`
+- `runInstall()` accepts `[]adapters.Installer` + `[]adapters.Identifier`
+- `runUninstall()` accepts `[]adapters.Uninstaller` + `[]adapters.Identifier`
+
+**Acceptance Criteria**:
+- [ ] Consumer functions use narrow interfaces instead of `ToolAdapter`
+- [ ] `MockAdapter` split into `MockIdentifier`, `MockDetector`, `MockInstaller`
+- [ ] Tests updated to use focused mocks
+- [ ] `ToolAdapter` retained as composite for registration convenience
+
+**Effort**: large (12-24h) | **Risk**: high (touches all consumers) | **Blocks**: CORR-004
+
+---
+
+### P3-004: Fix double error wrapping in defer functions
+
+**Problem**: Several adapter `Install()` methods wrap errors both in the operation and in the deferred cleanup function. When cleanup fails, the original error is lost, replaced by the cleanup error.
+
+**Evidence**:
+- Pattern: `err = fmt.Errorf("install: %w", err)` followed by `defer func() { if err != nil { err = fmt.Errorf("cleanup: %w", err) } }()`
+- Original error context is overwritten by defer, making root cause debugging harder
+- Go 1.20+ `errors.Join` is available but not used
+
+**Fix**: Use `errors.Join` to combine operation error and cleanup error. Use named return with explicit error collection. Ensure the original error is always preserved.
+
+**Acceptance Criteria**:
+- [ ] All deferred error wrapping replaced with `errors.Join`
+- [ ] Original error always preserved in combined error
+- [ ] Test verifies both operation and cleanup errors are accessible via `errors.Is`/`errors.As`
+- [ ] Audit all adapter `Install()` methods for this pattern
+
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: none
+
+---
+
+### P3-005: Split adapters/common god package
+
+**Problem**: `adapters/common` contains 14 files covering 8 unrelated concerns: installer, strategy, path resolution, detection, backup, template rendering, filesystem utilities, and version management. Changes to any file recompile all 5 adapters.
+
+**Evidence**:
+- `installer.go` — file copy, staging, atomic writes
+- `strategy.go` — installation strategy interface + implementation
+- `detector.go` — PATH scanning, file existence checks
+- `path_resolver.go` — symlink resolution, home expansion
+- `backup.go` — backup path builder
+- `templates.go` — template rendering with embedded FS
+- `version.go` — version file reading
+- `base_adapter.go` — shared adapter struct
+
+**Fix**: Split into focused sub-packages:
+- `adapters/install` — Installer, InstallerConfig, file operations
+- `adapters/detect` — Detector, PathResolver, exec wrappers
+- `adapters/templates` — PromptManager, RenderTemplate, embedded FS
+- `adapters/backup` — BackupPathBuilder
+- `adapters/fsutil` — ResolveSymlink, IsSymlink, ResolveHome (or `internal/fs`)
+
+**Acceptance Criteria**:
+- [ ] Sub-packages extracted with clear boundaries
+- [ ] All 5 adapters updated to import from new packages
+- [ ] Tests pass for all adapters after migration
+- [ ] `adapters/common` becomes thin re-export (deprecated) for backward compatibility
+- [ ] No circular dependencies introduced
+
+**Effort**: large (16-24h) | **Risk**: high (touches all adapters) | **Blocks**: none
+
+---
+
+### P3-006: Replace unguarded type assertions in pipeline
+
+**Problem**: `internal/pipeline/runner.go:178-179,185-186` uses unguarded type assertions `a := t.Adapter.(pipelineInstaller)` — will panic if an adapter doesn't implement `Install()`/`Uninstall()`.
+
+**Evidence**:
+- Type assertion without `ok` check: `a := t.Adapter.(pipelineInstaller)`
+- Pipeline iterates over `[]model.ToolState` which wraps `ToolAdapter`
+- If a future adapter omits `Install()`, the pipeline panics at runtime
+
+**Fix**: Use guarded assertion `a, ok := t.Adapter.(pipelineInstaller); if !ok { return error }`. Or define a `PipelineAdapter` interface and have pipeline accept it directly.
+
+**Acceptance Criteria**:
+- [ ] Unguarded type assertions replaced with guarded `ok` pattern
+- [ ] Graceful error returned instead of panic
+- [ ] Test verifies graceful handling of non-installer adapters
+- [ ] Consider defining `PipelineAdapter` interface for type safety
+
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: none
+
+---
+
+### P3-007: Align _template adapter with real patterns
+
+**Problem**: `adapters/_template/adapter.go` uses eager `Register()` instead of lazy `RegisterFactory()`, directly implements `ToolAdapter` without embedding `BaseAdapter`, and duplicates the 250-line `Install()` method.
+
+**Fix**: Rewrite `_template/adapter.go` to embed `common.BaseAdapter`, use `RegisterFactory()` with lazy construction, and delegate to `BaseAdapter` for shared behavior.
+
+**Acceptance Criteria**:
+- [ ] `_template` embeds `common.BaseAdapter`
+- [ ] Uses `RegisterFactory()` pattern
+- [ ] Calls `SetPaths/SetDetector/SetPromptManager/SetBackup/SetInstallTemplates` in factory
+- [ ] Removes duplicated Install() — delegates to BaseAdapter
+- [ ] Adds context cancellation support matching real adapters
+
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: none
+
+---
+
+### P3-008: Reduce global mutable CommandFiles state
+
+**Problem**: `CommandFiles` is an exported mutable slice in `adapters/common`. It's mutated across adapters and lacks synchronization, creating race condition risk in concurrent adapter usage.
+
+**Root Cause**: CORR-002 (Global Mutable State via init() Functions)
+
+**Fix**: Make `CommandFiles` unexported. Provide a getter that returns a copy. Mutations go through controlled functions.
+
+**Acceptance Criteria**:
+- [ ] `CommandFiles` renamed to unexported `commandFiles`
+- [ ] `GetCommandFiles()` returns a copy of the slice
+- [ ] `AddCommandFile()` and `RemoveCommandFile()` for controlled mutations
+- [ ] Test verifies getter returns independent copy
+
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: CORR-002
+
+---
+
+### P3-009: Add templateCache eviction and test isolation
+
+**Problem**: `templateCache` is a `sync.Map` at package level in `adapters/common`. It never evicts entries and persists across tests, causing test pollution when tests modify template behavior.
+
+**Root Cause**: CORR-002 (Global Mutable State via init() Functions)
+
+**Fix**: Add `ResetTemplateCache()` for test isolation. Consider whether a process-lifetime cache needs eviction (for a CLI tool, it doesn't — but the test isolation gap is real). Call `ResetTemplateCache()` in `TestMain` or individual tests that modify templates.
+
+**Acceptance Criteria**:
+- [ ] `ResetTemplateCache()` function added
+- [ ] Called in `TestMain` of adapter test packages
+- [ ] Tests no longer depend on template cache state from other tests
+- [ ] Document that cache is process-lifetime (no eviction needed for CLI use case)
+
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: CORR-002
+
+---
+
+### P3-010: Activate Strategy pattern in pipeline
+
+**Problem**: `adapters/common/strategy.go` defines a `Strategy` interface with `Install()` and `Uninstall()` methods, but pipeline code paths bypass it. The strategy pattern exists but is never consumed.
+
+**Root Cause**: CORR-004 (Common Package Architectural Bottleneck)
+
+**Fix**: Pipeline should consume `Strategy` interface instead of type-asserting to `pipelineInstaller`. Each adapter registers its strategy, and the pipeline calls through the interface. This eliminates the need for type assertions and makes the strategy pattern functional.
+
+**Acceptance Criteria**:
+- [ ] Pipeline accepts `Strategy` interface instead of type assertions
+- [ ] Each adapter provides a `Strategy()` method returning its strategy
+- [ ] Type assertions in pipeline replaced with interface method calls
+- [ ] Strategy interface consumed as designed
+
+**Effort**: medium (4-8h) | **Risk**: medium | **Blocks**: CORR-004
+
+---
+
+## Summary
+
+| Priority | Finding | Title | Effort | Blocks |
+|----------|---------|-------|--------|--------|
+| 🔴 HIGH | P3-001 | Remove DefaultRegistry + init() | medium | CORR-002 |
+| 🔴 HIGH | P3-002 | Refactor pipeline phases | medium | CORR-004 |
+| 🟡 MED | P3-003 | Narrow ToolAdapter interface | large | CORR-004 |
+| 🟡 MED | P3-004 | Fix double error wrapping | small | — |
+| 🟡 MED | P3-005 | Split common god package | large | — |
+| 🟡 MED | P3-006 | Guard type assertions | small | — |
+| 🟡 MED | P3-007 | Align _template adapter | small | — |
+| 🟡 MED | P3-008 | Reduce CommandFiles mutability | small | CORR-002 |
+| 🟡 MED | P3-009 | Fix templateCache test isolation | small | CORR-002 |
+| 🟡 MED | P3-010 | Activate Strategy pattern | medium | CORR-004 |
+
+**Priority Order**: P3-006 (safety) → P3-004 (correctness) → P3-001 + P3-008 + P3-009 (CORR-002 batch) → P3-007 (template) → P3-002 + P3-003 + P3-010 (CORR-004 batch) → P3-005 (split, backlog)
+
+*Generated by Sequoia M2 Reporter — audit-20260521-sequoia-ai | Schema v1.0*

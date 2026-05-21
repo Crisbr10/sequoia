@@ -183,29 +183,34 @@ func TestInstallPs1ChecksumMandatory(t *testing.T) {
 	})
 
 	t.Run("checksum download uses retry", func(t *testing.T) {
-		// The checksum download should use retry logic similar to binary download.
-		// Invoke-WebRequest supports -RetryIntervalSec and -MaximumRetryCount in PS 6+,
-		// but for PS 5.1 compatibility, look for retry pattern or at least a try/catch.
-		// As a minimum, the download should be wrapped in try/catch.
-		hasTryCatchInChecksum := false
-		lines := strings.Split(script, "\n")
-		inChecksumBlock := false
-		tryDepth := 0
-		for _, line := range lines {
-			if strings.Contains(line, "checksum") || strings.Contains(line, "Checksum") {
-				inChecksumBlock = true
-			}
-			if inChecksumBlock && strings.Contains(line, "try {") {
-				tryDepth++
-			}
-			if inChecksumBlock && tryDepth > 0 && strings.Contains(line, "Invoke-WebRequest") &&
-				(strings.Contains(line, "Checksum") || strings.Contains(line, "checksums")) {
-				hasTryCatchInChecksum = true
-				break
-			}
-		}
-		assert.True(t, hasTryCatchInChecksum,
-			"checksum download should be in try/catch block for error handling")
+		// The checksum download MUST use Invoke-WebRequestWithRetry
+		// (not bare Invoke-WebRequest) for resilience against transient failures.
+		assert.Contains(t, script, "Invoke-WebRequestWithRetry",
+			"install.ps1 must define Invoke-WebRequestWithRetry wrapper")
+		assert.Contains(t, script, "Invoke-WebRequestWithRetry -Uri $ChecksumUrl",
+			"checksum download must use Invoke-WebRequestWithRetry")
+	})
+
+	t.Run("binary download uses retry", func(t *testing.T) {
+		// The binary download MUST also use Invoke-WebRequestWithRetry.
+		assert.Contains(t, script, "Invoke-WebRequestWithRetry -Uri $DownloadUrl",
+			"binary download must use Invoke-WebRequestWithRetry")
+	})
+
+	t.Run("retry function has backoff pattern", func(t *testing.T) {
+		// The retry wrapper MUST use exponential backoff: 2s, 4s, 8s delays.
+		assert.Contains(t, script, "Start-Sleep",
+			"retry function must use Start-Sleep between attempts")
+		assert.Regexp(t, `@\(2,\s*4,\s*8\)`, script,
+			"retry delays must be 2, 4, 8 (exponential backoff)")
+
+		// Verify exactly 3 attempts (the for loop: $i -lt 3)
+		assert.Regexp(t, `-lt\s+3`, script,
+			"retry function must make exactly 3 attempts")
+
+		// Verify throw on final failure ($i -eq 2 means 3rd attempt, 0-indexed)
+		assert.Regexp(t, `-eq\s+2.*\{ throw`, script,
+			"retry function must throw on final (3rd) failure")
 	})
 
 	t.Run("SkipChecksum documented as opt-in", func(t *testing.T) {

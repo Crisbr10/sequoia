@@ -37,7 +37,7 @@ Do NOT proceed without SDD init.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `sdd.execution_mode` | `interactive` | Execution mode: `auto` (run all phases back-to-back) or `interactive` (pause after each phase) |
+| `sdd.execution_mode` | `auto` | Execution mode: `auto` (run all phases back-to-back) or `interactive` (pause after each phase) |
 | `sdd.tdd` | `strict` | TDD mode: `strict` (red-green-refactor) or `standard` (tests optional) |
 | `sdd.delivery` | `ask-on-risk` | Delivery strategy for PR review workflow |
 | `sdd.chain` | `stacked-to-main` | Chain strategy when PRs are split |
@@ -163,7 +163,6 @@ Always report BEFORE launching any subagents:
 ```
 🔧 /sequoia-dev {task-id}
    Mode: {fast-forward | full SDD cycle}
-   Execution: {auto | interactive}
    TDD: {strict | standard}
    Delivery: {ask-on-risk | auto-chain | single-pr | exception-ok}
    Chain: {stacked-to-main | feature-branch-chain}
@@ -178,13 +177,12 @@ Your `~/.config/opencode/.sequoia-dev.yaml` controls all strategies:
 
 ```yaml
 sdd:
-  execution_mode: interactive  # auto | interactive
-  tdd: strict                  # strict | standard
-  delivery: ask-on-risk        # ask-on-risk | auto-chain | single-pr | exception-ok
-  chain: stacked-to-main       # stacked-to-main | feature-branch-chain
-  auto_ff: true                # true | false
+  tdd: strict              # strict | standard
+  delivery: ask-on-risk    # ask-on-risk | auto-chain | single-pr | exception-ok
+  chain: stacked-to-main   # stacked-to-main | feature-branch-chain
+  auto_ff: true            # true | false
   complexity:
-    ff_max_score: 2            # 0-9
+    ff_max_score: 2        # 0-9
 
 paths:
   tasks_dir: docs/sequoia/tasks/

@@ -78,10 +78,23 @@ func TestReleaseWorkflow(t *testing.T) {
 		require.NotEmpty(t, wf.Jobs, "at least one job required")
 	})
 
-	t.Run("jobs run on ubuntu-latest", func(t *testing.T) {
-		for _, job := range wf.Jobs {
-			assert.Equal(t, "ubuntu-latest", job.RunsOn,
-				"release jobs should run on ubuntu-latest")
+	t.Run("jobs run on valid runners", func(t *testing.T) {
+		validRunners := []string{"ubuntu-latest", "macos-latest", "windows-latest"}
+		validExpressions := []string{"${{ matrix.os }}"}
+		for jobName, job := range wf.Jobs {
+			// Allow matrix expressions (e.g., ${{ matrix.os }})
+			isExpression := false
+			for _, expr := range validExpressions {
+				if strings.Contains(job.RunsOn, expr) {
+					isExpression = true
+					break
+				}
+			}
+			if isExpression {
+				continue
+			}
+			assert.Contains(t, validRunners, job.RunsOn,
+				"release job %q must run on a supported runner (ubuntu-latest, macos-latest, windows-latest) or a matrix expression like ${{ matrix.os }}", jobName)
 		}
 	})
 

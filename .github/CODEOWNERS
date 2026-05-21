@@ -1,0 +1,7 @@
+# Global fallback — all changes require owner review.
+* @Crisbr10
+
+# Release-critical paths (explicit entries prevent accidental weakening)
+.github/workflows/release.yml @Crisbr10
+scripts/install.ps1 @Crisbr10
+.github/CODEOWNERS @Crisbr10

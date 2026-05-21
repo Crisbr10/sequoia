@@ -51,6 +51,22 @@ function Write-Info  { Write-Host "[INFO]  $args" -ForegroundColor Green }
 function Write-Warn  { Write-Host "[WARN]  $args" -ForegroundColor Yellow }
 function Write-Err   { Write-Host "[ERROR] $args" -ForegroundColor Red }
 
+# -- Retry wrapper (exponential backoff: 2s, 4s, 8s) -------------------------
+function Invoke-WebRequestWithRetry {
+    param([string]$Uri, [string]$OutFile)
+    $delays = @(2, 4, 8)
+    for ($i = 0; $i -lt 3; $i++) {
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+            return
+        } catch {
+            if ($i -eq 2) { throw }
+            Write-Warn "Attempt $($i+1) failed, retrying in $($delays[$i])s..."
+            Start-Sleep -Seconds $delays[$i]
+        }
+    }
+}
+
 # -- Path sanitization --------------------------------------------------------
 function Resolve-SafePath {
     param([string]$Path, [string]$Context)
@@ -180,7 +196,7 @@ try {
     Write-Info "  URL: $DownloadUrl"
 
     try {
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile (Join-Path $TempDir $Tarball) -UseBasicParsing -ErrorAction Stop
+        Invoke-WebRequestWithRetry -Uri $DownloadUrl -OutFile (Join-Path $TempDir $Tarball)
     } catch {
         Write-Err "Download failed. Please check:"
         Write-Err "  - Internet connectivity"
@@ -198,7 +214,7 @@ try {
         $checksumsDownloaded = $false
 
         try {
-            Invoke-WebRequest -Uri $ChecksumUrl -OutFile $checksumsPath -UseBasicParsing -ErrorAction Stop
+            Invoke-WebRequestWithRetry -Uri $ChecksumUrl -OutFile $checksumsPath
             $checksumsDownloaded = $true
         } catch {
             if ($SkipChecksum) {
