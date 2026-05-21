@@ -42,9 +42,9 @@ jobs:
       - name: Test
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            go test -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s
+            go test -v -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s
           else
-            go test -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s -race
+            go test -v -coverprofile=coverage.out -covermode=atomic ./... -count=1 -timeout 120s -race
           fi
         shell: bash
 
