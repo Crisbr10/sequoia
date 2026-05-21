@@ -64,13 +64,6 @@ signs:
     artifacts: all
     output: true
 
-sboms:
-  - id: default
-    artifacts: any
-    documents:
-      - "{{ .ProjectName }}_{{ .Version }}_sbom.spdx.json"
-      - "{{ .ProjectName }}_{{ .Version }}_sbom.cdx.json"
-
 release:
   draft: true
   prerelease: auto
