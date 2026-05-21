@@ -62,3 +62,67 @@ func TestMuted_DiffersFromHighlight(t *testing.T) {
 	assert.NotEmpty(t, h)
 	assert.NotEqual(t, m, h, "Muted and Highlight should differ visually")
 }
+
+// TestStyleFunctions_ZeroAllocations verifies that after caching is implemented,
+// each style function performs zero heap allocations per call.
+// RED: Currently each call creates a new lipgloss.NewStyle() (~200 bytes heap).
+func TestStyleFunctions_ZeroAllocations(t *testing.T) {
+	// Warm up: first call may allocate during lazy initialization.
+	_ = styles.Title()
+	_ = styles.Subtitle()
+	_ = styles.Body()
+	_ = styles.Accent()
+	_ = styles.Error()
+	_ = styles.Success()
+	_ = styles.Muted()
+	_ = styles.Highlight()
+
+	t.Run("Title", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Title()
+		})
+		assert.Equal(t, float64(0), allocs, "Title() should perform 0 allocations after caching")
+	})
+	t.Run("Subtitle", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Subtitle()
+		})
+		assert.Equal(t, float64(0), allocs, "Subtitle() should perform 0 allocations after caching")
+	})
+	t.Run("Body", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Body()
+		})
+		assert.Equal(t, float64(0), allocs, "Body() should perform 0 allocations after caching")
+	})
+	t.Run("Accent", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Accent()
+		})
+		assert.Equal(t, float64(0), allocs, "Accent() should perform 0 allocations after caching")
+	})
+	t.Run("Error", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Error()
+		})
+		assert.Equal(t, float64(0), allocs, "Error() should perform 0 allocations after caching")
+	})
+	t.Run("Success", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Success()
+		})
+		assert.Equal(t, float64(0), allocs, "Success() should perform 0 allocations after caching")
+	})
+	t.Run("Muted", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Muted()
+		})
+		assert.Equal(t, float64(0), allocs, "Muted() should perform 0 allocations after caching")
+	})
+	t.Run("Highlight", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			_ = styles.Highlight()
+		})
+		assert.Equal(t, float64(0), allocs, "Highlight() should perform 0 allocations after caching")
+	})
+}

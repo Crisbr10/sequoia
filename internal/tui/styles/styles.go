@@ -1,7 +1,11 @@
 // Package styles provides the lipgloss theme for the Sequoia TUI.
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"sync"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Sequoia color palette — inspired by sequoia tree bark and foliage.
 var (
@@ -13,60 +17,107 @@ var (
 	colorMuted    = lipgloss.Color("#696969") // dim gray
 )
 
+// Cached lipgloss styles — built once lazily via sync.Once.
+// Lipgloss styles are immutable after construction, so sharing
+// a single instance across all callers is safe and eliminates
+// per-frame heap allocations at 60fps.
+var (
+	titleStyle     lipgloss.Style
+	titleOnce      sync.Once
+	subtitleStyle  lipgloss.Style
+	subtitleOnce   sync.Once
+	bodyStyle      lipgloss.Style
+	bodyOnce       sync.Once
+	accentStyle    lipgloss.Style
+	accentOnce     sync.Once
+	errorStyle     lipgloss.Style
+	errorOnce      sync.Once
+	successStyle   lipgloss.Style
+	successOnce    sync.Once
+	mutedStyle     lipgloss.Style
+	mutedOnce      sync.Once
+	highlightStyle lipgloss.Style
+	highlightOnce  sync.Once
+)
+
 // Title returns a bold, large-text style for screen headers.
 func Title() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorFoliage).
-		MarginLeft(2).
-		Padding(0, 1)
+	titleOnce.Do(func() {
+		titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorFoliage).
+			MarginLeft(2).
+			Padding(0, 1)
+	})
+	return titleStyle
 }
 
 // Subtitle returns a secondary heading style.
 func Subtitle() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorSky).
-		MarginLeft(2)
+	subtitleOnce.Do(func() {
+		subtitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorSky).
+			MarginLeft(2)
+	})
+	return subtitleStyle
 }
 
 // Body returns the default body text style.
 func Body() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#D3D3D3"))
+	bodyOnce.Do(func() {
+		bodyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#D3D3D3"))
+	})
+	return bodyStyle
 }
 
 // Accent returns a highlighted style for interactive elements and key labels.
 func Accent() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorSunlight)
+	accentOnce.Do(func() {
+		accentStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorSunlight)
+	})
+	return accentStyle
 }
 
 // Error returns a red style for error messages and failed states.
 func Error() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorError)
+	errorOnce.Do(func() {
+		errorStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorError)
+	})
+	return errorStyle
 }
 
 // Success returns a green style for success messages and completed states.
 func Success() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorFoliage)
+	successOnce.Do(func() {
+		successStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorFoliage)
+	})
+	return successStyle
 }
 
 // Muted returns a dimmed style for secondary or disabled information.
 func Muted() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(colorMuted)
+	mutedOnce.Do(func() {
+		mutedStyle = lipgloss.NewStyle().
+			Foreground(colorMuted)
+	})
+	return mutedStyle
 }
 
 // Highlight returns a bright, eye-catching style for important notices.
 func Highlight() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorBark).
-		Background(lipgloss.Color("#FFF8DC")) // cornsilk
+	highlightOnce.Do(func() {
+		highlightStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorBark).
+			Background(lipgloss.Color("#FFF8DC")) // cornsilk
+	})
+	return highlightStyle
 }
