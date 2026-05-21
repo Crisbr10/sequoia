@@ -188,3 +188,24 @@ If a task file contains `<!-- MANUAL_EDIT -->` markers, those sections must NOT 
 ```
 
 When regenerating tasks, preserve any content between `<!-- MANUAL_EDIT -->` and `<!-- /MANUAL_EDIT -->` markers. Only regenerate the non-marked sections.
+
+## Next Steps: Implementing Tasks
+
+To develop any generated task with SDD workflow, TDD strict mode, and your preferred review strategy:
+
+```bash
+/sequoia-dev <TASK-ID>
+```
+
+Example:
+```bash
+/sequoia-dev P1-003
+```
+
+The command automatically:
+- Reads the task from `docs/sequoia/tasks/`
+- Launches SDD with your configured strategies (see `~/.config/opencode/.sequoia-dev.yaml`)
+- Uses fast-forward (`sdd-ff`) for simple tasks, full SDD cycle for complex ones
+- Optionally force mode: `/sequoia-dev P1-003 --ff` or `/sequoia-dev P1-003 --full`
+
+See `/sequoia-dev` for full documentation.
