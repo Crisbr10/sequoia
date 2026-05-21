@@ -201,7 +201,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	}
 
 	// Generate a unique session suffix for backup dirs to avoid collisions.
-	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	sessionSuffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	baseBackup := backupPath(base) + "-" + a.ID() + "-" + sessionSuffix
 
 	// Install skill file via the common framework.

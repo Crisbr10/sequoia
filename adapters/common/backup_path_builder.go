@@ -32,6 +32,6 @@ func NewBackupPathBuilder(
 // backupPathFn, the adapter ID, and a millisecond-resolution session suffix.
 // Format: {backupPathFn(base)}-{adapterID}-{sessionSuffix}
 func (b *BackupPathBuilder) Build(base string) string {
-	sessionSuffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	sessionSuffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	return b.backupPathFn(base) + "-" + b.adapterID + "-" + sessionSuffix
 }

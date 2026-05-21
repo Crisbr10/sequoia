@@ -118,7 +118,7 @@ func ReplaceFile(path, content string) error {
 	}
 
 	// Generate a unique timestamp suffix to avoid name collisions.
-	suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	backup := path + ".sequoia-backup-" + suffix
 
 	raw, err := os.ReadFile(path)

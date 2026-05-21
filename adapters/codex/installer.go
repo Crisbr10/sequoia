@@ -27,7 +27,7 @@ func MergeConfig(path string, table map[string]interface{}) error {
 
 	// Create a timestamped backup if the file exists and has content.
 	if existing != "" {
-		suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+		suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 		backupPath := path + ".sequoia-backup-" + suffix
 		if err := common.AtomicWriteFile(backupPath, []byte(existing), 0o600); err != nil {
 			return fmt.Errorf("merge config: backup: %w", err)
