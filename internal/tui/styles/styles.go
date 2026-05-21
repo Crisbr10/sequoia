@@ -121,3 +121,4 @@ func Highlight() lipgloss.Style {
 	})
 	return highlightStyle
 }
+
