@@ -17,6 +17,7 @@ import (
 // errorMsg, when non-empty, is rendered above the footer as a validation error.
 func UninstallView(tools []model.ToolState, cursor int, errorMsg string) string {
 	var b strings.Builder
+	b.Grow(200 + 80*len(tools)) // Title + ~80 per tool row + hints
 
 	// Title.
 	b.WriteString(styles.Title().Render("Uninstall"))

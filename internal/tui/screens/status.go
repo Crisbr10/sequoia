@@ -14,6 +14,7 @@ import (
 // installation state: name, installed indicator, and version.
 func StatusView(tools []model.ToolState, cursor int) string {
 	var b strings.Builder
+	b.Grow(80 * (len(tools) + 3)) // ~80 bytes per tool row + title + hints
 
 	// Title.
 	b.WriteString(styles.Title().Render("Status"))

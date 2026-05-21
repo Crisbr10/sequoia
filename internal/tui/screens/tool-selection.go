@@ -15,6 +15,7 @@ import (
 // is displayed when validation fails (e.g., zero tools selected).
 func ToolSelectionView(tools []model.ToolState, cursor int, errorMsg string) string {
 	var b strings.Builder
+	b.Grow(200 + 80*len(tools)) // Title + instruction + ~80 per tool row + hints
 
 	// Title.
 	b.WriteString(styles.Title().Render("Select AI Tools"))

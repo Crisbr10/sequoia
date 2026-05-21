@@ -26,6 +26,7 @@ var persistenceOptions = []struct {
 // option is selectable or greyed out.
 func ConfigurationView(config model.TUIConfig, activeField int, engramAvailable bool) string {
 	var b strings.Builder
+	b.Grow(300) // Title + 3 persistence options + hints (~300 bytes)
 
 	// Title.
 	b.WriteString(styles.Title().Render("Configuration"))

@@ -18,6 +18,7 @@ import (
 // warnedCount is the number of tools that completed with non-fatal warnings.
 func CompleteView(progressTools []ProgressTool, mode string, warnedCount int) string {
 	var b strings.Builder
+	b.Grow(300 + 80*len(progressTools)) // Heading + ~80 per tool + hints
 
 	// Resolve heading based on mode.
 	heading := "✅  Installation Complete!"

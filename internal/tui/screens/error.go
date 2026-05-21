@@ -17,6 +17,7 @@ import (
 // mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
 func ErrorView(progressTools []ProgressTool, mode string) string {
 	var b strings.Builder
+	b.Grow(300 + 100*len(progressTools)) // Heading + ~100 per tool (with errors) + hints
 
 	// Resolve heading based on mode.
 	heading := "❌  Installation Failed"

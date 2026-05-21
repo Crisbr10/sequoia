@@ -54,6 +54,7 @@ type ProgressTool struct {
 // mode is the operation mode: "install" or "uninstall". Empty string defaults to "install".
 func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, mode string) string {
 	var b strings.Builder
+	b.Grow(200 + 200*len(tools)) // Title + summary + ~200 per tool block + hints
 
 	// Resolve labels based on mode.
 	titleLabel := "Installing"
@@ -89,6 +90,7 @@ func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, m
 // renderToolProgress renders a single tool's progress block with step rows.
 func renderToolProgress(tool ProgressTool) string {
 	var b strings.Builder
+	b.Grow(200) // Tool name + ~3-4 step rows (~50 each)
 
 	// Tool name header.
 	b.WriteString(styles.Subtitle().Render(fmt.Sprintf("  %s", tool.ToolName)))

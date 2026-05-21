@@ -33,6 +33,7 @@ var welcomeMenuLabels = [WelcomeMenuCount]string{
 // navigable main menu. cursor is the currently highlighted menu item index.
 func WelcomeView(version string, cursor int) string {
 	var b strings.Builder
+	b.Grow(500) // Logo (~400) + version line (~30) + menu items (~70)
 
 	// ASCII logo with gradient.
 	b.WriteString(styles.Logo())
