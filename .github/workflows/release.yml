@@ -53,9 +53,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          path: ./
-          format: spdx-json,cyclonedx-json
-          upload-release-assets: true
