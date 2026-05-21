@@ -1,6 +1,7 @@
 version: "2"
 
 linters:
+  default: none
   enable:
     - errcheck
     - govet
@@ -9,50 +10,55 @@ linters:
     - unused
     - misspell
     - revive
+    - gosec
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+            - "sayRepetitiveInsteadOfStutters"
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+      - path: cmd/sequoia/main\.go
+        linters:
+          - errcheck
+      - path: cmd/sequoia/main\.go
+        linters:
+          - gosec
+        text: "G104:"
+      - path: adapters/
+        linters:
+          - gosec
+        text: "G304:"
+      - path: adapters/
+        linters:
+          - gosec
+        text: "G306:"
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G306:"
+      - path: internal/pipeline/runner\.go
+        linters:
+          - errcheck
+      - path: internal/tui/screens/uninstall\.go
+        linters:
+          - unused
+      - path: adapters/opencode/paths\.go
+        linters:
+          - unused
+      - path: adapters/claude/paths\.go
+        linters:
+          - unused
+
+formatters:
+  enable:
     - gofmt
     - goimports
-    - gosec
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        arguments:
-          - "checkPrivateReceivers"
-          - "sayRepetitiveInsteadOfStutters"
+
 issues:
   max-same-issues: 5
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-    - path: cmd/sequoia/main\.go
-      linters:
-        - errcheck
-    - path: cmd/sequoia/main\.go
-      linters:
-        - gosec
-      text: "G104:"
-    - path: adapters/
-      linters:
-        - gosec
-      text: "G304:"
-    - path: adapters/
-      linters:
-        - gosec
-      text: "G306:"
-    - path: _test\.go
-      linters:
-        - gosec
-      text: "G306:"
-    - path: internal/pipeline/runner\.go
-      linters:
-        - errcheck
-    - path: internal/tui/screens/uninstall\.go
-      linters:
-        - unused
-    - path: adapters/opencode/paths\.go
-      linters:
-        - unused
-    - path: adapters/claude/paths\.go
-      linters:
-        - unused
