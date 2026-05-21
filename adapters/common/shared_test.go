@@ -31,8 +31,18 @@ func TestCommandFiles_HasExpectedEntries(t *testing.T) {
 		"sequoia-review.md",
 		"sequoia-fix.md",
 		"sequoia-diff.md",
+		"sequoia-dev.md",
 	}
 	assert.Equal(t, expected, common.CommandFiles)
+}
+
+// TestConfigFiles_HasExpectedEntries verifies the shared config file mapping.
+func TestConfigFiles_HasExpectedEntries(t *testing.T) {
+	t.Parallel()
+	assert.Len(t, common.ConfigFiles, 1)
+	cf := common.ConfigFiles[0]
+	assert.Equal(t, ".sequoia-dev.yaml.default", cf.Source)
+	assert.Equal(t, ".sequoia-dev.yaml", cf.Target)
 }
 
 // TestStageFile_WritesContent creates a temp dir and stages a file.

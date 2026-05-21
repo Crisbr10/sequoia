@@ -319,6 +319,16 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		}
 	}
 
+	// Stage config default file (conditional — only if target doesn't exist).
+	// Config files go to the base directory, not commands/skills.
+	configContent, err := ConfigDefaultFS.ReadFile("templates/.sequoia-dev.yaml.default")
+	if err != nil {
+		return fmt.Errorf("install: read config default: %w", err)
+	}
+	if err := StageFileIfNotExist(base, ".sequoia-dev.yaml", configContent); err != nil {
+		return fmt.Errorf("install: stage config: %w", err)
+	}
+
 	// Check cancellation before creating directories.
 	if err := checkContext(opts.Context); err != nil {
 		return fmt.Errorf("install: %w", err)
@@ -446,6 +456,11 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 		if err := os.Remove(filepath.Join(a.paths.commandsPathFn(base), cmd)); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
 		}
+	}
+
+	// Remove config files
+	if err := os.Remove(filepath.Join(base, ".sequoia-dev.yaml")); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("remove config .sequoia-dev.yaml: %w", err))
 	}
 
 	// Remove or restore the system prompt.

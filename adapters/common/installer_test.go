@@ -446,3 +446,66 @@ func TestInstaller_BackupIsolation_SkillSurvivesCommandFailure(t *testing.T) {
 	assert.Equal(t, "old-skill-content", readFile(t, skillDstDir, "SKILL.md"),
 		"skill destination should be restored to original after independent rollback")
 }
+
+// =========================================================================
+// StageFileIfNotExist Installer-Level Integration Tests (REQ-5)
+// These verify StageFileIfNotExist behavior in the installer context
+// alongside the existing config file lifecycle tests.
+// =========================================================================
+
+// TestStageFileIfNotExist_CreatesWhenMissing verifies that StageFileIfNotExist
+// creates the file with correct content when the target does not already exist.
+func TestStageFileIfNotExist_CreatesWhenMissing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	content := []byte("test config content\n")
+
+	err := common.StageFileIfNotExist(dir, ".sequoia-dev.yaml", content)
+	require.NoError(t, err)
+
+	// File should have been created with correct content
+	data, err := os.ReadFile(filepath.Join(dir, ".sequoia-dev.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "test config content\n", string(data))
+}
+
+// TestStageFileIfNotExist_PreservesWhenExists verifies that StageFileIfNotExist
+// does NOT overwrite an existing file — it preserves the original user content.
+func TestStageFileIfNotExist_PreservesWhenExists(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	original := []byte("user custom config\n")
+	newDefault := []byte("factory default config\n")
+
+	// Pre-create the file with user content
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".sequoia-dev.yaml"), original, 0o644))
+
+	// Try to "install" default — should skip
+	err := common.StageFileIfNotExist(dir, ".sequoia-dev.yaml", newDefault)
+	require.NoError(t, err)
+
+	// File should still have original content
+	data, err := os.ReadFile(filepath.Join(dir, ".sequoia-dev.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "user custom config\n", string(data), "existing file should be preserved")
+}
+
+// TestStageFileIfNotExist_CreatesParentDirs verifies that StageFileIfNotExist
+// creates intermediate directories (mode 0o755) when the target path includes
+// deeply nested directories that don't yet exist.
+func TestStageFileIfNotExist_CreatesParentDirs(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join(t.TempDir(), "deeply", "nested", "path")
+	content := []byte("hello\n")
+
+	// Parent dirs don't exist yet
+	require.NoError(t, common.StageFileIfNotExist(dir, "config.yaml", content))
+
+	// File should have been created
+	data, err := os.ReadFile(filepath.Join(dir, "config.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", string(data))
+}
+
+// NOTE: TestConfigFiles_HasExpectedEntries already exists in shared_test.go
+// (added in Batch 2). No duplicate needed here.
