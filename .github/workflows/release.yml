@@ -96,6 +96,10 @@ jobs:
       - name: Verify SHA-256 Checksums
         run: |
           echo "Verifying SHA-256 checksums before cosign signing..."
+          # GoReleaser lists install scripts without the scripts/ prefix
+          # and expects them next to the checksums file in dist/.
+          cp scripts/install.sh dist/install.sh
+          cp scripts/install.ps1 dist/install.ps1
           FAIL=0
           cd dist
           for checksum_file in sequoia_*_checksums.txt; do
