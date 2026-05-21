@@ -20,7 +20,7 @@ const (
 // are already present the content between them is replaced. Otherwise
 // the section is appended at the end of the file.
 func InjectMarkdownSection(path, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func RemoveMarkdownSection(path string) error {
 // RestoreOrRemoveFile can locate the correct backup during uninstall.
 // Creates parent directories if needed.
 func ReplaceFile(path, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
 

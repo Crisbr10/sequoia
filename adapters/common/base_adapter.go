@@ -345,7 +345,7 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 
 	// Create target directories before Prepare (Prepare probes for write access).
 	for _, dir := range []string{skillsDir, commandsDir} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("install: create dir %q: %w", dir, err)
 		}
 	}

@@ -118,7 +118,7 @@ func TestToolState_AdapterIsToolInfo(t *testing.T) {
 		Selected: true,
 	}
 
-	var ti model.ToolInfo = ts.Adapter
+	ti := ts.Adapter
 	assert.Equal(t, "test", ti.ID())
 	assert.Equal(t, "Test Tool", ti.Name())
 }

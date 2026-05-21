@@ -115,7 +115,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 	}
 
 	for _, dir := range []string{skillsPath(base), commandsPath(base)} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("install: create dir %q: %w", dir, err)
 		}
 	}
