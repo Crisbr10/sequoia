@@ -99,8 +99,7 @@ func TestRenderTemplate_DifferentTemplates(t *testing.T) {
 
 // TestRenderTemplate_CacheIntegrity verifies that when the same template
 // is rendered with different data, the output reflects the current data,
-// not stale data from a previous call. This ensures the cache does not
-// store rendered output — only the parsed template is cached.
+// not stale data from a previous call.
 func TestRenderTemplate_CacheIntegrity(t *testing.T) {
 	t.Parallel()
 
@@ -131,9 +130,8 @@ func TestRenderTemplate_CacheIntegrity(t *testing.T) {
 
 // TestRenderTemplateCacheIsolation verifies that two different embed.FS
 // instances with the same template name produce their own correct content.
-// With the bug (stack-local &fs in the cache key), stack frame reuse could
-// cause the second FS to hit the first's cached template — producing wrong
-// content. The fix (pointer parameter) makes the cache key stable per source.
+// RenderTemplate reads and parses on every call, so different FS instances
+// are always isolated regardless of pointer identity.
 func TestRenderTemplateCacheIsolation(t *testing.T) {
 	t.Parallel()
 
@@ -160,8 +158,7 @@ func TestRenderTemplateCacheIsolation(t *testing.T) {
 }
 
 // =========================================================================
-// BenchmarkRenderTemplate — measures performance of RenderTemplate
-// including the first (cold) and subsequent (warm cache) calls.
+// BenchmarkRenderTemplate — measures performance of RenderTemplate.
 // =========================================================================
 
 func BenchmarkRenderTemplate(b *testing.B) {
@@ -181,23 +178,16 @@ func BenchmarkRenderTemplate(b *testing.B) {
 }
 
 // =========================================================================
-// BenchmarkRenderTemplate_Cached — measures performance after the cache
-// is warm. We call RenderTemplate once outside the timing loop to prime
-// the cache, then measure only the cached path.
+// BenchmarkRenderTemplate_Repeated — measures repeated calls to ensure
+// the no-cache path has stable performance across many iterations.
 // =========================================================================
 
-func BenchmarkRenderTemplate_Cached(b *testing.B) {
+func BenchmarkRenderTemplate_Repeated(b *testing.B) {
 	type data struct {
 		Name    string
 		Version string
 	}
 	d := data{Name: "Bench", Version: "1.0"}
-
-	// Prime the cache — first call parses and caches the template.
-	_, err := common.RenderTemplate(&templateTestFS, "testdata/test.tmpl", d)
-	if err != nil {
-		b.Fatal(err)
-	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
