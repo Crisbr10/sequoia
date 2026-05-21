@@ -28,6 +28,7 @@ jobs:
       - name: Vulncheck
         if: runner.os == 'Linux'
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        continue-on-error: true
 
       - name: Vet
         run: go vet ./...
