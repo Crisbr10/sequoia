@@ -97,7 +97,8 @@ jobs:
         run: |
           echo "Verifying SHA-256 checksums before cosign signing..."
           FAIL=0
-          for checksum_file in dist/sequoia_*_checksums.txt; do
+          cd dist
+          for checksum_file in sequoia_*_checksums.txt; do
             if [ -f "$checksum_file" ]; then
               echo "  Checking $checksum_file..."
               sha256sum -c "$checksum_file" --strict 2>/dev/null || FAIL=1
