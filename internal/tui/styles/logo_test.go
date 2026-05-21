@@ -9,6 +9,23 @@ import (
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 )
 
+// TestLogo_ZeroAllocations verifies that after caching is implemented,
+// Logo() performs zero heap allocations per call.
+// RED: Currently Logo() creates a lipgloss style + strings.Builder per invocation (~4-6 allocs).
+func TestLogo_ZeroAllocations(t *testing.T) {
+	// Warm up: ensure cached logo is built (first call may allocate).
+	_ = styles.Logo()
+
+	allocs := testing.AllocsPerRun(100, func() {
+		_ = styles.Logo()
+	})
+
+	// After caching, zero allocations are expected.
+	if allocs > 0 {
+		t.Errorf("Logo() should perform 0 allocations after caching, got %v allocs/call", allocs)
+	}
+}
+
 func TestLogo_NonEmpty(t *testing.T) {
 	t.Parallel()
 	logo := styles.Logo()
