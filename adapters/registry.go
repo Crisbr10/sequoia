@@ -114,7 +114,9 @@ func (r *Registry) Get(id string) (ToolAdapter, error) {
 	// Trigger lazy construction. once.Do guarantees thread safety:
 	// only one goroutine executes the factory; others wait.
 	once.Do(func() {
+		r.mu.RLock()
 		fn := r.factories[id]
+		r.mu.RUnlock()
 		adapter := fn()
 		// Store the materialized adapter.
 		r.mu.Lock()
