@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -10,7 +11,7 @@ import (
 // mode 0o644.
 func StageFile(dir, name string, content []byte) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return err
+		return fmt.Errorf("stage %s: %w", name, err)
 	}
 	return os.WriteFile(filepath.Join(dir, name), content, 0o644)
 }

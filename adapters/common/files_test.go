@@ -54,3 +54,24 @@ func TestStageFileIfNotExist_createsParentDirs(t *testing.T) {
 
 	assert.FileExists(t, filepath.Join(dir, "config.yaml"))
 }
+
+// =========================================================================
+// Error context wrapping tests (P4-003)
+// =========================================================================
+
+// TestStageFile_MkdirAllErrorIsWrapped verifies that when StageFile's MkdirAll
+// fails (intermediate path is a regular file), the returned error includes
+// "stage" operation context and the filename.
+func TestStageFile_MkdirAllErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create a regular file where MkdirAll expects to create a directory.
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("block"), 0o644))
+
+	// Try to stage into blocker/sub/config.yaml → MkdirAll fails because blocker is a file.
+	err := common.StageFile(filepath.Join(blocker, "sub"), "config.yaml", []byte("data"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stage")
+	assert.Contains(t, err.Error(), "config.yaml")
+}

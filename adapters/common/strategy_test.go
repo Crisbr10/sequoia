@@ -1,6 +1,7 @@
 package common_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -677,6 +678,146 @@ func TestRestoreOrRemoveFile_MultipleBackupsOnlyRestoresLatest(t *testing.T) {
 	// The old backup file should still exist (wasn't from current session).
 	_, err = os.Stat(oldBackup)
 	assert.NoError(t, err, "old backup from different session should remain untouched")
+}
+
+// =========================================================================
+// Error context wrapping tests (P4-003)
+// =========================================================================
+
+// TestInjectMarkdownSection_ReadFileErrorIsWrapped verifies that when
+// InjectMarkdownSection's ReadFile fails (target is a directory), the returned
+// error includes operation context ("inject markdown") and the file path.
+func TestInjectMarkdownSection_ReadFileErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create the target path as a directory so os.ReadFile fails on all platforms.
+	path := filepath.Join(dir, "CLAUDE.md")
+	require.NoError(t, os.Mkdir(path, 0o755))
+
+	err := common.InjectMarkdownSection(path, "sequoia content")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inject markdown")
+	assert.Contains(t, err.Error(), path)
+}
+
+// TestInjectMarkdownSection_MkdirAllErrorIsWrapped verifies that when
+// InjectMarkdownSection's MkdirAll fails (intermediate path is a regular file),
+// the returned error includes operation context and the directory path.
+func TestInjectMarkdownSection_MkdirAllErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create a regular file where MkdirAll expects to create a directory.
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("block"), 0o644))
+
+	path := filepath.Join(blocker, "sub", "CLAUDE.md")
+	err := common.InjectMarkdownSection(path, "sequoia content")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inject markdown")
+	assert.Contains(t, err.Error(), "mkdir")
+	assert.True(t, errors.Is(err, os.ErrNotExist),
+		"error chain must preserve os.ErrNotExist through wrapping")
+}
+
+// TestReplaceFile_MkdirAllErrorIsWrapped verifies that when ReplaceFile's
+// MkdirAll fails (intermediate path is a regular file), the returned error
+// includes operation context.
+func TestReplaceFile_MkdirAllErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("block"), 0o644))
+
+	path := filepath.Join(blocker, "sub", "AGENTS.md")
+	err := common.ReplaceFile(path, sequoiaBody("sequoia"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "replace file")
+	assert.Contains(t, err.Error(), "mkdir")
+	assert.True(t, errors.Is(err, os.ErrNotExist),
+		"error chain must preserve os.ErrNotExist through wrapping")
+}
+
+// TestReplaceFile_ManagedCheckErrorIsWrapped verifies that when
+// ReplaceFile's isSequoiaManaged call fails (ReadFile on a directory),
+// the returned error includes operation context.
+func TestReplaceFile_ManagedCheckErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create the file first so the MkdirAll passes (directory for the parent exists).
+	path := filepath.Join(dir, "AGENTS.md")
+	require.NoError(t, os.WriteFile(path, []byte("existing"), 0o644))
+	// Replace with a directory so isSequoiaManaged's ReadFile fails.
+	require.NoError(t, os.Remove(path))
+	require.NoError(t, os.Mkdir(path, 0o755))
+
+	err := common.ReplaceFile(path, sequoiaBody("sequoia"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "replace file")
+}
+
+// TestRestoreOrRemoveFile_StatErrorIsWrapped verifies that when
+// RestoreOrRemoveFile's Stat call fails, the error includes operation context.
+// We trigger this by creating the target path as a directory nested inside
+// a file (which makes the parent MkdirAll-like check not applicable here).
+// Instead, we use a path with an invalid character that causes Stat to fail.
+// On all platforms, a path with a null byte causes Stat to fail.
+func TestRestoreOrRemoveFile_StatErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	// Use a path with a NUL byte — os.Stat rejects it on all platforms.
+	err := common.RestoreOrRemoveFile("bad\x00path.txt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "restore file")
+	assert.Contains(t, err.Error(), "stat")
+}
+
+// TestRestoreOrRemoveFile_ManagedCheckErrorIsWrapped verifies that when
+// RestoreOrRemoveFile's isSequoiaManaged call fails (ReadFile on a directory),
+// the error includes operation context.
+func TestRestoreOrRemoveFile_ManagedCheckErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create the target as a directory. Stat succeeds (it exists).
+	// findBackupPath returns "" (no session file, no legacy backup).
+	// isSequoiaManaged calls os.ReadFile on the directory → fails.
+	path := filepath.Join(dir, "AGENTS.md")
+	require.NoError(t, os.Mkdir(path, 0o755))
+
+	err := common.RestoreOrRemoveFile(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "restore file")
+}
+
+// TestAtomicWriteFile_WriteErrorWrapsContextAndPreservesChain verifies that
+// when AtomicWriteFile's WriteFile fails (non-existent parent directory),
+// the error includes "atomic write" context AND preserves the error chain
+// so errors.Is(err, os.ErrNotExist) returns true.
+func TestAtomicWriteFile_WriteErrorWrapsContextAndPreservesChain(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Target path inside a non-existent subdirectory causes os.WriteFile to fail
+	// with a path error wrapping ENOTDIR or ENOENT, both of which satisfy os.ErrNotExist.
+	path := filepath.Join(dir, "nonexistent", "target.txt")
+
+	err := common.AtomicWriteFile(path, []byte("data"), 0o644)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "atomic write")
+	assert.True(t, errors.Is(err, os.ErrNotExist),
+		"error chain must preserve os.ErrNotExist through wrapping")
+}
+
+// TestAtomicWriteFile_RenameErrorWrapsContext verifies that when
+// AtomicWriteFile's Rename fails (target is a directory), the error includes
+// "atomic write" context.
+func TestAtomicWriteFile_RenameErrorWrapsContext(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// Create the target as a directory so os.Rename(file, dir) fails on all platforms.
+	targetDir := filepath.Join(dir, "target")
+	require.NoError(t, os.Mkdir(targetDir, 0o755))
+
+	err := common.AtomicWriteFile(targetDir, []byte("data"), 0o644)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "atomic write")
 }
 
 // TestReplaceFile_SessionWriteFails verifies that ReplaceFile propagates

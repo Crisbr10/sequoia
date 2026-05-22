@@ -21,7 +21,7 @@ const (
 // the section is appended at the end of the file.
 func InjectMarkdownSection(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return err
+		return fmt.Errorf("inject markdown: mkdir %s: %w", filepath.Dir(path), err)
 	}
 
 	section := markerStart + "\n" + strings.TrimRight(content, "\n") + "\n" + markerEnd + "\n"
@@ -31,7 +31,7 @@ func InjectMarkdownSection(path, content string) error {
 		if os.IsNotExist(err) {
 			return os.WriteFile(path, []byte(section), 0o644)
 		}
-		return err
+		return fmt.Errorf("inject markdown: read %s: %w", path, err)
 	}
 
 	s := string(raw)
@@ -65,7 +65,7 @@ func RemoveMarkdownSection(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("remove markdown: read %s: %w", path, err)
 	}
 
 	s := string(raw)
@@ -101,12 +101,12 @@ func RemoveMarkdownSection(path string) error {
 // Creates parent directories if needed.
 func ReplaceFile(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return err
+		return fmt.Errorf("replace file: mkdir %s: %w", filepath.Dir(path), err)
 	}
 
 	managed, err := isSequoiaManaged(path)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("replace file: read %s: %w", path, err)
 	}
 
 	if os.IsNotExist(err) {
@@ -123,10 +123,10 @@ func ReplaceFile(path, content string) error {
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("replace file: backup read %s: %w", path, err)
 	}
 	if err := AtomicWriteFile(backup, raw, 0o600); err != nil {
-		return err
+		return fmt.Errorf("replace file: backup write %s: %w", backup, err)
 	}
 
 	// Write a session file so RestoreOrRemoveFile can find the correct backup.
@@ -149,7 +149,7 @@ func RestoreOrRemoveFile(path string) error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("restore file: stat %s: %w", path, err)
 	}
 
 	// Determine the backup to restore from.
@@ -158,10 +158,10 @@ func RestoreOrRemoveFile(path string) error {
 	if backup != "" {
 		raw, err := os.ReadFile(backup)
 		if err != nil {
-			return err
+			return fmt.Errorf("restore file: backup read %s: %w", backup, err)
 		}
 		if err := AtomicWriteFile(path, raw, 0o644); err != nil {
-			return err
+			return fmt.Errorf("restore file: restore write %s: %w", path, err)
 		}
 		// Clean up the backup file.
 		_ = os.Remove(backup)
@@ -172,7 +172,7 @@ func RestoreOrRemoveFile(path string) error {
 
 	managed, err := isSequoiaManaged(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("restore file: read %s: %w", path, err)
 	}
 	if managed {
 		_ = os.Remove(path + ".sequoia-session")
@@ -223,11 +223,11 @@ func isSequoiaManaged(path string) (bool, error) {
 func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, perm); err != nil {
-		return err
+		return fmt.Errorf("atomic write: write %s: %w", tmp, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
-		return err
+		return fmt.Errorf("atomic write: rename %s: %w", path, err)
 	}
 	return nil
 }
