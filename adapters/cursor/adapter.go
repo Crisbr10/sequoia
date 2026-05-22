@@ -16,14 +16,13 @@ type Adapter struct {
 	common.BaseAdapter
 }
 
+// Compile-time check: Adapter satisfies common.Strategy (P3-003 ISP narrowing).
+var _ common.Strategy = (*Adapter)(nil)
+
 // RegisterIn registers this adapter in the given registry.
 // Use this for constructor DI; init() delegates to it for backward compatibility.
 func RegisterIn(reg *adapters.Registry) {
 	reg.RegisterFactory("cursor", func() adapters.ToolAdapter { return newAdapter("") })
-}
-
-func init() {
-	RegisterIn(adapters.DefaultRegistry)
 }
 
 // NewAdapter creates an Adapter with an overridden home directory.

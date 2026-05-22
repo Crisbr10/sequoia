@@ -21,14 +21,13 @@ type Adapter struct {
 	common.BaseAdapter
 }
 
+// Compile-time check: Adapter satisfies common.Strategy (P3-003 ISP narrowing).
+var _ common.Strategy = (*Adapter)(nil)
+
 // RegisterIn registers this adapter in the given registry.
 // Use this for constructor DI; init() delegates to it for backward compatibility.
 func RegisterIn(reg *adapters.Registry) {
 	reg.RegisterFactory("codex", func() adapters.ToolAdapter { return newAdapter("") })
-}
-
-func init() {
-	RegisterIn(adapters.DefaultRegistry)
 }
 
 // NewAdapter creates an Adapter with an overridden home directory.
@@ -104,7 +103,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("install: stage skill: %w", err)
 	}
 
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		content, err := common.CommandFS.ReadFile("templates/commands/" + cmd)
 		if err != nil {
 			return fmt.Errorf("install: read command %q: %w", cmd, err)
@@ -137,7 +136,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
 		BackupDir: filepath.Join(baseBackup, "commands"),
-		Files:     common.CommandFiles,
+		Files:     common.CommandFiles(),
 	})
 	if err := cmdInstaller.Run(); err != nil {
 		_ = skillInstaller.Rollback()
@@ -187,7 +186,7 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) (err error) {
 	if err := os.Remove(versionFilePath(base)); err != nil && !os.IsNotExist(err) {
 		errs = append(errs, fmt.Errorf("remove version file: %w", err))
 	}
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		if err := os.Remove(filepath.Join(commandsPath(base), cmd)); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
 		}
