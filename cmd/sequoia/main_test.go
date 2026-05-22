@@ -606,6 +606,51 @@ func TestSignalHandling_InstallCommandPropagatesContext(t *testing.T) {
 	// If err != nil, the context cancellation was properly propagated.
 }
 
+// TestTargetAdapters_ReturnsIdentifier verifies that targetAdapters returns
+// the narrow []Identifier type (ISP narrowing — P3-003). The test relies on
+// Go's lack of slice covariance: assigning []ToolAdapter to []Identifier
+// is a compile error, so this test only compiles if targetAdapters returns
+// the narrower type.
+func TestTargetAdapters_ReturnsIdentifier(t *testing.T) {
+	t.Parallel()
+
+	reg := adapters.NewRegistry()
+	claude.RegisterIn(reg)
+
+	var ids []adapters.Identifier = targetAdapters("claude-code", reg)
+	if len(ids) != 1 {
+		t.Fatalf("targetAdapters returned %d identifiers, want 1", len(ids))
+	}
+	if ids[0].ID() != "claude-code" {
+		t.Errorf("expected ID 'claude-code', got %q", ids[0].ID())
+	}
+}
+
+// TestTargetAdapters_AllReturnsIdentifiers verifies that targetAdapters with an
+// empty toolID returns only []Identifier (not []ToolAdapter), satisfying the
+// ISP narrowing contract. Triangulation test with different input.
+func TestTargetAdapters_AllReturnsIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	reg := adapters.NewRegistry()
+	claude.RegisterIn(reg)
+	opencode.RegisterIn(reg)
+
+	var ids []adapters.Identifier = targetAdapters("", reg)
+	if len(ids) != 2 {
+		t.Fatalf("targetAdapters returned %d identifiers, want 2", len(ids))
+	}
+	// Verify each item only exposes Identifier methods (ID, Name).
+	for _, id := range ids {
+		if id.ID() == "" {
+			t.Error("identifier has empty ID")
+		}
+		if id.Name() == "" {
+			t.Error("identifier has empty Name")
+		}
+	}
+}
+
 // TestSignalHandling_NormalOperationPreservesContext verifies that a live
 // (non-cancelled) context flows normally through the command pipeline.
 func TestSignalHandling_NormalOperationPreservesContext(t *testing.T) {

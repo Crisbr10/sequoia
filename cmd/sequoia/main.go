@@ -19,7 +19,7 @@ import (
 	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/app"
 
-	// Register all adapters via init() + named imports for explicit DI.
+	// Register all adapters via named imports for explicit DI.
 	adaptersClaude "github.com/Crisbr10/sequoia/adapters/claude"
 	adaptersCodex "github.com/Crisbr10/sequoia/adapters/codex"
 	adaptersCursor "github.com/Crisbr10/sequoia/adapters/cursor"
@@ -253,9 +253,13 @@ var isTerminalFn = isTerminal
 
 // runInstall installs Sequoia into a specific adapter or all detected adapters.
 // ctx is the signal-aware context from main() — cancellation stops the install early.
+//
+// Uses narrow role interfaces (Identifier, Detector, Installer) instead of
+// ToolAdapter, per ISP narrowing P3-003. Lookups go through the registry
+// to obtain the full adapter, but no ToolAdapter type is written explicitly.
 func runInstall(ctx context.Context, toolID string, out io.Writer, reg *adapters.Registry) error {
-	targets := targetAdapters(toolID, reg)
-	if len(targets) == 0 {
+	ids := targetAdapters(toolID, reg)
+	if len(ids) == 0 {
 		if toolID != "" {
 			return fmt.Errorf("%w: unknown adapter %q — use 'sequoia status' to list available adapters", adapters.ErrUnknownAdapter, toolID)
 		}
@@ -264,10 +268,22 @@ func runInstall(ctx context.Context, toolID string, out io.Writer, reg *adapters
 		return nil
 	}
 
-	for _, a := range targets {
+	var installedCount int
+	for _, id := range ids {
+		// Look up the full adapter via registry for Detector+Installer operations.
+		a, err := reg.Get(id.ID())
+		if err != nil {
+			continue
+		}
+
 		// When a specific tool is requested but not detected, report it.
 		if toolID != "" && !a.Detect() {
 			return fmt.Errorf("%w: %s is not detected on this system", adapters.ErrNotDetected, a.Name())
+		}
+
+		// When installing all tools, skip adapters that are not detected.
+		if toolID == "" && !a.Detect() {
+			continue
 		}
 
 		_, _ = fmt.Fprintf(out, "Installing Sequoia for %s ...\n", a.Name())
@@ -278,6 +294,14 @@ func runInstall(ctx context.Context, toolID string, out io.Writer, reg *adapters
 			return fmt.Errorf("install %s: %w", a.ID(), err)
 		}
 		_, _ = fmt.Fprintf(out, "  Done! Use /sequoia-init inside %s to get started.\n", a.Name())
+		installedCount++
+	}
+
+	// When no specific toolID and no adapters were actually detected/installed,
+	// provide helpful feedback.
+	if toolID == "" && installedCount == 0 {
+		_, _ = fmt.Fprintln(out, "No supported AI tools detected on this machine.")
+		_, _ = fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
 	}
 
 	return nil
@@ -345,12 +369,15 @@ func ScanTools(reg *adapters.Registry) []adapters.AdapterStatus {
 // and yes is false, it returns an error directing users to --yes. When yes is
 // true, the confirmation prompt is skipped entirely.
 // ctx is the signal-aware context from main() — cancellation stops uninstall early.
+//
+// Uses narrow role interfaces (Identifier, Detector, Installer) instead of
+// ToolAdapter, per ISP narrowing P3-003.
 func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.Reader, out io.Writer, reg *adapters.Registry) error {
-	targets := targetAdapters(toolID, reg)
+	ids := targetAdapters(toolID, reg)
 	if all && toolID == "" {
-		targets = reg.All()
+		ids = targetAdapters("", reg)
 	}
-	if len(targets) == 0 {
+	if len(ids) == 0 {
 		if toolID != "" {
 			return fmt.Errorf("unknown adapter %q — use 'sequoia status' to list available adapters", toolID)
 		}
@@ -365,12 +392,12 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 		}
 
 		// Build the confirmation prompt.
-		if len(targets) == 1 {
-			_, _ = fmt.Fprintf(out, "Remove Sequoia from %s? [y/N]: ", targets[0].Name())
+		if len(ids) == 1 {
+			_, _ = fmt.Fprintf(out, "Remove Sequoia from %s? [y/N]: ", ids[0].Name())
 		} else {
 			_, _ = fmt.Fprintln(out, "This will remove Sequoia from:")
-			for _, a := range targets {
-				_, _ = fmt.Fprintf(out, "  %s\n", a.Name())
+			for _, id := range ids {
+				_, _ = fmt.Fprintf(out, "  %s\n", id.Name())
 			}
 			_, _ = fmt.Fprint(out, "Continue? [y/N]: ")
 		}
@@ -384,7 +411,13 @@ func runUninstall(ctx context.Context, toolID string, all bool, yes bool, in io.
 	}
 
 	var partialErrors int
-	for _, a := range targets {
+	for _, id := range ids {
+		// Look up the full adapter via registry for Detector+Installer operations.
+		a, err := reg.Get(id.ID())
+		if err != nil {
+			continue
+		}
+
 		if !a.IsInstalled() {
 			_, _ = fmt.Fprintf(out, "Sequoia is not installed for %s — skipping.\n", a.Name())
 			continue
@@ -425,21 +458,22 @@ func runTUI(toolID string, reg *adapters.Registry) error {
 	return nil
 }
 
-// targetAdapters returns adapters matching toolID, or all detected adapters if toolID is empty.
-func targetAdapters(toolID string, reg *adapters.Registry) []adapters.ToolAdapter {
+// targetAdapters returns adapters matching toolID as []Identifier, or all registered
+// adapters if toolID is empty. Only Identifier (ID/Name) methods are exposed;
+// callers needing Detector or Installer should look up the full adapter via the registry.
+func targetAdapters(toolID string, reg *adapters.Registry) []adapters.Identifier {
 	if toolID != "" {
 		a, err := reg.Get(toolID)
 		if err != nil {
 			return nil
 		}
-		return []adapters.ToolAdapter{a}
+		return []adapters.Identifier{a}
 	}
 
-	var detected []adapters.ToolAdapter
-	for _, a := range reg.All() {
-		if a.Detect() {
-			detected = append(detected, a)
-		}
+	all := reg.All()
+	result := make([]adapters.Identifier, 0, len(all))
+	for _, a := range all {
+		result = append(result, a)
 	}
-	return detected
+	return result
 }
