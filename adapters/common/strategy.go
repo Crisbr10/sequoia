@@ -7,7 +7,27 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Crisbr10/sequoia/adapters"
 )
+
+// Strategy defines the phased install lifecycle for tool adapters.
+// Each phase reports errors independently, allowing consumers to observe,
+// cancel, or recover at phase boundaries.
+//
+// Implementations MUST support sequential phase calls:
+//
+//	Prepare → Download → Verify → Stage → Apply
+//
+// On any phase failure the consumer may call Rollback to undo completed work.
+type Strategy interface {
+	Prepare(opts adapters.InstallOpts) error
+	Download(opts adapters.InstallOpts) error
+	Verify() error
+	Stage(opts adapters.InstallOpts) error
+	Apply(opts adapters.InstallOpts) error
+	Rollback() error
+}
 
 const (
 	markerStart = "<!-- sequoia:start -->"

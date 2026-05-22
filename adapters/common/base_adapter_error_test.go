@@ -21,17 +21,19 @@ import (
 // =========================================================================
 // checkpointCtx – auto-cancels after the Nth checkContext call.
 //
-// Install() calls checkContext at 5 fixed points. To test each checkpoint
-// deterministically, we wrap a context and count how many times Done()
-// is polled by the select in checkContext.
+// The phased Install() delegates to Prepare → Download → Verify → Stage →
+// Apply, each calling checkContext at start and/or after critical operations.
+// This yields 7 checkpoints total:
 //
 // cancelAt   = which checkpoint triggers cancellation
 //
-//	1 → before any work (line 284)
-//	2 → after staging + rendering (line 323)
-//	3 → after skill install      (line 355)
-//	4 → after commands install   (line 373)
-//	5 → after system prompt      (line 393)
+//	1 → Prepare: before any work
+//	2 → Download: start
+//	3 → Download: end (after staging, before Stage)
+//	4 → Stage: start
+//	5 → Stage: after skill install
+//	6 → Stage: after commands install
+//	7 → Apply: after system prompt, before version
 //
 // =========================================================================
 type checkpointCtx struct {
@@ -177,61 +179,62 @@ func TestInstall_PreCancelledContext_NoWorkDone(t *testing.T) {
 }
 
 // TestInstall_CheckpointContext_AfterStaging verifies that when the context
-// is cancelled at checkpoint 2 (after staging + rendering, before directory
-// creation), the staging directory is cleaned up and no install files remain.
+// is cancelled at checkpoint 3 (end of Download, after staging, before Stage),
+// Prepare has created directories but no files are installed.
 func TestInstall_CheckpointContext_AfterStaging(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
-	ctx := newCheckpointCtx(2) // cancel at checkpoint 2
+	ctx := newCheckpointCtx(3) // cancel at checkpoint 3 (Download end)
 
 	err := a.Install(adapters.InstallOpts{Context: ctx})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed))
 	assert.Contains(t, err.Error(), "context canceled")
 
-	// No dirs created (we cancelled before mkdirAll).
-	assert.NoDirExists(t, filepath.Join(home, "skills"))
-	assert.NoDirExists(t, filepath.Join(home, "commands"))
+	// Prepare already created dirs — that's expected with phased execution.
+	// No install files should exist (Stage was never reached).
+	assert.False(t, fileExists(filepath.Join(home, "skills", "SKILL.md")),
+		"SKILL.md should not be installed when context cancels at Download end")
+	assert.NoFileExists(t, filepath.Join(home, "commands", common.CommandFiles()[0]),
+		"command files should not be installed")
 }
 
 // TestInstall_CheckpointContext_AfterSkillInstall verifies that when the
-// context is cancelled at checkpoint 3 (after skill install), the skill
-// installer is rolled back, and no command files are installed.
+// context is cancelled at checkpoint 5 (after skill install, before commands),
+// the skill installer is rolled back, and no command files are installed.
 func TestInstall_CheckpointContext_AfterSkillInstall(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
-	ctx := newCheckpointCtx(3) // cancel at checkpoint 3
+	ctx := newCheckpointCtx(5) // cancel at checkpoint 5 (Stage: after skill)
 
 	err := a.Install(adapters.InstallOpts{Context: ctx})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed))
 	assert.Contains(t, err.Error(), "context canceled")
 
-	// Skills dir should exist but be empty (rolled back) OR not exist.
-	// Rollback restores backed-up files; since this is a clean install
-	// with no prior state, Rollback removes the applied file.
+	// Skills dir should exist but SKILL.md should be rolled back.
 	skillsDir := filepath.Join(home, "skills")
 	assert.False(t, fileExists(filepath.Join(skillsDir, "SKILL.md")),
 		"SKILL.md should be rolled back when context cancels after skill install")
 
 	// Commands should not exist (we never got to command install).
-	assert.NoFileExists(t, filepath.Join(home, "commands", common.CommandFiles[0]),
+	assert.NoFileExists(t, filepath.Join(home, "commands", common.CommandFiles()[0]),
 		"command files should not be installed")
 }
 
 // TestInstall_CheckpointContext_AfterCommandsInstall verifies that when
-// the context is cancelled at checkpoint 4 (after commands install), both
+// the context is cancelled at checkpoint 6 (after commands install), both
 // the skill and command installers are rolled back.
 func TestInstall_CheckpointContext_AfterCommandsInstall(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
-	ctx := newCheckpointCtx(4) // cancel at checkpoint 4
+	ctx := newCheckpointCtx(6) // cancel at checkpoint 6 (Stage: after commands)
 
 	err := a.Install(adapters.InstallOpts{Context: ctx})
 	require.Error(t, err)
@@ -241,7 +244,7 @@ func TestInstall_CheckpointContext_AfterCommandsInstall(t *testing.T) {
 	// Both skill and command files should be rolled back.
 	assert.False(t, fileExists(filepath.Join(home, "skills", "SKILL.md")),
 		"SKILL.md should be rolled back")
-	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles[0])),
+	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles()[0])),
 		"command files should be rolled back")
 
 	// System prompt should NOT be written (cancelled before that step).
@@ -249,14 +252,14 @@ func TestInstall_CheckpointContext_AfterCommandsInstall(t *testing.T) {
 }
 
 // TestInstall_CheckpointContext_AfterSystemPrompt verifies that when the
-// context is cancelled at checkpoint 5 (after system prompt write), both
+// context is cancelled at checkpoint 7 (after system prompt write), both
 // installers are rolled back, but the system prompt IS written.
 func TestInstall_CheckpointContext_AfterSystemPrompt(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
-	ctx := newCheckpointCtx(5) // cancel at checkpoint 5 (after sys prompt)
+	ctx := newCheckpointCtx(7) // cancel at checkpoint 7 (Apply: after sys prompt)
 
 	err := a.Install(adapters.InstallOpts{Context: ctx})
 	require.Error(t, err)
@@ -266,7 +269,7 @@ func TestInstall_CheckpointContext_AfterSystemPrompt(t *testing.T) {
 	// Skills and commands are rolled back.
 	assert.False(t, fileExists(filepath.Join(home, "skills", "SKILL.md")),
 		"SKILL.md should be rolled back")
-	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles[0])),
+	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles()[0])),
 		"command files should be rolled back")
 
 	// BUT: the system prompt WAS written (the write succeeded before the
@@ -284,7 +287,7 @@ func TestInstall_CheckpointContext_FullSuccess(t *testing.T) {
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
-	ctx := newCheckpointCtx(6) // cancelAt beyond all 5 checkpoints → never cancels
+	ctx := newCheckpointCtx(8) // cancelAt beyond all 7 checkpoints → never cancels
 
 	err := a.Install(adapters.InstallOpts{Context: ctx})
 	require.NoError(t, err, "Install should succeed when context is never cancelled")
@@ -294,7 +297,7 @@ func TestInstall_CheckpointContext_FullSuccess(t *testing.T) {
 		"SKILL.md should exist after successful install")
 	assert.True(t, fileExists(filepath.Join(home, "version")),
 		"version file should exist after successful install")
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		assert.True(t, fileExists(filepath.Join(home, "commands", cmd)),
 			"command %s should exist after successful install", cmd)
 	}
@@ -629,7 +632,7 @@ func TestInstall_SystemPromptFailure_Rollback(t *testing.T) {
 	// Skills and commands should be rolled back.
 	assert.False(t, fileExists(filepath.Join(home, "skills", "SKILL.md")),
 		"SKILL.md should be rolled back when system prompt fails (rollback=true)")
-	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles[0])),
+	assert.False(t, fileExists(filepath.Join(home, "commands", common.CommandFiles()[0])),
 		"commands should be rolled back when system prompt fails (rollback=true)")
 
 	// Version file should NOT be written (we bail before that step).
@@ -654,7 +657,7 @@ func TestInstall_SystemPromptFailure_NoRollback(t *testing.T) {
 	// Skills and commands should STILL EXIST (rollback=false).
 	assert.True(t, fileExists(filepath.Join(home, "skills", "SKILL.md")),
 		"SKILL.md should still exist when rollback=false")
-	assert.True(t, fileExists(filepath.Join(home, "commands", common.CommandFiles[0])),
+	assert.True(t, fileExists(filepath.Join(home, "commands", common.CommandFiles()[0])),
 		"commands should still exist when rollback=false")
 
 	// Version file should NOT be written.
@@ -679,7 +682,7 @@ func TestInstall_SystemPromptFailure_RollbackBackupDir(t *testing.T) {
 	// Pre-create command files too.
 	cmdsDir := filepath.Join(home, "commands")
 	require.NoError(t, os.MkdirAll(cmdsDir, 0o755))
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(cmdsDir, cmd),
 			[]byte("original command"), 0o644,
@@ -698,7 +701,7 @@ func TestInstall_SystemPromptFailure_RollbackBackupDir(t *testing.T) {
 	assert.Equal(t, "original skill content", string(skillContent),
 		"SKILL.md should be restored to original after rollback")
 
-	cmdContent, err := os.ReadFile(filepath.Join(cmdsDir, common.CommandFiles[0]))
+	cmdContent, err := os.ReadFile(filepath.Join(cmdsDir, common.CommandFiles()[0]))
 	require.NoError(t, err)
 	assert.Equal(t, "original command", string(cmdContent),
 		"command files should be restored to original after rollback")

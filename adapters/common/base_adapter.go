@@ -61,6 +61,28 @@ type BaseAdapter struct {
 	// Install or Uninstall operation. Exposed via LastBackupDir() for
 	// BackupDirGetter interface conformance (REQ-BUG-004).
 	lastBackupDir string
+
+	// strategyState holds per-operation state for the Strategy interface
+	// phased lifecycle. Populated by Prepare/Download/Stage and consumed
+	// by subsequent phases. Cleared at the start of Prepare().
+	strategyState *strategyPhaseState
+
+	// detectedOnce memoizes the Detect() result for process lifetime.
+	// PATH doesn't change during execution, so the result is stable.
+	// P2-001: Cache Detect() results to avoid repeated exec.LookPath calls.
+	detectedOnce   sync.Once
+	detectedResult bool
+}
+
+// strategyPhaseState holds the shared state across Strategy phase calls.
+// It is reset when Prepare() starts a new operation.
+type strategyPhaseState struct {
+	base           string     // resolved config root directory
+	backupDir      string     // unique backup directory for this session
+	stagingDir     string     // temp directory with staged template files
+	data           interface{} // template rendering data
+	skillInstaller *Installer // skill Installer created in Stage()
+	cmdInstaller   *Installer // command Installer created in Stage()
 }
 
 // SetIDName sets the adapter's unique ID and human-readable name.
@@ -212,12 +234,17 @@ func (a *BaseAdapter) PromptStrategy() adapters.PromptStrategy {
 }
 
 // Detect reports whether the tool is present on this machine.
-// Delegates to the internal Detector.
+// Delegates to the internal Detector. Result is cached via sync.Once
+// for the process lifetime — PATH does not change during execution (P2-001).
 func (a *BaseAdapter) Detect() bool {
-	if a.detector == nil {
-		return false
-	}
-	return a.detector.Detect()
+	a.detectedOnce.Do(func() {
+		if a.detector == nil {
+			a.detectedResult = false
+			return
+		}
+		a.detectedResult = a.detector.Detect()
+	})
+	return a.detectedResult
 }
 
 // IsInstalled reports whether Sequoia has already been installed.
@@ -263,11 +290,249 @@ func checkContext(ctx context.Context) error {
 	}
 }
 
-// Install installs Sequoia files using the common 9-step pattern.
-// The system prompt strategy is delegated to writeSystemPrompt.
+// Strategy returns the Strategy implementation for this adapter.
+// BaseAdapter implements Strategy directly, so it returns itself.
+// Adapters that override Install() (e.g., Codex) may override this
+// method to return a custom Strategy implementation.
+func (a *BaseAdapter) Strategy() Strategy {
+	return a
+}
+
+// Prepare sets up directories and backup paths for the install operation.
+// It clears warnings from previous operations, checks context cancellation,
+// resolves the base directory, creates target directories, and generates
+// a unique backup path.
 //
-// When opts.Context is set and cancelled, Install aborts early and rolls
-// back any partial work before returning the context error.
+// Must be called first in the Strategy lifecycle.
+func (a *BaseAdapter) Prepare(opts adapters.InstallOpts) error {
+	// Reset and clear state for a new operation.
+	a.clearWarnings()
+	a.strategyState = nil
+
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("prepare: %w", err)
+	}
+
+	base, err := a.Base()
+	if err != nil {
+		return fmt.Errorf("prepare: resolve home: %w", err)
+	}
+
+	skillsDir := a.paths.skillsPathFn(base)
+	commandsDir := a.paths.commandsPathFn(base)
+
+	backupDir := a.backup.Build(base)
+	a.mu.Lock()
+	a.lastBackupDir = backupDir
+	a.mu.Unlock()
+
+	for _, dir := range []string{skillsDir, commandsDir} {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("prepare: create dir %q: %w", dir, err)
+		}
+	}
+
+	a.strategyState = &strategyPhaseState{base: base, backupDir: backupDir}
+	return nil
+}
+
+// Download renders templates and stages files to a temporary directory.
+// It creates the staging directory, renders the skill template, stages
+// command and config files, and checks for context cancellation.
+//
+// Must be called after Prepare.
+func (a *BaseAdapter) Download(opts adapters.InstallOpts) error {
+	if a.strategyState == nil {
+		return errors.New("download: Prepare must be called first")
+	}
+
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+
+	data := a.makeTemplateData()
+
+	staging, err := os.MkdirTemp("", a.stagingPrefix)
+	if err != nil {
+		return fmt.Errorf("download: create staging dir: %w", err)
+	}
+
+	skillContent, err := RenderTemplate(&a.templateFS, "templates/skill.md.tmpl", data)
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	if err := StageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
+		return fmt.Errorf("download: stage skill: %w", err)
+	}
+
+	for _, cmd := range CommandFiles() {
+		content, err := CommandFS.ReadFile("templates/commands/" + cmd)
+		if err != nil {
+			return fmt.Errorf("download: read command %q: %w", cmd, err)
+		}
+		if err := StageFile(staging, cmd, content); err != nil {
+			return fmt.Errorf("download: stage command %q: %w", cmd, err)
+		}
+	}
+
+	configContent, err := ConfigDefaultFS.ReadFile("templates/.sequoia-dev.yaml.default")
+	if err != nil {
+		return fmt.Errorf("download: read config default: %w", err)
+	}
+	if err := StageFileIfNotExist(a.strategyState.base, ".sequoia-dev.yaml", configContent); err != nil {
+		return fmt.Errorf("download: stage config: %w", err)
+	}
+
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+
+	a.strategyState.stagingDir = staging
+	a.strategyState.data = data
+	return nil
+}
+
+// Verify checks that the staging directory created by Download exists
+// and is accessible. This phase exists so consumers that only need to
+// validate staged content can run verification independently.
+//
+// Must be called after Download.
+func (a *BaseAdapter) Verify() error {
+	if a.strategyState == nil || a.strategyState.stagingDir == "" {
+		return errors.New("verify: Download must be called first")
+	}
+	if _, err := os.Stat(a.strategyState.stagingDir); err != nil {
+		return fmt.Errorf("verify: staging dir: %w", err)
+	}
+	return nil
+}
+
+// Stage deploys skill and command files from the staging directory to
+// their target directories using the common.Installer framework.
+// It checks context cancellation between skill and command installation
+// and rolls back on cancellation.
+//
+// Must be called after Download (and optionally Verify).
+func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
+	ss := a.strategyState
+	if ss == nil || ss.stagingDir == "" {
+		return errors.New("stage: Download must be called first")
+	}
+
+	if err := checkContext(opts.Context); err != nil {
+		return fmt.Errorf("stage: %w", err)
+	}
+
+	skillsDir := a.paths.skillsPathFn(ss.base)
+	commandsDir := a.paths.commandsPathFn(ss.base)
+
+	skillInstaller := NewInstaller(InstallerConfig{
+		SourceDir: ss.stagingDir,
+		TargetDir: skillsDir,
+		BackupDir: filepath.Join(ss.backupDir, "skills"),
+		Files:     []string{"SKILL.md"},
+	})
+	if err := skillInstaller.Run(); err != nil {
+		return fmt.Errorf("stage: skill: %w", err)
+	}
+	ss.skillInstaller = skillInstaller
+
+	if err := checkContext(opts.Context); err != nil {
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("stage: %w", err)
+	}
+
+	cmdInstaller := NewInstaller(InstallerConfig{
+		SourceDir: ss.stagingDir,
+		TargetDir: commandsDir,
+		BackupDir: filepath.Join(ss.backupDir, "commands"),
+		Files:     CommandFiles(),
+	})
+	if err := cmdInstaller.Run(); err != nil {
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("stage: commands: %w", err)
+	}
+	ss.cmdInstaller = cmdInstaller
+
+	if err := checkContext(opts.Context); err != nil {
+		_ = cmdInstaller.Rollback()
+		_ = skillInstaller.Rollback()
+		return fmt.Errorf("stage: %w", err)
+	}
+
+	return nil
+}
+
+// Apply renders and writes the system prompt and version marker file.
+// If the system prompt write fails and rollback-on-error is enabled,
+// previously staged skill and command files are rolled back.
+//
+// Must be called after Stage.
+func (a *BaseAdapter) Apply(opts adapters.InstallOpts) error {
+	ss := a.strategyState
+	if ss == nil || ss.cmdInstaller == nil {
+		return errors.New("apply: Stage must be called first")
+	}
+
+	sectionContent, err := RenderTemplate(&a.templateFS, a.systemPromptTemplate, ss.data)
+	if err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
+	if err := a.prompt.Write(ss.base, sectionContent); err != nil {
+		if a.prompt.RollbackOnError() {
+			_ = ss.cmdInstaller.Rollback()
+			_ = ss.skillInstaller.Rollback()
+		}
+		return fmt.Errorf("apply: system prompt: %w", err)
+	}
+
+	if err := checkContext(opts.Context); err != nil {
+		_ = ss.cmdInstaller.Rollback()
+		_ = ss.skillInstaller.Rollback()
+		return fmt.Errorf("apply: %w", err)
+	}
+
+	if err := AtomicWriteFile(a.paths.versionFilePathFn(ss.base), []byte(Version+"\n"), 0o644); err != nil {
+		return fmt.Errorf("apply: write version file: %w", err)
+	}
+
+	return nil
+}
+
+// Rollback undoes the effects of Stage by rolling back both the skill
+// and command installers. It also cleans up the staging directory.
+// Safe to call even if Stage was never called (returns nil).
+func (a *BaseAdapter) Rollback() error {
+	ss := a.strategyState
+	if ss == nil {
+		return nil
+	}
+
+	var errs []error
+	if ss.cmdInstaller != nil {
+		if err := ss.cmdInstaller.Rollback(); err != nil {
+			errs = append(errs, fmt.Errorf("rollback: commands: %w", err))
+		}
+	}
+	if ss.skillInstaller != nil {
+		if err := ss.skillInstaller.Rollback(); err != nil {
+			errs = append(errs, fmt.Errorf("rollback: skill: %w", err))
+		}
+	}
+	if ss.stagingDir != "" {
+		_ = os.RemoveAll(ss.stagingDir)
+	}
+
+	return errors.Join(errs...)
+}
+
+// Install installs Sequoia files using the phased Strategy lifecycle.
+// This is a convenience wrapper that calls Prepare → Download → Verify →
+// Stage → Apply in sequence, preserving backward compatibility with
+// existing callers.
+//
+// When opts.Context is set and cancelled, each phase aborts early and
+// rolls back any partial work before returning the context error.
 //
 // On failure, the returned error wraps adapters.ErrInstallFailed so callers
 // can detect install failures with errors.Is(err, adapters.ErrInstallFailed).
@@ -276,139 +541,29 @@ func (a *BaseAdapter) Install(opts adapters.InstallOpts) (err error) {
 		if err != nil {
 			err = fmt.Errorf("%w: %w", adapters.ErrInstallFailed, err)
 		}
+		// Clean up staging directory if it still exists.
+		if a.strategyState != nil {
+			if a.strategyState.stagingDir != "" {
+				_ = os.RemoveAll(a.strategyState.stagingDir)
+			}
+			a.strategyState = nil
+		}
 	}()
-	// Clear warnings from any previous operation.
-	a.clearWarnings()
 
-	// Check for early cancellation before doing any work.
-	if err := checkContext(opts.Context); err != nil {
+	if err := a.Prepare(opts); err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-
-	base, err := a.Base()
-	if err != nil {
-		return fmt.Errorf("install: resolve home: %w", err)
-	}
-
-	data := a.makeTemplateData()
-
-	// Stage rendered templates to a temp dir for common.Installer.
-	staging, err := os.MkdirTemp("", a.stagingPrefix)
-	if err != nil {
-		return fmt.Errorf("install: create staging dir: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(staging) }()
-
-	// Render and stage the skill file.
-	skillContent, err := RenderTemplate(&a.templateFS, "templates/skill.md.tmpl", data)
-	if err != nil {
+	if err := a.Download(opts); err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-	if err := StageFile(staging, "SKILL.md", []byte(skillContent)); err != nil {
-		return fmt.Errorf("install: stage skill: %w", err)
-	}
-
-	// Stage command files (static — no rendering needed). Uses the shared CommandFS.
-	for _, cmd := range CommandFiles {
-		content, err := CommandFS.ReadFile("templates/commands/" + cmd)
-		if err != nil {
-			return fmt.Errorf("install: read command %q: %w", cmd, err)
-		}
-		if err := StageFile(staging, cmd, content); err != nil {
-			return fmt.Errorf("install: stage command %q: %w", cmd, err)
-		}
-	}
-
-	// Stage config default file (conditional — only if target doesn't exist).
-	// Config files go to the base directory, not commands/skills.
-	configContent, err := ConfigDefaultFS.ReadFile("templates/.sequoia-dev.yaml.default")
-	if err != nil {
-		return fmt.Errorf("install: read config default: %w", err)
-	}
-	if err := StageFileIfNotExist(base, ".sequoia-dev.yaml", configContent); err != nil {
-		return fmt.Errorf("install: stage config: %w", err)
-	}
-
-	// Check cancellation before creating directories.
-	if err := checkContext(opts.Context); err != nil {
+	if err := a.Verify(); err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-
-	skillsDir := a.paths.skillsPathFn(base)
-	commandsDir := a.paths.commandsPathFn(base)
-
-	// Generate a unique backup path via BackupPathBuilder.
-	backupDir := a.backup.Build(base)
-	a.mu.Lock()
-	a.lastBackupDir = backupDir
-	a.mu.Unlock()
-
-	// Create target directories before Prepare (Prepare probes for write access).
-	for _, dir := range []string{skillsDir, commandsDir} {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			return fmt.Errorf("install: create dir %q: %w", dir, err)
-		}
-	}
-
-	// Install skill file via the common framework.
-	skillInstaller := NewInstaller(InstallerConfig{
-		SourceDir: staging,
-		TargetDir: skillsDir,
-		BackupDir: filepath.Join(backupDir, "skills"),
-		Files:     []string{"SKILL.md"},
-	})
-	if err := skillInstaller.Run(); err != nil {
-		return fmt.Errorf("install: skill: %w", err)
-	}
-
-	// Check cancellation after skills install — roll back if needed.
-	if err := checkContext(opts.Context); err != nil {
-		_ = skillInstaller.Rollback()
+	if err := a.Stage(opts); err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
-
-	// Install command files via the common framework.
-	cmdInstaller := NewInstaller(InstallerConfig{
-		SourceDir: staging,
-		TargetDir: commandsDir,
-		BackupDir: filepath.Join(backupDir, "commands"),
-		Files:     CommandFiles,
-	})
-	if err := cmdInstaller.Run(); err != nil {
-		_ = skillInstaller.Rollback()
-		return fmt.Errorf("install: commands: %w", err)
-	}
-
-	// Check cancellation after commands install — roll back if needed.
-	if err := checkContext(opts.Context); err != nil {
-		_ = cmdInstaller.Rollback()
-		_ = skillInstaller.Rollback()
+	if err := a.Apply(opts); err != nil {
 		return fmt.Errorf("install: %w", err)
-	}
-
-	// Render and write the system prompt.
-	sectionContent, err := RenderTemplate(&a.templateFS, a.systemPromptTemplate, data)
-	if err != nil {
-		return fmt.Errorf("install: %w", err)
-	}
-	if err := a.prompt.Write(base, sectionContent); err != nil {
-		if a.prompt.RollbackOnError() {
-			_ = cmdInstaller.Rollback()
-			_ = skillInstaller.Rollback()
-		}
-		return fmt.Errorf("install: system prompt: %w", err)
-	}
-
-	// Check cancellation after system prompt — roll back if needed.
-	if err := checkContext(opts.Context); err != nil {
-		_ = cmdInstaller.Rollback()
-		_ = skillInstaller.Rollback()
-		return fmt.Errorf("install: %w", err)
-	}
-
-	// Write the version marker file.
-	if err := AtomicWriteFile(a.paths.versionFilePathFn(base), []byte(Version+"\n"), 0o644); err != nil {
-		return fmt.Errorf("install: write version file: %w", err)
 	}
 
 	return nil
@@ -452,7 +607,7 @@ func (a *BaseAdapter) Uninstall(opts adapters.InstallOpts) (err error) {
 	if err := os.Remove(a.paths.versionFilePathFn(base)); err != nil && !os.IsNotExist(err) {
 		errs = append(errs, fmt.Errorf("remove version file: %w", err))
 	}
-	for _, cmd := range CommandFiles {
+	for _, cmd := range CommandFiles() {
 		if err := os.Remove(filepath.Join(a.paths.commandsPathFn(base), cmd)); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, fmt.Errorf("remove command %s: %w", cmd, err))
 		}
