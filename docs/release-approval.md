@@ -68,6 +68,7 @@ If you are not a maintainer but need a release:
 - [ ] Required reviewers added (at least 1)
 - [ ] Optional wait timer configured
 - [ ] `HOMEBREW_TAP_TOKEN` secret set (for Homebrew tap publish)
+- [ ] `SCOOP_TAP_TOKEN` secret set (for Scoop bucket publish)
 - [ ] CODEOWNERS covers release-critical files
 
 ### Performing a Release
@@ -138,7 +139,7 @@ run is useful for verifying the signing and build steps before a real release.
 | Workflow doesn't start on tag push | Tag doesn't match `v[0-9]+.[0-9]+.[0-9]+` pattern | Use semver: `v1.2.3` |
 | `goreleaser` job stuck "waiting" | No maintainer has approved yet | Notify a maintainer with the run URL |
 | Approval button not visible | You are not in the required reviewers list | Ask a listed maintainer to approve |
-| GoReleaser fails after approval | Secret missing or goreleaser config wrong | Check `HOMEBREW_TAP_TOKEN` and `.goreleaser.yaml` |
+| GoReleaser fails after approval | Secret missing or goreleaser config wrong | Check `HOMEBREW_TAP_TOKEN`, `SCOOP_TAP_TOKEN`, and `.goreleaser.yaml` |
 | Smoke test fails | Published binary corrupted or wrong version | Re-run; if persistent, check the release assets manually |
 
 ## Related Documents

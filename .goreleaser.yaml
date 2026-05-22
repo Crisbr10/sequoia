@@ -156,7 +156,7 @@ scoops:
       owner: Crisbr10
       name: scoop-sequoia
       branch: main
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      token: "{{ .Env.SCOOP_TAP_TOKEN }}"
     url_template: "https://github.com/Crisbr10/sequoia/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     commit_author:
       name: goreleaserbot
