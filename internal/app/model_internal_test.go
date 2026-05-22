@@ -78,11 +78,13 @@ func TestBuildProgressTools_SingleSelected(t *testing.T) {
 	require.Len(t, result, 1, "only selected tools should be included")
 	assert.Equal(t, "tool-1", result[0].ToolID)
 	assert.Equal(t, "Tool 1", result[0].ToolName)
-	assert.Len(t, result[0].Steps, 1, "should have 1 step: Installing (simplified pipeline)")
+	assert.Len(t, result[0].Steps, 5, "should have 5 steps: Preparing, Downloading, Verifying, Staging, Applying")
 
-	// The single step should be in pending state.
-	assert.Equal(t, screens.StepPending, result[0].Steps[0].Status, "step should start pending")
-	assert.Equal(t, "Installing", result[0].Steps[0].Name, "step name must be 'Installing'")
+	// All steps should start in pending state.
+	for _, step := range result[0].Steps {
+		assert.Equal(t, screens.StepPending, step.Status, "step %s should start pending", step.Name)
+	}
+	assert.Equal(t, "Preparing", result[0].Steps[0].Name, "first step must be 'Preparing'")
 }
 
 func TestBuildProgressTools_NoneSelected(t *testing.T) {
@@ -186,10 +188,13 @@ func TestBuildProgressTools_StepNamesMatchDesign(t *testing.T) {
 
 	result := buildProgressTools(tools)
 	require.Len(t, result, 1)
-	require.Len(t, result[0].Steps, 1)
+	require.Len(t, result[0].Steps, 5)
 
-	// After simplification, there is exactly one step: "Installing".
-	assert.Equal(t, "Installing", result[0].Steps[0].Name)
+	// After Strategy refactor, there are 5 phases.
+	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
+	for i, phase := range expectedPhases {
+		assert.Equal(t, phase, result[0].Steps[i].Name, "step %d should be '%s'", i, phase)
+	}
 }
 
 func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
@@ -239,7 +244,7 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 	m := Model{
 		Tools:            tools,
 		Config:           model.TUIConfig{Persistence: "engram"},
-		Progress:         make(chan model.ProgressMsg, 64),
+		Progress:         make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
 		InstallCompleted: 5, // Non-zero to verify reset
 		InstallFailed:    3, // Non-zero to verify reset
 	}
@@ -262,7 +267,7 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 
 	// Verify all steps start pending.
 	for _, pt := range m.ProgressTools {
-		require.Len(t, pt.Steps, 1, "each tool should have 1 step: Installing")
+		require.Len(t, pt.Steps, 5, "each tool should have 5 Strategy phases")
 		for _, step := range pt.Steps {
 			assert.Equal(t, screens.StepPending, step.Status)
 		}
@@ -286,7 +291,7 @@ func TestStartPipeline_UninstallMode(t *testing.T) {
 	m := Model{
 		Tools:            tools,
 		Config:           model.TUIConfig{Persistence: "files"},
-		Progress:         make(chan model.ProgressMsg, 64),
+		Progress:         make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
 		InstallCompleted: 10,
 		InstallFailed:    5,
 	}

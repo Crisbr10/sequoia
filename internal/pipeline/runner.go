@@ -5,26 +5,16 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/model"
 )
-
-// pipelineInstaller is a local interface that exposes the Install method
-// from the concrete adapter behind model.ToolInfo.
-type pipelineInstaller interface {
-	Install(adapters.InstallOpts) error
-}
-
-// pipelineUninstaller is a local interface that exposes the Uninstall method
-// from the concrete adapter behind model.ToolInfo.
-type pipelineUninstaller interface {
-	Uninstall(adapters.InstallOpts) error
-}
 
 // WarningEmitter is a local interface for adapters that collect non-fatal
 // warnings during Install/Uninstall (e.g., symlink resolution failures).
@@ -34,20 +24,20 @@ type WarningEmitter interface {
 	Warnings() []string
 }
 
-// InstallSteps defines the install steps in execution order.
-// Since adapter.Install() is a single monolithic call, there is exactly
-// one honest step: "Installing". This variable is exported so that
-// callers (e.g., update.go's buildProgressTools) reference a single
-// source of truth for step names.
-var InstallSteps = []string{"Installing"}
+// InstallSteps defines the install phases in execution order.
+// Each phase is dispatched via the Strategy interface, sending a running
+// (Done=false) message before and a done (Done=true) message after.
+// This variable is exported so that callers (e.g., update.go's
+// buildProgressTools) reference a single source of truth for step names.
+var InstallSteps = []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
 
 // RunInstall returns a tea.Cmd that installs Sequoia into every selected tool.
-// Each tool runs in its own goroutine calling adapter.Install().
+// Each tool runs in its own goroutine dispatching through the Strategy interface.
 //
 // Progress is reported through a buffered channel:
-//   - A "running" ProgressMsg (Done=false) is sent before the call.
-//   - A "done" ProgressMsg (Done=true) is sent after a successful call.
-//   - An error ProgressMsg (Error != "") is sent when the call fails.
+//   - A "running" ProgressMsg (Done=false) is sent before each phase.
+//   - A "done" ProgressMsg (Done=true) is sent after each successful phase.
+//   - An error ProgressMsg (Error != "") is sent when a phase fails.
 //
 // The channel is closed when all goroutines complete. Context cancellation
 // stops goroutines gracefully while preserving partial progress.
@@ -84,72 +74,97 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 	}
 }
 
-// runSteps executes the install/uninstall operation for a single tool,
-// sending progress messages through ch.
+// runInstallSteps dispatches the install lifecycle through the Strategy
+// interface. Each phase sends running/done progress. On phase failure,
+// Rollback() is called and the error reported.
 //
-// Steps:
-//  1. Send a "running" ProgressMsg (Done=false, Step="Installing").
-//  2. Call fn(t, opts) — the adapter performs all work internally.
-//  3. On success: send a "done" ProgressMsg (Done=true).
-//  4. On failure: send an error ProgressMsg (Done=true, Error set).
-//
-// fn is either adapter.Install or adapter.Uninstall (both have the same signature).
-func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg, fn func(adapters.InstallOpts) error) {
+// If the adapter does not implement common.Strategy, an error message is
+// sent and the goroutine returns without panicking.
+func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg) {
 	adapter := t.Adapter
 	toolID := adapter.ID()
-	step := InstallSteps[0] // "Installing"
 
-	// Signal that work is starting.
-	if !sendProgress(ctx, ch, model.ProgressMsg{
-		ToolID: toolID,
-		Step:   step,
-		Done:   false,
-	}) {
-		return // context cancelled
-	}
-
-	// Perform the actual operation (Install or Uninstall).
-	err := fn(adapters.InstallOpts{Context: ctx})
-
-	// Report the result.
-	if err != nil {
-		// Partial failure (uninstall with warnings): mark as done with warning.
-		if errors.Is(err, adapters.ErrUninstallFailed) {
-			sendProgress(ctx, ch, model.ProgressMsg{
-				ToolID:  toolID,
-				Step:    step,
-				Done:    true,
-				Warning: true,
-				Error:   err.Error(),
-			})
-			return
-		}
-
-		// Hard failure — report the error.
+	s, ok := adapter.(common.Strategy)
+	if !ok {
 		sendProgress(ctx, ch, model.ProgressMsg{
 			ToolID: toolID,
-			Step:   step,
+			Step:   "Preparing",
 			Done:   true,
-			Error:  err.Error(),
+			Error:  fmt.Sprintf("adapter %s: does not implement Strategy", toolID),
 		})
 		return
 	}
 
-	// Success.
-	sendProgress(ctx, ch, model.ProgressMsg{
-		ToolID: toolID,
-		Step:   step,
-		Done:   true,
-	})
+	opts := adapters.InstallOpts{Context: ctx}
 
-	// After a successful install/uninstall, check if the adapter collected
-	// any non-fatal warnings and surface them as a separate progress message.
+	for _, phase := range InstallSteps {
+		// Check context before each phase.
+		select {
+		case <-ctx.Done():
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID: toolID,
+				Step:   phase,
+				Done:   true,
+				Error:  ctx.Err().Error(),
+			})
+			return
+		default:
+		}
+
+		var phaseErr error
+
+		// Send running message.
+		if !sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: toolID,
+			Step:   phase,
+			Done:   false,
+		}) {
+			return // context cancelled
+		}
+
+		// Execute the phase.
+		switch phase {
+		case "Preparing":
+			phaseErr = s.Prepare(opts)
+		case "Downloading":
+			phaseErr = s.Download(opts)
+		case "Verifying":
+			phaseErr = s.Verify()
+		case "Staging":
+			phaseErr = s.Stage(opts)
+		case "Applying":
+			phaseErr = s.Apply(opts)
+		}
+
+		if phaseErr != nil {
+			// Rollback on failure.
+			_ = s.Rollback()
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID: toolID,
+				Step:   phase,
+				Done:   true,
+				Error:  fmt.Sprintf("%s: %v", phase, phaseErr),
+			})
+			return
+		}
+
+		// Send done message.
+		if !sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: toolID,
+			Step:   phase,
+			Done:   true,
+		}) {
+			return
+		}
+	}
+
+	// After all phases complete successfully, check for warnings.
 	if emitter, ok := adapter.(WarningEmitter); ok {
 		warnings := emitter.Warnings()
 		if len(warnings) > 0 {
 			sendProgress(ctx, ch, model.ProgressMsg{
 				ToolID:  toolID,
-				Step:    step,
+				Step:    InstallSteps[len(InstallSteps)-1],
 				Done:    true,
 				Warning: true,
 				Error:   strings.Join(warnings, "\n"),
@@ -157,14 +172,13 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 		}
 	}
 
-	// After a successful install/uninstall, check if the adapter exposes
-	// the backup directory and surface it as an informational message (REQ-BUG-004).
+	// Check for backup directory info.
 	if getter, ok := adapter.(adapters.BackupDirGetter); ok {
 		dir := getter.LastBackupDir()
 		if dir != "" {
 			sendProgress(ctx, ch, model.ProgressMsg{
 				ToolID: toolID,
-				Step:   step,
+				Step:   InstallSteps[len(InstallSteps)-1],
 				Done:   true,
 				Info:   dir,
 			})
@@ -172,23 +186,98 @@ func runSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMs
 	}
 }
 
-// runInstallSteps extracts the Install method from the concrete adapter
-// behind model.ToolInfo and calls runSteps.
-func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg) {
-	a := t.Adapter.(pipelineInstaller)
-	runSteps(ctx, t, ch, a.Install)
-}
-
-// runUninstallSteps extracts the Uninstall method from the concrete adapter
-// behind model.ToolInfo and calls runSteps.
+// runUninstallSteps dispatches the uninstall operation through the Strategy
+// interface. Uninstall is a single-phase operation: Rollback() undoes the
+// effects of a previous install.
+//
+// If the adapter does not implement common.Strategy, an error message is
+// sent and the goroutine returns without panicking.
 func runUninstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.ProgressMsg) {
-	a := t.Adapter.(pipelineUninstaller)
-	runSteps(ctx, t, ch, a.Uninstall)
+	adapter := t.Adapter
+	toolID := adapter.ID()
+
+	s, ok := adapter.(common.Strategy)
+	if !ok {
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: toolID,
+			Step:   "Uninstalling",
+			Done:   true,
+			Error:  fmt.Sprintf("adapter %s: does not implement Strategy", toolID),
+		})
+		return
+	}
+
+	// Send running.
+	if !sendProgress(ctx, ch, model.ProgressMsg{
+		ToolID: toolID,
+		Step:   "Uninstalling",
+		Done:   false,
+	}) {
+		return
+	}
+
+	// Uninstall via the adapter's Uninstall method (still backward-compat).
+	// We first try the legacy approach — the Strategy interface is for install,
+	// while uninstall uses the legacy Installer.Uninstall() path.
+	if installer, ok := adapter.(adapters.Installer); ok {
+		err := installer.Uninstall(adapters.InstallOpts{Context: ctx})
+		if err != nil {
+			if errors.Is(err, adapters.ErrUninstallFailed) {
+				sendProgress(ctx, ch, model.ProgressMsg{
+					ToolID:  toolID,
+					Step:    "Uninstalling",
+					Done:    true,
+					Warning: true,
+					Error:   err.Error(),
+				})
+			} else {
+				sendProgress(ctx, ch, model.ProgressMsg{
+					ToolID: toolID,
+					Step:   "Uninstalling",
+					Done:   true,
+					Error:  err.Error(),
+				})
+			}
+			return
+		}
+	} else {
+		// Fallback: just call Rollback().
+		if err := s.Rollback(); err != nil {
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID: toolID,
+				Step:   "Uninstalling",
+				Done:   true,
+				Error:  err.Error(),
+			})
+			return
+		}
+	}
+
+	// Done.
+	sendProgress(ctx, ch, model.ProgressMsg{
+		ToolID: toolID,
+		Step:   "Uninstalling",
+		Done:   true,
+	})
+
+	// Warnings after uninstall.
+	if emitter, ok := adapter.(WarningEmitter); ok {
+		warnings := emitter.Warnings()
+		if len(warnings) > 0 {
+			sendProgress(ctx, ch, model.ProgressMsg{
+				ToolID:  toolID,
+				Step:    "Uninstalling",
+				Done:    true,
+				Warning: true,
+				Error:   strings.Join(warnings, "\n"),
+			})
+		}
+	}
 }
 
 // RunUninstall returns a tea.Cmd that removes Sequoia from every selected tool.
 // It follows the same goroutine-per-tool pattern as RunInstall, calling
-// adapter.Uninstall() instead of Install().
+// adapter.Uninstall() via the Installer interface.
 //
 // Progress reporting follows the same convention:
 //   - "running" before the call,

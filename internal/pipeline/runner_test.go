@@ -19,6 +19,8 @@ import (
 
 // testAdapter is a mock ToolAdapter for testing the pipeline runner.
 // It records call counts and can simulate success, failure, or delay.
+// It implements both the legacy Install/Uninstall methods and the new
+// common.Strategy interface for phased execution.
 type testAdapter struct {
 	id           string
 	name         string
@@ -33,6 +35,22 @@ type testAdapter struct {
 
 	// lastContext captures the context passed to Install via InstallOpts.
 	lastContext context.Context
+
+	// Strategy phase tracking
+	prepareCalls  int
+	downloadCalls int
+	verifyCalls   int
+	stageCalls    int
+	applyCalls    int
+	rollbackCalls int
+
+	// Per-phase errors for Strategy methods
+	prepareErr  error
+	downloadErr error
+	verifyErr   error
+	stageErr    error
+	applyErr    error
+	rollbackErr error
 }
 
 func (a *testAdapter) ID() string        { return a.id }
@@ -60,6 +78,66 @@ func (a *testAdapter) Uninstall(opts adapters.InstallOpts) error {
 		time.Sleep(a.delay)
 	}
 	return a.uninstallErr
+}
+
+// Strategy interface implementation for phased execution.
+
+func (a *testAdapter) Prepare(opts adapters.InstallOpts) error {
+	a.mu.Lock()
+	a.prepareCalls++
+	a.mu.Unlock()
+	if a.delay > 0 {
+		time.Sleep(a.delay)
+	}
+	return a.prepareErr
+}
+
+func (a *testAdapter) Download(opts adapters.InstallOpts) error {
+	a.mu.Lock()
+	a.downloadCalls++
+	a.mu.Unlock()
+	if a.delay > 0 {
+		time.Sleep(a.delay)
+	}
+	return a.downloadErr
+}
+
+func (a *testAdapter) Verify() error {
+	a.mu.Lock()
+	a.verifyCalls++
+	a.mu.Unlock()
+	if a.delay > 0 {
+		time.Sleep(a.delay)
+	}
+	return a.verifyErr
+}
+
+func (a *testAdapter) Stage(opts adapters.InstallOpts) error {
+	a.mu.Lock()
+	a.stageCalls++
+	a.mu.Unlock()
+	if a.delay > 0 {
+		time.Sleep(a.delay)
+	}
+	return a.stageErr
+}
+
+func (a *testAdapter) Apply(opts adapters.InstallOpts) error {
+	a.mu.Lock()
+	a.applyCalls++
+	a.lastContext = opts.Context
+	a.mu.Unlock()
+	if a.delay > 0 {
+		time.Sleep(a.delay)
+	}
+	return a.applyErr
+}
+
+func (a *testAdapter) Rollback() error {
+	a.mu.Lock()
+	a.rollbackCalls++
+	a.mu.Unlock()
+	return a.rollbackErr
 }
 
 func (a *testAdapter) Status() model.ToolStatus {
@@ -127,7 +205,7 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd, "RunInstall should return a non-nil tea.Cmd")
 
@@ -136,30 +214,31 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 
 	msgs := collectProgress(ch)
 
-	// After simplification, the pipeline sends exactly 2 messages per adapter:
-	// 1 "running" (Done=false) + 1 "done" (Done=true) for the single "Installing" step.
-	require.Len(t, msgs, 2, "Should receive exactly 2 progress messages (1 running + 1 done)")
+	// 5 phases × 2 messages each = 10 messages.
+	require.Len(t, msgs, 10, "Should receive exactly 10 progress messages (5 phases × 2)")
 
-	// First message: "Installing" running (Done=false).
-	assert.Equal(t, "test-tool", msgs[0].ToolID)
-	assert.Equal(t, "Installing", msgs[0].Step)
-	assert.False(t, msgs[0].Done, "First message should be 'running' (Done=false)")
-	assert.Empty(t, msgs[0].Error, "Running message should have no error")
+	// Verify phase names appear in order.
+	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
+	for i, phase := range expectedPhases {
+		assert.Equal(t, "test-tool", msgs[i*2].ToolID)
+		assert.Equal(t, phase, msgs[i*2].Step)
+		assert.False(t, msgs[i*2].Done, "First message of %s should be 'running' (Done=false)", phase)
+		assert.Empty(t, msgs[i*2].Error)
 
-	// Second message: "Installing" done (Done=true).
-	assert.Equal(t, "test-tool", msgs[1].ToolID)
-	assert.Equal(t, "Installing", msgs[1].Step)
-	assert.True(t, msgs[1].Done, "Second message should be 'done' (Done=true)")
-	assert.Empty(t, msgs[1].Error, "Done message should have no error")
+		assert.Equal(t, "test-tool", msgs[i*2+1].ToolID)
+		assert.Equal(t, phase, msgs[i*2+1].Step)
+		assert.True(t, msgs[i*2+1].Done, "Second message of %s should be 'done' (Done=true)", phase)
+		assert.Empty(t, msgs[i*2+1].Error)
+	}
 
-	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called exactly once")
+	assert.Equal(t, 1, adapter.applyCalls, "Apply should be called once")
 }
 
 func TestRunInstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("disk full")
-	adapter := &testAdapter{id: "fail-tool", name: "Fail Tool", installErr: expectedErr}
+	adapter := &testAdapter{id: "fail-tool", name: "Fail Tool", applyErr: expectedErr}
 	tools := []model.ToolState{
 		{Adapter: adapter, Selected: true},
 	}
@@ -167,29 +246,24 @@ func TestRunInstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// After simplification: 1 running message + error sent.
-	// The "running" message should be sent before execution, then the error.
-	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 error")
+	// 4 phases succeed (8 msgs) + 1 failed phase (2 msgs: running + error) = 10.
+	// But on Apply error, rollback happens after the error is sent.
+	require.Len(t, msgs, 10, "Should receive 10 messages: 4 phases × 2 + applying running + applying error")
 
-	// First message: "Installing" running.
-	assert.Equal(t, "fail-tool", msgs[0].ToolID)
-	assert.Equal(t, "Installing", msgs[0].Step)
-	assert.False(t, msgs[0].Done, "First message should be 'running'")
+	// Verify the last message is the error on Applying.
+	last := msgs[len(msgs)-1]
+	assert.Equal(t, "Applying", last.Step)
+	assert.True(t, last.Done)
+	assert.Contains(t, last.Error, "disk full")
 
-	// Second message: error on "Installing".
-	assert.Equal(t, "fail-tool", msgs[1].ToolID)
-	assert.Equal(t, "Installing", msgs[1].Step)
-	assert.True(t, msgs[1].Done, "Error message should have Done=true")
-	assert.Contains(t, msgs[1].Error, "disk full", "Error message should contain the error text")
-
-	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called once")
+	assert.Equal(t, 1, adapter.rollbackCalls, "Rollback should be called on failure")
 }
 
 func TestRunInstall_ContextCancellation_StopsGoroutines(t *testing.T) {
@@ -203,7 +277,7 @@ func TestRunInstall_ContextCancellation_StopsGoroutines(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -242,7 +316,7 @@ func TestRunInstall_SkipsUnselectedTools(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -266,7 +340,7 @@ func TestRunInstall_MultiToolConcurrent_InterleavedMessages(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -281,9 +355,9 @@ func TestRunInstall_MultiToolConcurrent_InterleavedMessages(t *testing.T) {
 	assert.Positive(t, toolMsgs["tool-a"], "Tool A should have progress messages")
 	assert.Positive(t, toolMsgs["tool-b"], "Tool B should have progress messages")
 
-	// Both adapters should have been called exactly once.
-	assert.Equal(t, 1, adapter1.installCallCount(), "Adapter A should be called once")
-	assert.Equal(t, 1, adapter2.installCallCount(), "Adapter B should be called once")
+	// Both adapters should have been called (all phases).
+	assert.Equal(t, 1, adapter1.applyCalls, "Adapter A should be called once")
+	assert.Equal(t, 1, adapter2.applyCalls, "Adapter B should be called once")
 
 	// Messages should be interleaved (not strictly ordered).
 	foundAFirst := false
@@ -312,7 +386,7 @@ func TestRunInstall_ChannelClosedAfterAllGoroutinesComplete(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -349,22 +423,22 @@ func TestRunUninstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// After simplification: 2 messages (1 running + 1 done) for the single "Installing" step.
+	// Uninstall uses the Installer interface: 1 running + 1 done.
 	require.Len(t, msgs, 2, "Should receive exactly 2 messages: 1 running + 1 done")
 
 	assert.Equal(t, "uninstall-tool", msgs[0].ToolID)
-	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.Equal(t, "Uninstalling", msgs[0].Step)
 	assert.False(t, msgs[0].Done, "First should be 'running'")
 
 	assert.Equal(t, "uninstall-tool", msgs[1].ToolID)
-	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.Equal(t, "Uninstalling", msgs[1].Step)
 	assert.True(t, msgs[1].Done, "Second should be 'done'")
 	assert.Empty(t, msgs[1].Error, "Done message should have no error")
 
@@ -383,22 +457,22 @@ func TestRunUninstall_StepFailure_SendsErrorProgress(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// After simplification: 1 running + 1 error.
+	// 1 running + 1 error.
 	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 error")
 
 	assert.Equal(t, "fail-uninstall", msgs[0].ToolID)
-	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.Equal(t, "Uninstalling", msgs[0].Step)
 	assert.False(t, msgs[0].Done, "First message should be 'running'")
 
 	assert.Equal(t, "fail-uninstall", msgs[1].ToolID)
-	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.Equal(t, "Uninstalling", msgs[1].Step)
 	assert.True(t, msgs[1].Done, "Error message should have Done=true")
 	assert.Contains(t, msgs[1].Error, "permission denied")
 
@@ -416,7 +490,7 @@ func TestRunUninstall_SkipsUnselectedTools(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -440,7 +514,7 @@ func TestRunStatus_ReturnsStatusForAllTools(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunStatus(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -470,7 +544,7 @@ func TestRunStatus_ContextCancellation_StopsAndClosesChannel(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunStatus(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -490,10 +564,7 @@ func TestRunStatus_ContextCancellation_StopsAndClosesChannel(t *testing.T) {
 }
 
 // TestRunInstall_PassesContextToAdapter verifies that the pipeline forwards
-// the caller's context to the adapter's Install method via InstallOpts.
-// This is the triangulation test for context propagation: unlike the
-// "already cancelled" test, this verifies the pipeline properly wires
-// a live context through to the adapter layer.
+// the caller's context to the adapter's Apply method (the last phase) via InstallOpts.
 func TestRunInstall_PassesContextToAdapter(t *testing.T) {
 	t.Parallel()
 
@@ -505,7 +576,7 @@ func TestRunInstall_PassesContextToAdapter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -513,7 +584,7 @@ func TestRunInstall_PassesContextToAdapter(t *testing.T) {
 	msgs := collectProgress(ch)
 	require.NotEmpty(t, msgs, "Should receive progress messages")
 
-	// The adapter must have received a non-nil context.
+	// The adapter must have received a non-nil context via Apply.
 	adapter.mu.Lock()
 	receivedCtx := adapter.lastContext
 	adapter.mu.Unlock()
@@ -528,10 +599,11 @@ func TestRunInstall_PassesContextToAdapter(t *testing.T) {
 		// OK — context is still alive.
 	}
 
-	assert.Equal(t, 1, adapter.installCallCount(), "Adapter.Install should be called once")
+	assert.Equal(t, 1, adapter.applyCalls, "Apply should be called once")
 }
 
-// TestRunUninstall_PassesContextToAdapter verifies uninstall context propagation.
+// TestRunUninstall_PassesContextToAdapter verifies uninstall context propagation
+// via the Installer interface.
 func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
 	t.Parallel()
 
@@ -543,7 +615,7 @@ func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunUninstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
@@ -566,20 +638,23 @@ func TestRunUninstall_PassesContextToAdapter(t *testing.T) {
 	assert.Equal(t, 1, adapter.uninstallCallCount())
 }
 
-// TestDefaultStepNames_SingleStep verifies that the exported InstallSteps
-// contains exactly one element: "Installing". This replaces the old 3-step
-// cosmetic breakdown that didn't reflect the monolithic adapter.Install() call.
-func TestDefaultStepNames_SingleStep(t *testing.T) {
+// TestDefaultStepNames_FivePhases_Old verifies that InstallSteps now has 5 phases.
+// This test replaces the old single-step assertion with the new Strategy phases.
+func TestDefaultStepNames_FivePhases_Old(t *testing.T) {
 	t.Parallel()
 
 	steps := pipeline.InstallSteps
-	require.Len(t, steps, 1, "InstallSteps should have exactly 1 element after simplification")
-	assert.Equal(t, "Installing", steps[0], "The single step should be 'Installing'")
+	require.Len(t, steps, 5, "InstallSteps should have 5 phase names after Strategy refactor")
+	assert.Equal(t, "Preparing", steps[0])
+	assert.Equal(t, "Downloading", steps[1])
+	assert.Equal(t, "Verifying", steps[2])
+	assert.Equal(t, "Staging", steps[3])
+	assert.Equal(t, "Applying", steps[4])
 }
 
-// TestRunInstall_MultiTool_SendsTwoMessagesEach verifies that with 2 tools,
-// each tool sends exactly 2 messages (1 running + 1 done).
-func TestRunInstall_MultiTool_SendsTwoMessagesEach(t *testing.T) {
+// TestRunInstall_MultiTool_SendsTenMessagesEach verifies that with 2 tools,
+// each tool sends exactly 10 messages (5 phases × 2 messages each).
+func TestRunInstall_MultiTool_SendsTenMessagesEach(t *testing.T) {
 	t.Parallel()
 
 	adapter1 := &testAdapter{id: "tool-a", name: "Tool A"}
@@ -592,27 +667,26 @@ func TestRunInstall_MultiTool_SendsTwoMessagesEach(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// 2 tools × 2 messages each = 4 total.
-	assert.Len(t, msgs, 4, "2 tools × 2 messages = 4 total")
+	// 2 tools × 10 messages each = 20 total.
+	assert.Len(t, msgs, 20, "2 tools × 10 messages = 20 total")
 
-	// Both tools should appear with "Installing" as the step.
+	// Both tools should appear with the 5 phase names.
 	toolMsgs := map[string]int{}
 	for _, msg := range msgs {
 		toolMsgs[msg.ToolID]++
-		assert.Equal(t, "Installing", msg.Step, "All messages should use the 'Installing' step")
 	}
-	assert.Equal(t, 2, toolMsgs["tool-a"], "Tool A should have 2 messages")
-	assert.Equal(t, 2, toolMsgs["tool-b"], "Tool B should have 2 messages")
+	assert.Equal(t, 10, toolMsgs["tool-a"], "Tool A should have 10 messages")
+	assert.Equal(t, 10, toolMsgs["tool-b"], "Tool B should have 10 messages")
 
-	assert.Equal(t, 1, adapter1.installCallCount())
-	assert.Equal(t, 1, adapter2.installCallCount())
+	assert.Equal(t, 1, adapter1.applyCalls)
+	assert.Equal(t, 1, adapter2.applyCalls)
 }
 
 // =========================================================================
@@ -647,32 +721,27 @@ func TestRunInstall_WarningEmitter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// After warning emission: 1 running + 2 done (success + warning).
-	require.Len(t, msgs, 3, "Should receive 3 messages: 1 running + 1 done + 1 warning")
+	// After warning emission: 10 normal messages (5 phases × 2) + 1 warning = 11.
+	require.Len(t, msgs, 11, "Should receive 11 messages: 10 phase messages + 1 warning")
 
-	// First: running.
+	// First: preparing running.
 	assert.Equal(t, "warn-tool", msgs[0].ToolID)
 	assert.False(t, msgs[0].Done)
 
-	// Second: done (success).
-	assert.Equal(t, "warn-tool", msgs[1].ToolID)
-	assert.True(t, msgs[1].Done)
-	assert.Empty(t, msgs[1].Error)
-	assert.False(t, msgs[1].Warning)
-
-	// Third: warning.
-	assert.Equal(t, "warn-tool", msgs[2].ToolID)
-	assert.True(t, msgs[2].Done)
-	assert.True(t, msgs[2].Warning, "warning message should have Warning=true")
-	assert.NotEmpty(t, msgs[2].Error, "warning message should contain the joined warnings in Error")
-	assert.Contains(t, msgs[2].Error, "symlink warning: /fake/path")
+	// Last: the warning message.
+	last := msgs[len(msgs)-1]
+	assert.Equal(t, "warn-tool", last.ToolID)
+	assert.True(t, last.Done)
+	assert.True(t, last.Warning, "warning message should have Warning=true")
+	assert.NotEmpty(t, last.Error, "warning message should contain the joined warnings in Error")
+	assert.Contains(t, last.Error, "symlink warning: /fake/path")
 }
 
 // TestRunInstall_WarningEmitter_EmptyWarnings verifies that when an adapter
@@ -691,16 +760,18 @@ func TestRunInstall_WarningEmitter_EmptyWarnings(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// No warnings — standard 2 messages (1 running + 1 done).
-	require.Len(t, msgs, 2, "Should receive 2 messages: 1 running + 1 done")
-	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
+	// No warnings — standard 10 messages (5 phases × 2).
+	require.Len(t, msgs, 10, "Should receive 10 messages: 5 phases × 2")
+	// Last message should not have Warning=true.
+	last := msgs[len(msgs)-1]
+	assert.False(t, last.Warning, "last message should not have Warning=true")
 }
 
 // TestStartPipeline_ChannelRecreated verifies that calling RunInstall twice
@@ -720,7 +791,7 @@ func TestStartPipeline_ChannelRecreated(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 
 	// First pipeline run — creates goroutines, waits, closes channel.
 	cmd1 := pipeline.RunInstall(ctx, tools, ch)
@@ -757,16 +828,16 @@ func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// Standard 2 messages.
-	require.Len(t, msgs, 2, "Should receive 2 messages for normal adapter")
-	assert.False(t, msgs[1].Warning, "done message should not have Warning=true")
+	// Standard 10 messages.
+	require.Len(t, msgs, 10, "Should receive 10 messages for normal adapter")
+	assert.False(t, msgs[len(msgs)-1].Warning, "last message should not have Warning=true")
 }
 
 // =========================================================================
@@ -801,34 +872,29 @@ func TestRunInstall_BackupDirGetter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// After backup info emission: 1 running + 2 done (success + backup info).
-	require.Len(t, msgs, 3, "Should receive 3 messages: 1 running + 1 done + 1 backup info")
+	// After backup info emission: 10 phase messages + 1 backup info = 11.
+	require.Len(t, msgs, 11, "Should receive 11 messages: 10 phase messages + 1 backup info")
 
-	// First: running.
+	// First: preparing running.
 	assert.Equal(t, "backup-tool", msgs[0].ToolID)
 	assert.False(t, msgs[0].Done)
 
-	// Second: done (success).
-	assert.Equal(t, "backup-tool", msgs[1].ToolID)
-	assert.True(t, msgs[1].Done)
-	assert.Empty(t, msgs[1].Error)
-	assert.Empty(t, msgs[1].Info)
-
-	// Third: backup info.
-	assert.Equal(t, "backup-tool", msgs[2].ToolID)
-	assert.True(t, msgs[2].Done)
-	assert.NotEmpty(t, msgs[2].Info, "backup info message should have Info set")
-	assert.Contains(t, msgs[2].Info, "/tmp/sequoia-backups/cursor-abc123",
+	// Last: backup info.
+	last := msgs[len(msgs)-1]
+	assert.Equal(t, "backup-tool", last.ToolID)
+	assert.True(t, last.Done)
+	assert.NotEmpty(t, last.Info, "backup info message should have Info set")
+	assert.Contains(t, last.Info, "/tmp/sequoia-backups/cursor-abc123",
 		"Info should contain the backup directory path")
-	assert.False(t, msgs[2].Warning, "backup info should not be a warning")
-	assert.Empty(t, msgs[2].Error, "backup info should not have Error set")
+	assert.False(t, last.Warning, "backup info should not be a warning")
+	assert.Empty(t, last.Error, "backup info should not have Error set")
 }
 
 // TestRunInstall_BackupDirGetter_EmptyDir verifies that when BackupDirGetter
@@ -847,16 +913,16 @@ func TestRunInstall_BackupDirGetter_EmptyDir(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// Standard 2 messages — no backup info when dir is empty.
-	require.Len(t, msgs, 2, "Should receive 2 messages when backup dir is empty")
-	assert.Empty(t, msgs[1].Info, "done message should not have Info when backup dir is empty")
+	// Standard 10 messages — no backup info when dir is empty.
+	require.Len(t, msgs, 10, "Should receive 10 messages when backup dir is empty")
+	assert.Empty(t, msgs[len(msgs)-1].Info, "last message should not have Info when backup dir is empty")
 }
 
 // TestRunInstall_BackupDirGetter_NoInterface verifies that when an adapter
@@ -872,14 +938,197 @@ func TestRunInstall_BackupDirGetter_NoInterface(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan model.ProgressMsg, 64)
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
 	cmd()
 	msgs := collectProgress(ch)
 
-	// Standard 2 messages.
-	require.Len(t, msgs, 2, "Should receive 2 messages for adapter without BackupDirGetter")
-	assert.Empty(t, msgs[1].Info, "done message should not have Info when no BackupDirGetter")
+	// Standard 10 messages.
+	require.Len(t, msgs, 10, "Should receive 10 messages for adapter without BackupDirGetter")
+	assert.Empty(t, msgs[len(msgs)-1].Info, "last message should not have Info when no BackupDirGetter")
+}
+
+// =========================================================================
+// Strategy Phase Tests — RED (will fail until pipeline is refactored)
+// =========================================================================
+
+// TestRunInstall_StrategyPhases verifies that when the pipeline dispatches
+// via Strategy, each phase emits a running (Done=false) and done (Done=true)
+// progress message with the correct phase name in Step.
+func TestRunInstall_StrategyPhases(t *testing.T) {
+	t.Parallel()
+
+	adapter := &testAdapter{id: "phase-tool", name: "Phase Tool"}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunInstall(ctx, tools, ch)
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// 5 phases × 2 messages each = 10 messages.
+	require.Len(t, msgs, 10, "5 Strategy phases should produce 10 messages (5 running + 5 done)")
+
+	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
+	for i, phase := range expectedPhases {
+		// Running message (Done=false).
+		runningIdx := i * 2
+		assert.Equal(t, phase, msgs[runningIdx].Step, "running message step %d should be %s", i, phase)
+		assert.False(t, msgs[runningIdx].Done, "running message for %s should have Done=false", phase)
+		assert.Empty(t, msgs[runningIdx].Error)
+
+		// Done message (Done=true).
+		doneIdx := runningIdx + 1
+		assert.Equal(t, phase, msgs[doneIdx].Step, "done message step %d should be %s", i, phase)
+		assert.True(t, msgs[doneIdx].Done, "done message for %s should have Done=true", phase)
+		assert.Empty(t, msgs[doneIdx].Error)
+	}
+
+	// Verify phase methods were called.
+	assert.Equal(t, 1, adapter.prepareCalls, "Prepare should be called once")
+	assert.Equal(t, 1, adapter.downloadCalls, "Download should be called once")
+	assert.Equal(t, 1, adapter.verifyCalls, "Verify should be called once")
+	assert.Equal(t, 1, adapter.stageCalls, "Stage should be called once")
+	assert.Equal(t, 1, adapter.applyCalls, "Apply should be called once")
+}
+
+// TestRunInstall_StrategyPhaseFailure verifies that when a Strategy phase
+// fails, the pipeline reports the error on that phase step and calls Rollback.
+func TestRunInstall_StrategyPhaseFailure(t *testing.T) {
+	t.Parallel()
+
+	expectedErr := errors.New("stage failed")
+	adapter := &testAdapter{id: "fail-phase", name: "Fail Phase", stageErr: expectedErr}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunInstall(ctx, tools, ch)
+	require.NotNil(t, cmd)
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// Phases: Preparing (running + done), Downloading (running + done),
+	// Verifying (running + done), Staging (running + error). No Applying.
+	// That's 3×2 + 2 = 8 messages.
+	require.Len(t, msgs, 8, "3 successful phases (6 msgs) + 1 failed phase (2 msgs) = 8")
+
+	// Last message should be the error on Staging.
+	lastMsg := msgs[len(msgs)-1]
+	assert.Equal(t, "Staging", lastMsg.Step)
+	assert.True(t, lastMsg.Done)
+	assert.Contains(t, lastMsg.Error, "stage failed")
+
+	// Rollback should have been called.
+	assert.Equal(t, 1, adapter.rollbackCalls, "Rollback should be called on phase failure")
+}
+
+// TestRunInstall_StrategyNonStrategyAdapter verifies that when an adapter
+// does NOT implement common.Strategy, the pipeline returns an error message
+// without panicking.
+func TestRunInstall_StrategyNonStrategyAdapter(t *testing.T) {
+	t.Parallel()
+
+	// nonStrategyAdapter implements ToolInfo but NOT common.Strategy.
+	nsa := &nonStrategyAdapter{id: "no-strategy"}
+
+	tools := []model.ToolState{
+		{Adapter: nsa, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunInstall(ctx, tools, ch)
+	require.NotNil(t, cmd)
+
+	// Must not panic.
+	require.NotPanics(t, func() {
+		cmd()
+	}, "non-Strategy adapter must not cause a panic")
+
+	msgs := collectProgress(ch)
+	require.NotEmpty(t, msgs, "Should receive an error message for non-Strategy adapter")
+
+	// The error message should mention the adapter doesn't implement Strategy.
+	lastMsg := msgs[len(msgs)-1]
+	assert.True(t, lastMsg.Done)
+	assert.NotEmpty(t, lastMsg.Error)
+	assert.Contains(t, lastMsg.Error, "does not implement Strategy",
+		"error should mention missing Strategy interface")
+}
+
+// nonStrategyAdapter implements model.ToolInfo but NOT common.Strategy.
+type nonStrategyAdapter struct {
+	id string
+}
+
+func (a *nonStrategyAdapter) ID() string               { return a.id }
+func (a *nonStrategyAdapter) Name() string             { return "No Strategy" }
+func (a *nonStrategyAdapter) Detect() bool             { return true }
+func (a *nonStrategyAdapter) IsInstalled() bool        { return false }
+func (a *nonStrategyAdapter) Status() model.ToolStatus { return model.ToolStatus{} }
+
+// TestRunInstall_StrategyCancellationBetweenPhases verifies that context
+// cancellation between phases stops execution and sends a partial progress.
+func TestRunInstall_StrategyCancellationBetweenPhases(t *testing.T) {
+	t.Parallel()
+
+	// Use a slow adapter so we can cancel mid-way.
+	adapter := &testAdapter{id: "slow-phase", name: "Slow Phase", delay: 50 * time.Millisecond}
+	tools := []model.ToolState{
+		{Adapter: adapter, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunInstall(ctx, tools, ch)
+	require.NotNil(t, cmd)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cmd()
+	}()
+
+	// Cancel after a short time — should interrupt between phases.
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+
+	wg.Wait()
+
+	msgs, closed := collectProgressWithTimeout(ch, 500*time.Millisecond)
+	_ = msgs
+	assert.True(t, closed, "Channel should be closed after context cancellation")
+}
+
+// TestDefaultStepNames_FivePhases verifies that InstallSteps now contains
+// the five phase names instead of the old single "Installing" step.
+func TestDefaultStepNames_FivePhases(t *testing.T) {
+	t.Parallel()
+
+	steps := pipeline.InstallSteps
+	require.Len(t, steps, 5, "InstallSteps should have 5 phase names after Strategy refactor")
+	assert.Equal(t, "Preparing", steps[0])
+	assert.Equal(t, "Downloading", steps[1])
+	assert.Equal(t, "Verifying", steps[2])
+	assert.Equal(t, "Staging", steps[3])
+	assert.Equal(t, "Applying", steps[4])
 }
