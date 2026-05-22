@@ -79,16 +79,19 @@ type Model struct {
 // detection completes. The boolean value indicates whether engram was found on PATH.
 type EngramDetectedMsg bool
 
-// toolInfoAdapter wraps adapters.ToolAdapter to satisfy model.ToolInfo.
-// It adapts the Status() method to return model.ToolStatus instead of
-// adapters.AdapterStatus, breaking the internal/model → adapters dependency.
+// toolInfoAdapter adapts a ToolAdapter to satisfy model.ToolInfo by embedding
+// narrow role interfaces (Identifier, Detector, InstallStatus) instead of the
+// full ToolAdapter, per ISP narrowing P3-003. The Status() override converts
+// adapters.AdapterStatus to model.ToolStatus.
 type toolInfoAdapter struct {
-	adapters.ToolAdapter
+	adapters.Identifier
+	adapters.Detector
+	adapters.InstallStatus
 }
 
 // Status returns the adapter's installation status as a model.ToolStatus.
 func (a toolInfoAdapter) Status() model.ToolStatus {
-	s := a.ToolAdapter.Status()
+	s := a.InstallStatus.Status()
 	return model.ToolStatus{
 		Installed: s.Installed,
 		Version:   s.Version,
@@ -103,7 +106,7 @@ func (a toolInfoAdapter) Status() model.ToolStatus {
 //
 // reg provides the adapter registry for DI. In production, the caller creates
 // a NewRegistry() and registers adapters via RegisterIn(). In tests, mocks
-// are registered locally without touching DefaultRegistry.
+// are registered locally on an explicit *Registry.
 //
 // Engram detection is deferred to Init() via detectEngram() to avoid
 // blocking the first TUI render on exec.LookPath.
@@ -120,7 +123,7 @@ func NewModel(toolID string, version string, reg *adapters.Registry) Model {
 		Screen:          model.ScreenWelcome,
 		Tools:           nil, // loaded lazily by loadTools()
 		Config:          model.TUIConfig{Persistence: "engram"},
-		Progress:        make(chan model.ProgressMsg, 64),
+		Progress:        make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
 		EngramAvailable: false,
 		reg:             reg,
 		ctx:             ctx,
@@ -140,7 +143,11 @@ func (m *Model) LoadTools(toolID string) {
 	m.Tools = make([]model.ToolState, 0, len(all))
 	for _, a := range all {
 		ts := model.ToolState{
-			Adapter:  toolInfoAdapter{a},
+			Adapter: toolInfoAdapter{
+				Identifier:    a,
+				Detector:      a,
+				InstallStatus: a,
+			},
 			Selected: toolID == "" || a.ID() == toolID,
 		}
 		m.Tools = append(m.Tools, ts)
