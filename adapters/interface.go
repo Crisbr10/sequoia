@@ -43,19 +43,24 @@ type AdapterStatus struct {
 	Path string
 }
 
+// InstallStatus exposes the installation state of a tool adapter.
+type InstallStatus interface {
+	Status() AdapterStatus
+}
+
 // ToolAdapter is the contract every tool integration must satisfy.
 // Each concrete adapter lives in its own sub-package (e.g. adapters/claude)
 // and self-registers via its init() function.
 //
 // ToolAdapter is the composite interface that embeds all role interfaces.
 // Consumers that only need a subset of behavior SHOULD accept the narrower
-// role interface instead (Identifier, Detector, Installer, or PathResolver).
+// role interface instead (Identifier, Detector, Installer, InstallStatus, or AdapterPaths).
 type ToolAdapter interface {
 	Identifier
 	Detector
 	Installer
 	AdapterPaths
-	Status() AdapterStatus
+	InstallStatus
 }
 
 // Identifier exposes adapter identity for logging and display.

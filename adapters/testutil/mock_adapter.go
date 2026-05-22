@@ -3,6 +3,132 @@ package testutil
 
 import "github.com/Crisbr10/sequoia/adapters"
 
+// -- Focused mocks (P3-003 ISP narrowing) -------------------------------------
+//
+// Each mock satisfies exactly one role interface. Use them when a test only
+// needs a subset of the ToolAdapter contract.
+
+// MockIdentifier satisfies adapters.Identifier (ID, Name).
+type MockIdentifier struct {
+	IDFunc   func() string
+	NameFunc func() string
+	IDVal    string
+	NameVal  string
+}
+
+func (m *MockIdentifier) ID() string {
+	if m.IDFunc != nil {
+		return m.IDFunc()
+	}
+	return m.IDVal
+}
+func (m *MockIdentifier) Name() string {
+	if m.NameFunc != nil {
+		return m.NameFunc()
+	}
+	return m.NameVal
+}
+
+var _ adapters.Identifier = (*MockIdentifier)(nil)
+
+// MockDetector satisfies adapters.Detector (Detect, IsInstalled).
+type MockDetector struct {
+	DetectFunc      func() bool
+	IsInstalledFunc func() bool
+}
+
+func (m *MockDetector) Detect() bool {
+	if m.DetectFunc != nil {
+		return m.DetectFunc()
+	}
+	return false
+}
+func (m *MockDetector) IsInstalled() bool {
+	if m.IsInstalledFunc != nil {
+		return m.IsInstalledFunc()
+	}
+	return false
+}
+
+var _ adapters.Detector = (*MockDetector)(nil)
+
+// MockInstaller satisfies adapters.Installer (Install, Uninstall).
+type MockInstaller struct {
+	InstallFunc   func(adapters.InstallOpts) error
+	UninstallFunc func(adapters.InstallOpts) error
+}
+
+func (m *MockInstaller) Install(opts adapters.InstallOpts) error {
+	if m.InstallFunc != nil {
+		return m.InstallFunc(opts)
+	}
+	return nil
+}
+func (m *MockInstaller) Uninstall(opts adapters.InstallOpts) error {
+	if m.UninstallFunc != nil {
+		return m.UninstallFunc(opts)
+	}
+	return nil
+}
+
+var _ adapters.Installer = (*MockInstaller)(nil)
+
+// MockInstallStatus satisfies adapters.InstallStatus (Status).
+type MockInstallStatus struct {
+	StatusFunc func() adapters.AdapterStatus
+}
+
+func (m *MockInstallStatus) Status() adapters.AdapterStatus {
+	if m.StatusFunc != nil {
+		return m.StatusFunc()
+	}
+	return adapters.AdapterStatus{}
+}
+
+var _ adapters.InstallStatus = (*MockInstallStatus)(nil)
+
+// MockAdapterPaths satisfies adapters.AdapterPaths (SkillsPath, CommandsPath,
+// SystemPromptPath, PromptStrategy).
+type MockAdapterPaths struct {
+	SkillsPathFunc       func() string
+	CommandsPathFunc     func() string
+	SystemPromptPathFunc func() string
+	PromptStrategyFunc   func() adapters.PromptStrategy
+}
+
+func (m *MockAdapterPaths) SkillsPath() string {
+	if m.SkillsPathFunc != nil {
+		return m.SkillsPathFunc()
+	}
+	return ""
+}
+func (m *MockAdapterPaths) CommandsPath() string {
+	if m.CommandsPathFunc != nil {
+		return m.CommandsPathFunc()
+	}
+	return ""
+}
+func (m *MockAdapterPaths) SystemPromptPath() string {
+	if m.SystemPromptPathFunc != nil {
+		return m.SystemPromptPathFunc()
+	}
+	return ""
+}
+func (m *MockAdapterPaths) PromptStrategy() adapters.PromptStrategy {
+	if m.PromptStrategyFunc != nil {
+		return m.PromptStrategyFunc()
+	}
+	return adapters.StrategyMarkdownSections
+}
+
+var _ adapters.AdapterPaths = (*MockAdapterPaths)(nil)
+
+// -- Composite mock -----------------------------------------------------------
+//
+// MockAdapter satisfies adapters.ToolAdapter with flat fields for backward
+// compatibility. For tests that only need a subset of the contract, prefer
+// the focused mocks (MockIdentifier, MockDetector, etc.).
+
 // MockAdapter is a configurable ToolAdapter test double.
 // Set function fields to customize behavior; nil fields use sensible defaults.
 type MockAdapter struct {
