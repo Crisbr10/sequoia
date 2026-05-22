@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package claude_test
 
 import (
@@ -43,6 +44,7 @@ func TestAdapter_Detect_DirExists(t *testing.T) {
 	tmp := t.TempDir()
 	// Create the .claude directory inside the temp home.
 	claudeDir := filepath.Join(tmp, ".claude")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
@@ -66,10 +68,12 @@ func TestAdapter_IsInstalled_MarkerPresent(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	claudeDir := filepath.Join(tmp, ".claude")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	claudeMD := filepath.Join(claudeDir, "CLAUDE.md")
 	content := "# My config\n\n<!-- sequoia:start -->\nsome content\n<!-- sequoia:end -->\n"
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(claudeMD, []byte(content), 0o644))
 
 	a := claude.NewAdapter(tmp)
@@ -80,9 +84,11 @@ func TestAdapter_IsInstalled_MarkerAbsent(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	claudeDir := filepath.Join(tmp, ".claude")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	claudeMD := filepath.Join(claudeDir, "CLAUDE.md")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(claudeMD, []byte("# My config\n"), 0o644))
 
 	a := claude.NewAdapter(tmp)
@@ -134,14 +140,17 @@ func TestAdapter_Status_ReadsVersion(t *testing.T) {
 	tmp := t.TempDir()
 	claudeDir := filepath.Join(tmp, ".claude")
 	skillsDir := filepath.Join(claudeDir, "skills", "sequoia")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
 
 	// Create CLAUDE.md with sequoia marker so IsInstalled() returns true.
 	claudeMD := filepath.Join(claudeDir, "CLAUDE.md")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(claudeMD, []byte("<!-- sequoia:start -->\n"), 0o644))
 
 	// Write the version file.
 	versionFile := filepath.Join(skillsDir, ".sequoia-version")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
 
 	a := claude.NewAdapter(tmp)
@@ -155,10 +164,12 @@ func TestAdapter_Status_VersionMissingLegacy(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	claudeDir := filepath.Join(tmp, ".claude")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	// Installed (CLAUDE.md has marker) but no .sequoia-version file.
 	claudeMD := filepath.Join(claudeDir, "CLAUDE.md")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(claudeMD, []byte("<!-- sequoia:start -->\n"), 0o644))
 
 	a := claude.NewAdapter(tmp)
@@ -184,6 +195,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 
 	// Create the .claude directory so Install can write to it.
 	claudeDir := filepath.Join(tmp, ".claude")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	a := claude.NewAdapter(tmp)
@@ -191,6 +203,7 @@ func TestAdapter_Install_WritesVersionFile(t *testing.T) {
 
 	// Verify the version file exists with the correct content.
 	versionFile := filepath.Join(claudeDir, "skills", "sequoia", ".sequoia-version")
+	//nolint:gosec // G304: versionFile is a known path under adapter's dir, not user input
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
 	assert.Equal(t, common.Version, strings.TrimSpace(string(data)),

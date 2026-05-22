@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package claude_test
 
 import (

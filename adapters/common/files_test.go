@@ -1,4 +1,6 @@
 // Package common_test provides black-box tests for files.go helpers.
+//
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (

@@ -61,6 +61,7 @@ func (i *Installer) Prepare() error {
 
 	// Verify TargetDir is writable by creating and immediately removing a temp file.
 	probe := filepath.Join(cfg.TargetDir, ".sequoia-probe")
+	//nolint:gosec // G304: probe is a known .sequoia-probe path inside TargetDir, not user input
 	f, err := os.Create(probe)
 	if err != nil {
 		return fmt.Errorf("prepare: target directory not writable: %w", err)
@@ -191,13 +192,13 @@ func (i *Installer) Rollback() error {
 // copyFile copies the file at src to dst, creating or overwriting dst.
 // Parent directories of dst must already exist.
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) //nolint:gosec // G304: src/dst are paths from embedded config, not user input
 	if err != nil {
 		return fmt.Errorf("open source %q: %w", src, err)
 	}
 	defer func() { _ = in.Close() }()
 
-	out, err := os.Create(dst)
+	out, err := os.Create(dst) //nolint:gosec // G304: src/dst are paths from embedded config, not user input
 	if err != nil {
 		return fmt.Errorf("create dest %q: %w", dst, err)
 	}

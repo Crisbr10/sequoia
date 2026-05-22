@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (
@@ -578,6 +579,7 @@ func TestInstall_VersionFileWriteFailure(t *testing.T) {
 	// Pre-create the version path as a directory — AtomicWriteFile will fail
 	// because os.Rename cannot replace a directory with a file.
 	versionDir := filepath.Join(home, "version-is-dir")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(versionDir, 0o755))
 
 	a := &common.BaseAdapter{}
@@ -674,15 +676,19 @@ func TestInstall_SystemPromptFailure_RollbackBackupDir(t *testing.T) {
 	home := t.TempDir()
 	// Pre-create the skill file so Installer backs it up.
 	skillsDir := filepath.Join(home, "skills")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(skillsDir, "SKILL.md"),
 		[]byte("original skill content"), 0o644,
 	))
 	// Pre-create command files too.
 	cmdsDir := filepath.Join(home, "commands")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(cmdsDir, 0o755))
 	for _, cmd := range common.CommandFiles() {
+		//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 		require.NoError(t, os.WriteFile(
 			filepath.Join(cmdsDir, cmd),
 			[]byte("original command"), 0o644,
@@ -696,6 +702,7 @@ func TestInstall_SystemPromptFailure_RollbackBackupDir(t *testing.T) {
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed))
 
 	// Skills and commands should be rolled back to original content.
+	//nolint:gosec // G304: filepath under temp dir, test fixture only
 	skillContent, err := os.ReadFile(filepath.Join(skillsDir, "SKILL.md"))
 	require.NoError(t, err)
 	assert.Equal(t, "original skill content", string(skillContent),

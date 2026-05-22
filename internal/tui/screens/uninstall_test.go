@@ -356,6 +356,7 @@ func TestUninstallView_ShowsEscBackHint(t *testing.T) {
 		"Uninstall view footer should show 'Esc back' hint for back navigation")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestUninstallView_Golden_InstalledTools(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
@@ -377,6 +378,7 @@ func TestUninstallView_Golden_InstalledTools(t *testing.T) {
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestUninstallView_Golden_NothingInstalled(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},

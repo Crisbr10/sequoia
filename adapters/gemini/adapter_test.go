@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package gemini_test
 
 import (
@@ -336,11 +337,13 @@ func TestAdapter_Uninstall_ReturnsSentinelError(t *testing.T) {
 	// os.WriteFile fails with a permission error.
 	geminiDir := filepath.Dir(sequoiaDir)
 	geminiMD := filepath.Join(geminiDir, "GEMINI.md")
+	//nolint:gosec // G302: chmod in test to simulate read-only system prompt file
 	require.NoError(t, os.Chmod(geminiMD, 0o444))
 
 	err := a.Uninstall(adapters.InstallOpts{})
 
 	// Restore permissions for cleanup.
+	//nolint:gosec // G302: chmod in test cleanup to restore writable permissions
 	_ = os.Chmod(geminiMD, 0o644)
 
 	require.Error(t, err, "Uninstall should return an error when system prompt restore fails")

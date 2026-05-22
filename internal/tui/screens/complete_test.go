@@ -249,6 +249,7 @@ func TestCompleteUpdate_UnknownKeyReturnsNil(t *testing.T) {
 	assert.Nil(t, cmd, "Unknown key should produce no command on Complete screen")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestCompleteView_Golden_AllSucceed(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{
@@ -272,17 +273,20 @@ func TestCompleteView_Golden_AllSucceed(t *testing.T) {
 
 	golden := goldenPath("complete_all_succeed.txt")
 	if updateGolden {
+		//nolint:gosec // G301: golden file dir in testdata, not a production directory
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
 		t.Logf("updated golden file: %s", golden)
 		return
 	}
 
+	//nolint:gosec // G304: goldenPath is derived from test name, not user input
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestCompleteView_Golden_PartialSuccess(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{
@@ -308,17 +312,20 @@ func TestCompleteView_Golden_PartialSuccess(t *testing.T) {
 
 	golden := goldenPath("complete_partial.txt")
 	if updateGolden {
+		//nolint:gosec // G301: golden file dir in testdata, not a production directory
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
 		t.Logf("updated golden file: %s", golden)
 		return
 	}
 
+	//nolint:gosec // G304: goldenPath is derived from test name, not user input
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestCompleteView_Golden_UninstallClean(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{
@@ -334,12 +341,14 @@ func TestCompleteView_Golden_UninstallClean(t *testing.T) {
 
 	golden := goldenPath("complete_uninstall_clean.txt")
 	if updateGolden {
+		//nolint:gosec // G301: golden file dir in testdata, not a production directory
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
 		t.Logf("updated golden file: %s", golden)
 		return
 	}
 
+	//nolint:gosec // G304: goldenPath is derived from test name, not user input
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")

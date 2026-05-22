@@ -19,6 +19,7 @@ func goldenPath(name string) string {
 // updateGolden is true when UPDATE_GOLDEN=1 env var is set.
 var updateGolden = os.Getenv("UPDATE_GOLDEN") == "1"
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestWelcomeView_Golden_Standard(t *testing.T) {
 	version := "v0.1.0"
 	view := screens.WelcomeView(version, 0)
@@ -37,6 +38,7 @@ func TestWelcomeView_Golden_Standard(t *testing.T) {
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestWelcomeView_Golden_CursorOnStatus(t *testing.T) {
 	version := "v0.1.0"
 	view := screens.WelcomeView(version, screens.WelcomeMenuStatus)

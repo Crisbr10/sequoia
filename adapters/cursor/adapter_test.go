@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package cursor_test
 
 import (
@@ -34,6 +35,7 @@ func TestAdapter_Detect_DirExists(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	cursorDir := filepath.Join(tmp, ".cursor")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(cursorDir, 0o755))
 
 	a := cursor.NewAdapter(tmp)
@@ -51,13 +53,16 @@ func TestAdapter_IsInstalled_FileExists(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
 	// Both .sequoia-version AND sequoia-ai.md must exist for IsInstalled to return true.
 	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
 
 	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia rules\n"), 0o644))
 
 	a := cursor.NewAdapter(tmp)
@@ -92,14 +97,17 @@ func TestAdapter_Status_ReadsVersion(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
 	// Create sequoia-ai.md so IsInstalled() returns true.
 	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(sequoiaAI, []byte("# Sequoia\n"), 0o644))
 
 	// Write the version file.
 	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(versionFile, []byte("0.2.0\n"), 0o644))
 
 	a := cursor.NewAdapter(tmp)
@@ -112,10 +120,12 @@ func TestAdapter_Status_VersionMissingLegacy(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
 	// Create .sequoia-version so IsInstalled returns true (D3 fix: IsInstalled checks version file).
 	versionFile := filepath.Join(rulesDir, ".sequoia-version")
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(versionFile, []byte(""), 0o644))
 
 	sequoiaAI := filepath.Join(rulesDir, "sequoia-ai.md")
@@ -143,6 +153,7 @@ func TestAdapter_IsInstalled_PreExistingSystemPrompt_ReturnsFalse(t *testing.T) 
 	t.Parallel()
 	tmp := t.TempDir()
 	rulesDir := filepath.Join(tmp, ".cursor", "rules")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 
 	// Create sequoia-ai.md (pre-existing system prompt) but NOT .sequoia-version.

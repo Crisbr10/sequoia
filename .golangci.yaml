@@ -20,20 +20,16 @@ linters:
             - "sayRepetitiveInsteadOfStutters"
   exclusions:
     rules:
-      # Test files: allow relaxed permissions and file operations
+      # Test files: allow relaxed error handling
       - path: _test\.go
         linters:
           - errcheck
-          - gosec
-      # main.go: intentional unchecked errors + gosec noise
+      # main.go: intentional unchecked errors
       - path: cmd/sequoia/main\.go
         linters:
           - errcheck
-          - gosec
-      # adapter/ files: intentional file operations
-      - path: adapters/
-        linters:
-          - gosec
+      # adapter/ files: gosec blanket exclusion removed — use line-level nolints instead
+      # (P4-007: narrowed gosec exclusions to line-level nolints with justification comments)
       # Mock adapter: no comments needed for generated mocks
       - path: adapters/testutil/mock_adapter\.go
         linters:

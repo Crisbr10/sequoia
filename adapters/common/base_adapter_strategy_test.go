@@ -205,6 +205,7 @@ func TestStrategy_FullSequenceFailureRollback(t *testing.T) {
 
 	// Make Apply fail by writing the version path as a directory.
 	versionDir := filepath.Join(home, "version")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(versionDir, 0o755))
 
 	err := a.Apply(opts)
@@ -311,6 +312,7 @@ func TestStrategy_InstallSentinelOnPhaseError(t *testing.T) {
 
 	// Make Apply fail.
 	versionDir := filepath.Join(home, "version")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(versionDir, 0o755))
 
 	err := a.Install(adapters.InstallOpts{})

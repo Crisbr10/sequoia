@@ -1,4 +1,6 @@
 // Package common_test provides black-box tests for the common installer lifecycle.
+//
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (
@@ -188,7 +190,9 @@ func TestInstaller_PrepareFailsOnNonWritableTarget(t *testing.T) {
 	writeFile(t, srcDir, "alpha.txt", "content")
 
 	// Make TargetDir read-only.
+	//nolint:gosec // G302: chmod in test to simulate read-only filesystem state
 	require.NoError(t, os.Chmod(dstDir, 0o444))
+	//nolint:gosec // G302: chmod in test cleanup to restore writable permissions
 	t.Cleanup(func() { _ = os.Chmod(dstDir, 0o755) })
 
 	cfg := common.InstallerConfig{

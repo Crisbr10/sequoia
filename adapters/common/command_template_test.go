@@ -14,7 +14,7 @@ import (
 // start with YAML frontmatter (---).
 func TestCommandTemplates_HaveFrontmatter(t *testing.T) {
 	t.Parallel()
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		cmd := cmd
 		t.Run(cmd, func(t *testing.T) {
 			t.Parallel()
@@ -39,7 +39,7 @@ func TestCommandTemplates_InitHasAllowedTools(t *testing.T) {
 // present in CommandFS.
 func TestCommandTemplates_AllExist(t *testing.T) {
 	t.Parallel()
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		cmd := cmd
 		t.Run(cmd, func(t *testing.T) {
 			t.Parallel()

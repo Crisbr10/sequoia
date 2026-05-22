@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (
@@ -128,7 +129,7 @@ func TestMockFS_InstallFullPipeline(t *testing.T) {
 	// Verify command files were installed.
 	cmdsDir := a.CommandsPath()
 	assert.NotEmpty(t, cmdsDir)
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		assert.FileExists(t, filepath.Join(cmdsDir, cmd),
 			"command %s should exist after install", cmd)
 	}

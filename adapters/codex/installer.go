@@ -19,7 +19,7 @@ import (
 // locate the correct backup during uninstall.
 func MergeConfig(path string, table map[string]interface{}) error {
 	var existing string
-	if data, err := os.ReadFile(path); err == nil {
+	if data, err := os.ReadFile(path); err == nil { //nolint:gosec // G304: path is a known adapter config path, not user input
 		existing = string(data)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("merge config: read: %w", err)
@@ -44,6 +44,7 @@ func MergeConfig(path string, table map[string]interface{}) error {
 	}
 
 	// Ensure the parent directory exists.
+	//nolint:gosec // G301: config directory, 0o755 is standard for shared dirs
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("merge config: mkdir: %w", err)
 	}
@@ -59,13 +60,14 @@ func MergeConfig(path string, table map[string]interface{}) error {
 func RemoveConfig(path string) error {
 	// Try session-tracked backup first.
 	sessionFile := path + ".sequoia-session"
-	if sessionData, err := os.ReadFile(sessionFile); err == nil {
+	if sessionData, err := os.ReadFile(sessionFile); err == nil { //nolint:gosec // G304: sessionFile derived from known backup suffix, not user input
 		suffix := strings.TrimSpace(string(sessionData))
 		backupPath := path + ".sequoia-backup-" + suffix
-		if backupData, err := os.ReadFile(backupPath); err == nil {
+		if backupData, err := os.ReadFile(backupPath); err == nil { //nolint:gosec // G304: backupPath derived from known suffix, not user input
 			if err := common.AtomicWriteFile(path, backupData, 0o644); err != nil {
 				return fmt.Errorf("remove config: restore backup: %w", err)
 			}
+			//nolint:gosec // G703: backupPath derived from controlled suffix, not user input
 			_ = os.Remove(backupPath)
 			_ = os.Remove(sessionFile)
 			return nil
@@ -76,7 +78,7 @@ func RemoveConfig(path string) error {
 
 	// Fall back to legacy predictable backup name.
 	backupPath := path + ".sequoia-backup"
-	if backupData, err := os.ReadFile(backupPath); err == nil {
+	if backupData, err := os.ReadFile(backupPath); err == nil { //nolint:gosec // G304: backupPath from known suffix, not user input
 		if err := common.AtomicWriteFile(path, backupData, 0o644); err != nil {
 			return fmt.Errorf("remove config: restore backup: %w", err)
 		}
@@ -84,7 +86,7 @@ func RemoveConfig(path string) error {
 	}
 
 	// No backup — parse and remove [sequoia] section.
-	existing, err := os.ReadFile(path)
+	existing, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter config path, not user input
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

@@ -213,6 +213,7 @@ func TestStatusUpdate_ZeroToolsEmptyActions(t *testing.T) {
 	assert.Equal(t, "uninstall", action, "'d' should return uninstall even with 0 tools")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestStatusView_Golden_AllInstalled(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
@@ -233,6 +234,7 @@ func TestStatusView_Golden_AllInstalled(t *testing.T) {
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestStatusView_Golden_Empty(t *testing.T) {
 	tools := []model.ToolState{}
 	view := screens.StatusView(tools, 0)
@@ -250,6 +252,7 @@ func TestStatusView_Golden_Empty(t *testing.T) {
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestStatusView_Golden_Mixed(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},

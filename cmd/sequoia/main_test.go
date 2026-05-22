@@ -617,7 +617,7 @@ func TestTargetAdapters_ReturnsIdentifier(t *testing.T) {
 	reg := adapters.NewRegistry()
 	claude.RegisterIn(reg)
 
-	var ids []adapters.Identifier = targetAdapters("claude-code", reg)
+	ids := targetAdapters("claude-code", reg)
 	if len(ids) != 1 {
 		t.Fatalf("targetAdapters returned %d identifiers, want 1", len(ids))
 	}
@@ -636,7 +636,7 @@ func TestTargetAdapters_AllReturnsIdentifiers(t *testing.T) {
 	claude.RegisterIn(reg)
 	opencode.RegisterIn(reg)
 
-	var ids []adapters.Identifier = targetAdapters("", reg)
+	ids := targetAdapters("", reg)
 	if len(ids) != 2 {
 		t.Fatalf("targetAdapters returned %d identifiers, want 2", len(ids))
 	}

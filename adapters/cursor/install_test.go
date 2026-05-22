@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package cursor_test
 
 import (
@@ -78,6 +79,7 @@ func TestInstall_WritesVersionFile(t *testing.T) {
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
 	versionFile := filepath.Join(a.SkillsPath(), ".sequoia-version")
+	//nolint:gosec // G304: versionFile is a known path under adapter's skill dir, not user input
 	data, err := os.ReadFile(versionFile)
 	require.NoError(t, err)
 	assert.Equal(t, common.Version, strings.TrimSpace(string(data)))
@@ -109,6 +111,7 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 
 	skillPath := filepath.Join(a.SkillsPath(), "SKILL.md")
 	assert.FileExists(t, skillPath)
+	//nolint:gosec // G304: skillPath is a known file under adapter's skill dir, not user input
 	raw, err := os.ReadFile(skillPath)
 	require.NoError(t, err)
 	assert.NotEmpty(t, raw)
@@ -122,6 +125,7 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 	} {
 		cmdPath := filepath.Join(a.CommandsPath(), cmd)
 		assert.FileExists(t, cmdPath)
+		//nolint:gosec // G304: cmdPath is a known file under adapter's command dir, not user input
 		raw, err := os.ReadFile(cmdPath)
 		require.NoError(t, err)
 		assert.NotEmpty(t, raw, "command file %s should not be empty", cmd)

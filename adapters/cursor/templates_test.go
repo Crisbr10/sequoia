@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package cursor_test
 
 import (
@@ -24,6 +25,7 @@ func TestTemplates_AllFilesExist(t *testing.T) {
 		relPath := relPath
 		t.Run(relPath, func(t *testing.T) {
 			t.Parallel()
+			//nolint:gosec // G304: relPath comes from embedded template list, not user input
 			_, err := os.ReadFile(filepath.Join(base, relPath))
 			require.NoError(t, err)
 		})
@@ -90,6 +92,7 @@ func TestTemplates_GoldenFile_RulesMD(t *testing.T) {
 	got := buf.String()
 
 	goldenPath := filepath.Join("templates", "testdata", "golden", "rules.md.golden")
+	//nolint:gosec // G304: goldenPath is a known test fixture path, not user input
 	golden, err := os.ReadFile(goldenPath)
 	require.NoError(t, err)
 

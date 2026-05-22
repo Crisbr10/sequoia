@@ -46,9 +46,10 @@ func InjectMarkdownSection(path, content string) error {
 
 	section := markerStart + "\n" + strings.TrimRight(content, "\n") + "\n" + markerEnd + "\n"
 
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
 	if err != nil {
 		if os.IsNotExist(err) {
+			//nolint:gosec // G306: file is meant to be world-readable markdown config
 			return os.WriteFile(path, []byte(section), 0o644)
 		}
 		return fmt.Errorf("inject markdown: read %s: %w", path, err)
@@ -62,6 +63,7 @@ func InjectMarkdownSection(path, content string) error {
 		replaced := s[:start] + section + s[end+len(markerEnd):]
 		// Trim a single trailing newline that WriteFile will re-add via section.
 		replaced = strings.TrimRight(replaced, "\n") + "\n"
+		//nolint:gosec // G306: file is meant to be world-readable markdown config
 		return os.WriteFile(path, []byte(replaced), 0o644)
 	}
 
@@ -73,6 +75,7 @@ func InjectMarkdownSection(path, content string) error {
 	} else {
 		out = body + "\n\n" + section
 	}
+	//nolint:gosec // G306: file is meant to be world-readable markdown config
 	return os.WriteFile(path, []byte(out), 0o644)
 }
 
@@ -80,7 +83,7 @@ func InjectMarkdownSection(path, content string) error {
 // and <!-- sequoia:end --> markers from the file at path.
 // Returns nil when the file does not exist or contains no markers.
 func RemoveMarkdownSection(path string) error {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -110,6 +113,7 @@ func RemoveMarkdownSection(path string) error {
 		out = before + "\n\n" + after
 	}
 
+	//nolint:gosec // G306: file is meant to be world-readable markdown config
 	return os.WriteFile(path, []byte(out), 0o644)
 }
 
@@ -141,7 +145,7 @@ func ReplaceFile(path, content string) error {
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	backup := path + ".sequoia-backup-" + suffix
 
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
 	if err != nil {
 		return fmt.Errorf("replace file: backup read %s: %w", path, err)
 	}
@@ -176,7 +180,7 @@ func RestoreOrRemoveFile(path string) error {
 	backup := findBackupPath(path)
 
 	if backup != "" {
-		raw, err := os.ReadFile(backup)
+		raw, err := os.ReadFile(backup) //nolint:gosec // G304: backup path derived from controlled suffix, not user input
 		if err != nil {
 			return fmt.Errorf("restore file: backup read %s: %w", backup, err)
 		}
@@ -208,10 +212,11 @@ func RestoreOrRemoveFile(path string) error {
 func findBackupPath(path string) string {
 	// Try session-tracked backup first.
 	sessionFile := path + ".sequoia-session"
-	if data, err := os.ReadFile(sessionFile); err == nil {
+	if data, err := os.ReadFile(sessionFile); err == nil { //nolint:gosec // G304: sessionFile derived from path, not user input
 		suffix := strings.TrimSpace(string(data))
 		if suffix != "" {
 			backup := path + ".sequoia-backup-" + suffix
+			//nolint:gosec // G703: backup path derived from controlled suffix, not user input
 			if _, err := os.Stat(backup); err == nil {
 				return backup
 			}
@@ -230,7 +235,7 @@ func findBackupPath(path string) string {
 // isSequoiaManaged reports whether the file at path contains the
 // sequoia marker, indicating it was previously written by Sequoia.
 func isSequoiaManaged(path string) (bool, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
 	if err != nil {
 		return false, err
 	}
@@ -242,6 +247,7 @@ func isSequoiaManaged(path string) (bool, error) {
 // truncates in place. The temporary file is cleaned up if the rename fails.
 func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 	tmp := path + ".tmp"
+	//nolint:gosec // G703: tmp path derived from input path with known .tmp suffix
 	if err := os.WriteFile(tmp, data, perm); err != nil {
 		return fmt.Errorf("atomic write: write %s: %w", tmp, err)
 	}

@@ -13,6 +13,7 @@ func StageFile(dir, name string, content []byte) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("stage %s: %w", name, err)
 	}
+	//nolint:gosec // G306: staged files are meant to be world-readable config
 	return os.WriteFile(filepath.Join(dir, name), content, 0o644)
 }
 

@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (
@@ -62,7 +63,7 @@ func createUninstallFiles(t *testing.T, skillsDir, cmdsDir, versionFile string) 
 
 	require.NoError(t, os.WriteFile(filepath.Join(skillsDir, "SKILL.md"), []byte("skill"), 0o644))
 	require.NoError(t, os.WriteFile(versionFile, []byte("0.1.0\n"), 0o644))
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		require.NoError(t, os.WriteFile(filepath.Join(cmdsDir, cmd), []byte("cmd"), 0o644))
 	}
 }
@@ -469,7 +470,7 @@ func TestBackupIsolation_FreshInstallProducesIdenticalOutput(t *testing.T) {
 
 	// Verify command files at target have the correct static content.
 	cmdsDir := a.CommandsPath()
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		cmdPath := filepath.Join(cmdsDir, cmd)
 		assert.FileExists(t, cmdPath,
 			"command %s should exist at target after install", cmd)
@@ -500,6 +501,72 @@ func TestBackupIsolation_FreshInstallProducesIdenticalOutput(t *testing.T) {
 }
 
 // =========================================================================
+// TestBaseAdapter_DetectCachedOnce — P2-001: Cache Detect() results
+// =========================================================================
+
+// TestBaseAdapter_DetectCachedOnce verifies that Detect() calls the
+// underlying detector's detectFn exactly once, regardless of how many
+// times Detect() is invoked on the BaseAdapter. This validates the
+// sync.Once memoization added for process-lifetime caching (P2-001).
+func TestBaseAdapter_DetectCachedOnce(t *testing.T) {
+	t.Parallel()
+
+	var callCount int
+	a := &common.BaseAdapter{}
+
+	a.SetDetector(common.NewDetector(
+		func() (string, error) { return "/fake/base", nil },
+		func(base string) bool { return false },
+		func() bool {
+			callCount++
+			return true
+		},
+	))
+
+	// Call Detect() multiple times.
+	result1 := a.Detect()
+	result2 := a.Detect()
+	result3 := a.Detect()
+
+	// All calls should return the same cached result.
+	assert.True(t, result1, "first Detect() should return true")
+	assert.True(t, result2, "second Detect() should return cached true")
+	assert.True(t, result3, "third Detect() should return cached true")
+
+	// The detectFn should have been called exactly once.
+	assert.Equal(t, 1, callCount,
+		"detectFn should be called exactly once, got %d", callCount)
+}
+
+// TestBaseAdapter_DetectCachedResultFalse verifies the cache also works
+// correctly when the detection result is false — the detectFn is still
+// called only once.
+func TestBaseAdapter_DetectCachedResultFalse(t *testing.T) {
+	t.Parallel()
+
+	var callCount int
+	a := &common.BaseAdapter{}
+
+	a.SetDetector(common.NewDetector(
+		func() (string, error) { return "/fake/base", nil },
+		func(base string) bool { return false },
+		func() bool {
+			callCount++
+			return false
+		},
+	))
+
+	// Call Detect() multiple times.
+	result1 := a.Detect()
+	result2 := a.Detect()
+
+	assert.False(t, result1, "first Detect() should return false")
+	assert.False(t, result2, "second Detect() should return cached false")
+	assert.Equal(t, 1, callCount,
+		"detectFn should be called exactly once even when result is false")
+}
+
+// =========================================================================
 // TestBackupIsolation_NamespacedBackupStructure
 // REQ-BACKUP-ISOLATION-003 Scenario 2
 // =========================================================================
@@ -525,7 +592,7 @@ func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
 		filepath.Join(skillsDir, "SKILL.md"),
 		[]byte("original skill content"), 0o644,
 	))
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(cmdsDir, cmd),
 			[]byte("original "+cmd), 0o644,
@@ -573,7 +640,7 @@ func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
 	assert.Equal(t, "original skill content", string(skillBackupBytes),
 		"backed-up SKILL.md should have original content")
 
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		cmdBackupPath := filepath.Join(cmdBackupDir, cmd)
 		assert.True(t, fileExists(cmdBackupPath),
 			"command %s should be backed up under commands subdirectory", cmd)

@@ -85,11 +85,13 @@ func TestLoader_Load_IgnoresNonPluginFiles(t *testing.T) {
 
 	dir := t.TempDir()
 	// Write a non-.sequoia-plugin.yaml file.
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "README.md"),
 		[]byte("# Just a readme\n"),
 		0o644,
 	))
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "not-a-plugin.yaml"),
 		[]byte("id: nope\n"),
@@ -106,6 +108,7 @@ func TestLoader_Load_IgnoresNestedDirectories(t *testing.T) {
 
 	dir := t.TempDir()
 	nested := filepath.Join(dir, "nested")
+	//nolint:gosec // G301: test directory in temp dir, permissions are for test setup only
 	require.NoError(t, os.MkdirAll(nested, 0o755))
 	writePluginYAML(t, nested, "nested.sequoia-plugin.yaml", validPluginYAML)
 
@@ -123,6 +126,7 @@ func TestLoader_Load_InvalidYAML_SkippedGracefully(t *testing.T) {
 
 	dir := t.TempDir()
 	// Write an invalid YAML file (plain garbage).
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "broken.sequoia-plugin.yaml"),
 		[]byte("this is: not: valid: yaml: [unclosed"),
@@ -145,6 +149,7 @@ func TestLoader_Load_MissingID_ReturnsError(t *testing.T) {
 version: "0.1.0"
 agents: []
 `
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "noid.sequoia-plugin.yaml"),
 		[]byte(noID),
@@ -167,6 +172,7 @@ version: "0.1.0"
 init_should_fail: true
 agents: []
 `
+	//nolint:gosec // G306: test fixture file in temp dir, world-readable is safe
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "failing.sequoia-plugin.yaml"),
 		[]byte(failingInit),
@@ -221,6 +227,7 @@ func TestPlugin_Interface_Satisfaction(t *testing.T) {
 
 func writePluginYAML(t *testing.T, dir, name, content string) {
 	t.Helper()
+	//nolint:gosec // G306: test fixture helper, file in temp dir is safe
 	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644))
 }
 

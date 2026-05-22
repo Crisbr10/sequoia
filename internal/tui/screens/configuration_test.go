@@ -145,35 +145,41 @@ func TestConfigurationUpdate_QNoLongerReturnsQuit(t *testing.T) {
 	assert.Empty(t, action, "q should not return quit from ConfigurationUpdate (handled globally)")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestConfigurationView_Golden_Standard(t *testing.T) {
 	config := model.TUIConfig{Persistence: "engram"}
 	view := screens.ConfigurationView(config, 0, true)
 
 	golden := goldenPath("configuration_standard.txt")
 	if updateGolden {
+		//nolint:gosec // G301: golden file dir in testdata, not a production directory
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
 		t.Logf("updated golden file: %s", golden)
 		return
 	}
 
+	//nolint:gosec // G304: goldenPath is derived from test name, not user input
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestConfigurationView_Golden_EngramUnavailable(t *testing.T) {
 	config := model.TUIConfig{Persistence: "files"}
 	view := screens.ConfigurationView(config, 0, false)
 
 	golden := goldenPath("configuration_engram_unavailable.txt")
 	if updateGolden {
+		//nolint:gosec // G301: golden file dir in testdata, not a production directory
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
 		t.Logf("updated golden file: %s", golden)
 		return
 	}
 
+	//nolint:gosec // G304: goldenPath is derived from test name, not user input
 	expected, err := os.ReadFile(golden)
 	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")

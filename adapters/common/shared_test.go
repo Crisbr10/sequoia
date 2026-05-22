@@ -1,3 +1,4 @@
+//nolint:gosec // test file: all os.* operations use t.TempDir() test fixtures, not production paths
 package common_test
 
 import (
@@ -16,6 +17,39 @@ import (
 //go:embed testdata/test.tmpl
 var testFS embed.FS
 
+// TestCommandFiles_Immutability verifies that CommandFiles() returns a
+// defensive copy — mutating the returned slice does NOT affect subsequent calls.
+func TestCommandFiles_Immutability(t *testing.T) {
+	t.Parallel()
+
+	first := common.CommandFiles()
+	original := first[0]
+
+	// Mutate the returned slice.
+	first[0] = "evil"
+
+	// Second call must return the original, unmodified list.
+	second := common.CommandFiles()
+	assert.Equal(t, original, second[0],
+		"CommandFiles() must return a defensive copy; mutation of first result must not affect second")
+	assert.NotEqual(t, "evil", second[0],
+		"mutated value 'evil' must not appear in second call")
+}
+
+// TestCommandFiles_DefensiveCopyIsIndependent verifies that each call to
+// CommandFiles() returns a fresh allocation (different backing array).
+func TestCommandFiles_DefensiveCopyIsIndependent(t *testing.T) {
+	t.Parallel()
+
+	first := common.CommandFiles()
+	second := common.CommandFiles()
+
+	// Same content, but different backing arrays.
+	assert.Equal(t, first, second, "content must be equal")
+	assert.NotSame(t, &first[0], &second[0],
+		"each call must return a fresh allocation with different backing array address")
+}
+
 // TestVersion_IsCorrect verifies the shared Version constant.
 func TestVersion_IsCorrect(t *testing.T) {
 	t.Parallel()
@@ -33,7 +67,7 @@ func TestCommandFiles_HasExpectedEntries(t *testing.T) {
 		"sequoia-diff.md",
 		"sequoia-dev.md",
 	}
-	assert.Equal(t, expected, common.CommandFiles)
+	assert.Equal(t, expected, common.CommandFiles())
 }
 
 // TestConfigFiles_HasExpectedEntries verifies the shared config file mapping.

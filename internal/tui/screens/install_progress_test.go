@@ -287,6 +287,7 @@ func TestInstallProgressUpdate_QReturnsQuit(t *testing.T) {
 	assert.Equal(t, "quit", action, "q should quit from progress screen")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestInstallProgressView_Golden_Standard(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{
@@ -321,6 +322,7 @@ func TestInstallProgressView_Golden_Standard(t *testing.T) {
 	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestInstallProgressView_Golden_Error(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{

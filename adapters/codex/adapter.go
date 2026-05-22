@@ -153,6 +153,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		return fmt.Errorf("install: merge config: %w", err)
 	}
 
+	//nolint:gosec // G306: version file is meant to be world-readable config
 	if err := os.WriteFile(versionFilePath(base), []byte(common.Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}

@@ -233,6 +233,7 @@ func TestErrorUpdate_UnknownKeyReturnsNil(t *testing.T) {
 	assert.Nil(t, cmd, "Unknown key should produce no command on Error screen")
 }
 
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestErrorView_Golden_MixedResults(t *testing.T) {
 	tools := []screens.ProgressTool{
 		{
