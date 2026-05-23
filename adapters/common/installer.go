@@ -60,16 +60,18 @@ func (i *Installer) Prepare() error {
 	cfg := i.config
 
 	// Verify TargetDir is writable by creating and immediately removing a temp file.
+	// Use O_EXCL to fail if the probe already exists (TOCTOU protection) and
+	// explicit 0o600 to avoid leaking a world-readable empty file during the
+	// brief window before deferred cleanup.
 	probe := filepath.Join(cfg.TargetDir, ".sequoia-probe")
-	//nolint:gosec // G304: probe is a known .sequoia-probe path inside TargetDir, not user input
-	f, err := os.Create(probe)
+	f, err := os.OpenFile(probe, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("prepare: target directory not writable: %w", err)
 	}
-	_ = f.Close()
-	if err := os.Remove(probe); err != nil {
-		return fmt.Errorf("prepare: could not remove write-probe file: %w", err)
-	}
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(probe)
+	}()
 
 	// Back up any files that already exist in TargetDir.
 	for _, name := range cfg.Files {

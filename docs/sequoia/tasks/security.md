@@ -42,18 +42,18 @@
 
 ---
 
-### P1-003: Explicit permissions on probe file
+### ✅ P1-003: Explicit permissions on probe file
 
 **Problem**: `Prepare()` creates `.sequoia-probe` with default umask permissions at `adapters/common/installer.go:64`. Race window exists where an empty file sits on disk with uncontrolled permissions.
 
-**Fix**: Replace `os.Create(probe)` with `os.OpenFile(probe, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)`. Clean up probe file in defer immediately after creation check passes.
+**Fix**: Se cambió `os.Create(probe)` por `os.OpenFile(probe, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)`. Se movió la limpieza del probe a `defer` inmediatamente después del create. Se agregó `O_EXCL` como protección TOCTOU adicional.
 
 **Acceptance Criteria**:
-- [ ] Probe file created with `0o600` (owner read/write only)
-- [ ] Probe file cleaned up in defer immediately after successful write check
-- [ ] Test verifies probe file has restricted permissions
+- [x] Probe file created with `0o600` (owner read/write only)
+- [x] Probe file cleaned up in defer immediately after successful write check
+- [x] Test verifies probe file has restricted permissions
 
-**Effort**: small (<1h) | **Risk**: low | **Blocks**: none
+**Effort**: small (<1h) | **Risk**: low | **Blocks**: none | **Resuelto**: 2026-05-23 (SDD fast-forward, verify PASS 3/3)
 
 ---
 

@@ -599,5 +599,71 @@ func TestInstaller_CopyFilePermissions_MultipleFiles(t *testing.T) {
 	}
 }
 
+// =========================================================================
+// P1-003: Explicit permissions on probe file
+// =========================================================================
+
+// TestInstaller_Prepare_ProbeFileCleanedUp verifies that Prepare creates
+// the .sequoia-probe write-check file and removes it before returning,
+// leaving TargetDir clean (no stale probe file).
+func TestInstaller_Prepare_ProbeFileCleanedUp(t *testing.T) {
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "backup")
+
+	writeFile(t, srcDir, "alpha.txt", "content")
+
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir,
+		Files:     []string{"alpha.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+
+	require.NoError(t, inst.Prepare())
+
+	// Probe file must be cleaned up after Prepare.
+	assert.False(t, fileExists(filepath.Join(dstDir, ".sequoia-probe")),
+		".sequoia-probe must be cleaned up after Prepare")
+}
+
+// TestInstaller_Prepare_ProbeFileFailsWhenPreExisting verifies that Prepare
+// fails when .sequoia-probe already exists in TargetDir. This tests the
+// O_EXCL flag on os.OpenFile, which prevents TOCTOU races where an attacker
+// places a symlink or file at the probe path before Prepare runs.
+func TestInstaller_Prepare_ProbeFileFailsWhenPreExisting(t *testing.T) {
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "backup")
+
+	writeFile(t, srcDir, "alpha.txt", "content")
+
+	// Pre-create .sequoia-probe in TargetDir (simulating attacker or stale state).
+	probePath := filepath.Join(dstDir, ".sequoia-probe")
+	require.NoError(t, os.WriteFile(probePath, []byte("stale"), 0o644))
+
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir,
+		Files:     []string{"alpha.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+
+	err := inst.Prepare()
+	require.Error(t, err, "Prepare should fail when .sequoia-probe already exists (O_EXCL)")
+	assert.Contains(t, err.Error(), "target directory not writable",
+		"error should indicate write check failure")
+
+	// Pre-existing probe file should remain untouched.
+	assert.True(t, fileExists(probePath),
+		"pre-existing .sequoia-probe should not be removed on failure")
+}
+
 // NOTE: TestConfigFiles_HasExpectedEntries already exists in shared_test.go
 // (added in Batch 2). No duplicate needed here.
