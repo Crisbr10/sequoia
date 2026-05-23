@@ -716,8 +716,9 @@ func TestInjectMarkdownSection_MkdirAllErrorIsWrapped(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "inject markdown")
 	assert.Contains(t, err.Error(), "mkdir")
-	assert.True(t, errors.Is(err, os.ErrNotExist),
-		"error chain must preserve os.ErrNotExist through wrapping")
+	var pathErr *os.PathError
+	assert.True(t, errors.As(err, &pathErr),
+		"error chain must preserve *os.PathError through wrapping (MkdirAll returns ENOTDIR on Unix, not ENOENT)")
 }
 
 // TestReplaceFile_MkdirAllErrorIsWrapped verifies that when ReplaceFile's
@@ -734,8 +735,9 @@ func TestReplaceFile_MkdirAllErrorIsWrapped(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "replace file")
 	assert.Contains(t, err.Error(), "mkdir")
-	assert.True(t, errors.Is(err, os.ErrNotExist),
-		"error chain must preserve os.ErrNotExist through wrapping")
+	var pathErr2 *os.PathError
+	assert.True(t, errors.As(err, &pathErr2),
+		"error chain must preserve *os.PathError through wrapping (MkdirAll returns ENOTDIR on Unix, not ENOENT)")
 }
 
 // TestReplaceFile_ManagedCheckErrorIsWrapped verifies that when
