@@ -18,10 +18,10 @@
 **Fix**: Add `detectedOnce sync.Once` and `detectedResult bool` to `BaseAdapter`. `Detect()` calls `sync.Once.Do()` wrapping the `exec.LookPath` + install check. Subsequent calls return cached result immediately.
 
 **Acceptance Criteria**:
-- [ ] `sync.Once` memoization added to `BaseAdapter.Detect()`
-- [ ] `exec.LookPath` called exactly once per adapter per process
-- [ ] Test verifies single invocation for repeated `Detect()` calls
-- [ ] CLI commands: `sequoia status` PATH scans reduced from 5 to 0 (first call cached)
+- [x] `sync.Once` memoization added to `BaseAdapter.Detect()`
+- [x] `exec.LookPath` called exactly once per adapter per process
+- [x] Test verifies single invocation for repeated `Detect()` calls
+- [x] CLI commands: `sequoia status` PATH scans reduced from 5 to 0 (first call cached)
 
 **Effort**: small (<2h) | **Risk**: low | **Blocks**: P2-003, P2-008
 

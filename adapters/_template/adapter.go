@@ -40,10 +40,6 @@ func RegisterIn(reg *adapters.Registry) {
 	reg.RegisterFactory("template", func() adapters.ToolAdapter { return NewAdapter("") })
 }
 
-func init() {
-	RegisterIn(adapters.DefaultRegistry)
-}
-
 // NewAdapter creates an Adapter with an overridden home directory.
 // Pass an empty string to use the real home directory (production use).
 // Pass a temp directory in tests to avoid touching the real config directory.
@@ -186,7 +182,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 	}
 
 	// Stage command files (static — no rendering needed).
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		content, err := templateFS.ReadFile("templates/commands/" + cmd)
 		if err != nil {
 			return fmt.Errorf("install: read command %q: %w", cmd, err)
@@ -223,7 +219,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) error {
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
 		BackupDir: filepath.Join(baseBackup, "commands"),
-		Files:     common.CommandFiles,
+		Files:     common.CommandFiles(),
 	})
 	if err := cmdInstaller.Run(); err != nil {
 		_ = skillInstaller.Rollback()
@@ -268,7 +264,7 @@ func (a *Adapter) Uninstall(opts adapters.InstallOpts) error {
 	// Best-effort — missing files are not errors.
 	_ = os.Remove(filepath.Join(skillsPath(base), "SKILL.md"))
 	_ = os.Remove(versionFilePath(base))
-	for _, cmd := range common.CommandFiles {
+	for _, cmd := range common.CommandFiles() {
 		_ = os.Remove(filepath.Join(commandsPath(base), cmd))
 	}
 

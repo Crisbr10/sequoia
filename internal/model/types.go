@@ -111,6 +111,12 @@ type ProgressMsg struct {
 	Info string
 }
 
+// ProgressChannelBufferSize is the capacity of buffered channels that carry
+// ProgressMsg from install goroutines to the TUI event loop. A capacity of 64
+// prevents pipeline blocking during bursty progress updates while keeping
+// memory overhead negligible.
+const ProgressChannelBufferSize = 64
+
 // PersistenceBackend represents a supported artifact persistence backend.
 type PersistenceBackend string
 

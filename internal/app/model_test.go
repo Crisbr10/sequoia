@@ -29,7 +29,7 @@ func installedMock(id, name string, installed bool) *testutil.MockAdapter {
 
 func TestNewModel_StoresVersion(t *testing.T) {
 
-	m := app.NewModel("", "v9.9.9-test", adapters.DefaultRegistry)
+	m := app.NewModel("", "v9.9.9-test", adapters.NewRegistry())
 	assert.Equal(t, "v9.9.9-test", m.Version, "NewModel should store the version string")
 }
 
@@ -37,14 +37,14 @@ func TestNewModel_StoresVersion(t *testing.T) {
 // EngramAvailable is false — detection happens asynchronously via detectEngram().
 func TestNewModel_EngramAvailableDefaultsFalse(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	assert.False(t, m.EngramAvailable,
 		"EngramAvailable should default to false; detection happens asynchronously via Init()")
 }
 
 func TestNewModel_DefaultScreen(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "new model should default to ScreenWelcome")
 }
 
@@ -68,14 +68,14 @@ func TestNewModel_PopulatesTools(t *testing.T) {
 
 func TestNewModel_ProgressChannel(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	require.NotNil(t, m.Progress, "Progress channel should be allocated")
 	assert.Equal(t, 64, cap(m.Progress), "Progress channel buffer capacity should be 64")
 }
 
 func TestNewModel_InitReturnsCmd(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	cmd := m.Init()
 	// Init now returns a tea.Batch wrapping detectEngram (async engram detection).
 	assert.NotNil(t, cmd, "Init should return detecEngram batch command for async detection")
@@ -83,7 +83,7 @@ func TestNewModel_InitReturnsCmd(t *testing.T) {
 
 func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	var _ tea.Model = m // compile-time check
 	_ = m.Init()
 	_, _ = m.Update(nil)
@@ -92,7 +92,7 @@ func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
 
 func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, cmd := m.Update(msg)
@@ -105,7 +105,7 @@ func TestWindowSizeMsg_UpdatesDimensions(t *testing.T) {
 
 func TestKeyMsg_Q_Quits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	updated, cmd := m.Update(msg)
@@ -119,7 +119,7 @@ func TestKeyMsg_Q_Quits(t *testing.T) {
 
 func TestKeyMsg_CtrlC_Quits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -132,7 +132,7 @@ func TestKeyMsg_CtrlC_Quits(t *testing.T) {
 
 func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 
 	// These should not panic.
 	require.NotPanics(t, func() {
@@ -150,7 +150,7 @@ func TestEmptyModel_CompilesAndRunsWithoutPanic(t *testing.T) {
 
 func TestNavigateMsg_TransitionsScreen(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	assert.Equal(t, model.ScreenWelcome, m.Screen, "initial screen should be Welcome")
 
 	// Send NavigateMsg targeting ToolSelection.
@@ -163,7 +163,7 @@ func TestNavigateMsg_TransitionsScreen(t *testing.T) {
 
 func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	// Manually set to InstallProgress to simulate post-install.
 	m.Screen = model.ScreenInstallProgress
 
@@ -176,7 +176,7 @@ func TestNavigateMsg_ToComplete_TransitionsScreen(t *testing.T) {
 
 func TestUnknownMsg_DoesNotPanic(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 
 	type unknownMsg struct{}
 	require.NotPanics(t, func() {
@@ -186,7 +186,7 @@ func TestUnknownMsg_DoesNotPanic(t *testing.T) {
 
 func TestWelcomeView_RendersContent(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	view := m.View()
 
 	// Should NOT be the default placeholder — screens are wired.
@@ -198,7 +198,7 @@ func TestWelcomeView_RendersContent(t *testing.T) {
 
 func TestWelcomeView_EnterNavigatesToToolSelection(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 
 	updated, cmd := m.Update(msg)
@@ -237,7 +237,7 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 
 func TestToolSelection_EscNavigatesToWelcome(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenToolSelection
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
 
@@ -341,7 +341,7 @@ func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
 
 func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenConfiguration
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -383,7 +383,7 @@ func TestInstallProgressView_RendersProgressTable(t *testing.T) {
 
 func TestInstallProgress_QQuitsFromProgress(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenInstallProgress
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -422,7 +422,7 @@ func TestCompleteView_RendersSuccess(t *testing.T) {
 
 func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
@@ -438,7 +438,7 @@ func TestComplete_RKeyNavigatesToStatus(t *testing.T) {
 
 func TestComplete_QKeyQuits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -659,7 +659,7 @@ func TestUninstall_SpaceTogglesSelection(t *testing.T) {
 
 func TestUninstall_EscGoesBackToStatus(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -695,7 +695,7 @@ func TestUninstallConfirm_YConfirmsAndStartsPipeline(t *testing.T) {
 
 func TestUninstallConfirm_NCancelsConfirmation(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
 	m.UninstallConfirming = true
 
@@ -831,7 +831,7 @@ func TestUpdateScreenMsg_ProgressMsgContinuesPolling(t *testing.T) {
 
 func TestUpdateScreenMsg_NonInstallProgressScreen_NoOp(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenWelcome
 
 	msg := model.ProgressMsg{ToolID: "test", Step: "Skills", Done: true}
@@ -871,7 +871,7 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 
 func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenStatus
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -885,7 +885,7 @@ func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 
 func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -899,7 +899,7 @@ func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 
 func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 
-	m := app.NewModel("", "test", adapters.DefaultRegistry)
+	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenComplete
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -917,7 +917,7 @@ func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 func TestNewModel_NoExecLookPath(t *testing.T) {
 
 	start := time.Now()
-	_ = app.NewModel("", "test", adapters.DefaultRegistry)
+	_ = app.NewModel("", "test", adapters.NewRegistry())
 	elapsed := time.Since(start)
 
 	// NewModel should return in well under 100ms when no exec.LookPath blocks.

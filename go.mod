@@ -34,3 +34,5 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 )
+
+replace go.yaml.in/yaml/v3 v3.0.4 => gopkg.in/yaml.v3 v3.0.0

@@ -370,7 +370,7 @@ func (m *Model) startPipeline(mode string) tea.Cmd {
 	// Allocate a fresh channel on every invocation. The previous channel
 	// (if any) was closed by the prior pipeline run. Reusing it would cause
 	// a panic in sendProgress. See REQ-BUG-002.
-	m.Progress = make(chan model.ProgressMsg, 64)
+	m.Progress = make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
 
 	if mode == "install" {
 		m.OperationMode = "install"

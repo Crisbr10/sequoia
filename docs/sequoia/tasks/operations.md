@@ -197,11 +197,11 @@
 **Fix**: Create separate GitHub token with repo-scoped access to `scoop-sequoia`. Add `SCOOP_TAP_TOKEN` secret. Update `.goreleaser.yaml` scoops section.
 
 **Acceptance Criteria**:
-- [ ] Separate GitHub token created with scope limited to `scoop-sequoia` repo
-- [ ] `SCOOP_TAP_TOKEN` secret added to repository
-- [ ] `.goreleaser.yaml` scoops section uses `{{ .Env.SCOOP_TAP_TOKEN }}`
-- [ ] Homebrew section continues using `HOMEBREW_TAP_TOKEN` (already scoped correctly)
-- [ ] Release workflow verified: both repos receive updates
+- [x] Separate GitHub token created with scope limited to `scoop-sequoia` repo
+- [x] `SCOOP_TAP_TOKEN` secret added to repository
+- [x] `.goreleaser.yaml` scoops section uses `{{ .Env.SCOOP_TAP_TOKEN }}`
+- [x] Homebrew section continues using `HOMEBREW_TAP_TOKEN` (already scoped correctly)
+- [x] Release workflow verified: both repos receive updates
 
 **Effort**: small (<30m) | **Risk**: low | **Blocks**: none
 

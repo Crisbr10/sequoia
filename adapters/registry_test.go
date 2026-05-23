@@ -102,12 +102,11 @@ func TestRegistry_RegisterDuplicate_ReplacesExisting(t *testing.T) {
 func TestFactory_NewAdapter_KnownID(t *testing.T) {
 	t.Parallel()
 
-	// Register into DefaultRegistry directly for the factory test.
-	// Use a unique ID to avoid collisions with parallel tests.
+	r := adapters.NewRegistry()
 	a := &testutil.MockAdapter{IDVal: "factory-test-known", NameVal: "Factory Known"}
-	adapters.DefaultRegistry.Register(a)
+	r.Register(a)
 
-	got, err := adapters.DefaultRegistry.Get("factory-test-known")
+	got, err := r.Get("factory-test-known")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, "factory-test-known", got.ID())
@@ -116,7 +115,8 @@ func TestFactory_NewAdapter_KnownID(t *testing.T) {
 func TestFactory_NewAdapter_UnknownID(t *testing.T) {
 	t.Parallel()
 
-	_, err := adapters.DefaultRegistry.Get("this-id-was-never-registered-xyz123")
+	r := adapters.NewRegistry()
+	_, err := r.Get("this-id-was-never-registered-xyz123")
 	assert.ErrorIs(t, err, adapters.ErrUnknownAdapter)
 }
 

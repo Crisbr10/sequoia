@@ -77,12 +77,12 @@ type BaseAdapter struct {
 // strategyPhaseState holds the shared state across Strategy phase calls.
 // It is reset when Prepare() starts a new operation.
 type strategyPhaseState struct {
-	base           string     // resolved config root directory
-	backupDir      string     // unique backup directory for this session
-	stagingDir     string     // temp directory with staged template files
+	base           string      // resolved config root directory
+	backupDir      string      // unique backup directory for this session
+	stagingDir     string      // temp directory with staged template files
 	data           interface{} // template rendering data
-	skillInstaller *Installer // skill Installer created in Stage()
-	cmdInstaller   *Installer // command Installer created in Stage()
+	skillInstaller *Installer  // skill Installer created in Stage()
+	cmdInstaller   *Installer  // command Installer created in Stage()
 }
 
 // SetIDName sets the adapter's unique ID and human-readable name.

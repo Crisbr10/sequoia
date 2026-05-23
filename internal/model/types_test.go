@@ -290,6 +290,16 @@ func TestInstallResult_Construction(t *testing.T) {
 	}
 }
 
+func TestProgressChannelBufferSize_Constant(t *testing.T) {
+	t.Parallel()
+
+	// ProgressChannelBufferSize must be 64 — the capacity used for
+	// buffered progress channels to prevent pipeline blocking during
+	// bursty progress updates.
+	require.Equal(t, 64, model.ProgressChannelBufferSize,
+		"ProgressChannelBufferSize must be 64 to match the documented buffer capacity")
+}
+
 func TestProgressMsg_Construction(t *testing.T) {
 	t.Parallel()
 

@@ -6,25 +6,25 @@
 
 ## 🟡 MEDIUM Findings
 
-### P4-001: Remove typosquat package from go.sum
+### ✅ P4-001: Remove typosquat package from go.sum
 
 **Problem**: `go.sum` contains `go.yaml.in/yaml/v3` — NOT the legitimate `gopkg.in/yaml.v3`. This domain (`yaml.in`) appears to be a typosquatting attempt. While no source code imports it, its presence in go.sum is a supply chain risk.
 
 **Evidence**:
 - `go.sum` includes an entry for `go.yaml.in/yaml/v3`
 - `grep` confirms zero source code imports of this package
-- The entry is likely stale from a transitive dependency that was later removed
-- `go mod tidy` should clean it, but hasn't been run recently
+- ~~The entry is likely stale from a transitive dependency that was later removed~~ **→ Resultó ser una dependencia activa de Cobra v1.10.2**
+- ~~`go mod tidy` should clean it, but hasn't been run recently~~ **→ `go mod tidy` solo no bastaba; Cobra depende activamente de este módulo**
 
-**Fix**: Run `go mod tidy`. Verify removal. Add `go mod verify` to CI lint job.
+**Fix**: ~~Run `go mod tidy`. Verify removal. Add `go mod verify` to CI lint job.~~ **→ Se aplicó `replace go.yaml.in/yaml/v3 v3.0.4 => gopkg.in/yaml.v3 v3.0.0` en go.mod (Cobra tiene dependencia activa del typosquat). Se agregó `go mod verify` al job de lint en CI.**
 
 **Acceptance Criteria**:
-- [ ] `go.yaml.in/yaml/v3` removed from `go.sum`
-- [ ] `go mod tidy` produces no diff (clean state)
-- [ ] `go mod verify` added to CI lint job
-- [ ] No source code imports the suspicious package
+- [x] `go.yaml.in/yaml/v3` removed from `go.sum`
+- [x] `go mod tidy` produces no diff (clean state)
+- [x] `go mod verify` added to CI lint job
+- [x] No source code imports the suspicious package
 
-**Effort**: small (<5m) | **Risk**: medium | **Blocks**: none
+**Effort**: small (<5m) | **Risk**: medium | **Blocks**: none | **Resuelto**: 2026-05-22 (SDD fast-forward, verify PASS 4/4)
 
 ---
 
@@ -51,11 +51,11 @@
 
 ---
 
-### P4-003: Add error context to bare error returns
+### ✅ P4-003: Add error context to bare error returns
 
 **Problem**: `adapters/common/strategy.go` returns bare errors without context in several functions. Install failures lack debugging information — callers can't determine what operation failed or why.
 
-**Root Cause**: CORR-004 (Common Package Architectural Bottleneck)
+**Root Cause**: CORR-004 (Common Package Architectural Bottleneck) — **RESUELTO 2026-05-22**
 
 **Evidence**:
 - Pattern: `return err` instead of `return fmt.Errorf("installing %s: %w", name, err)`
@@ -65,16 +65,16 @@
 **Fix**: Wrap all errors in `strategy.go` with operation context. Include file paths, adapter name, and the operation being performed.
 
 **Acceptance Criteria**:
-- [ ] All bare `return err` in `strategy.go` replaced with contextual wrapping
-- [ ] Error messages include: operation name, file path, adapter identifier
-- [ ] `fmt.Errorf` used consistently (not `errors.Wrap` or custom wrappers)
-- [ ] Test verifies error messages contain expected context
+- [x] All bare `return err` in `strategy.go` replaced with contextual wrapping → 14 bare returns wrapped in `strategy.go` + `files.go`
+- [x] Error messages include: operation name, file path, adapter identifier → `fmt.Errorf` with `%w` preserving error chain
+- [x] `fmt.Errorf` used consistently (not `errors.Wrap` or custom wrappers) → verified
+- [x] Test verifies error messages contain expected context → 8 tests with `errors.Is` verifying chain preservation
 
-**Effort**: small (<2h) | **Risk**: low | **Blocks**: CORR-004
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: CORR-004 | **Completado**: 2026-05-22 (PR 1 de CORR-004)
 
 ---
 
-### P4-004: Extract magic number 64 as named constant
+### ✅ P4-004: Extract magic number 64 as named constant
 
 **Problem**: Channel buffer capacity `64` is hardcoded across 22+ files including `internal/app/model.go:48,128`. The value has no semantic name and changing it requires touching every occurrence.
 
@@ -86,10 +86,10 @@
 **Fix**: Define `const ProgressChannelBufferSize = 64` in `internal/model/types.go` (near existing `ProgressMsg` definition). Replace all occurrences.
 
 **Acceptance Criteria**:
-- [ ] `ProgressChannelBufferSize` constant defined in `internal/model/types.go`
-- [ ] All `make(chan model.ProgressMsg, 64)` references use the constant
-- [ ] Test occurrences also use the constant
-- [ ] Comment preserved alongside constant definition
+- [x] `ProgressChannelBufferSize` constant defined in `internal/model/types.go`
+- [x] All `make(chan model.ProgressMsg, 64)` references use the constant
+- [x] Test occurrences also use the constant
+- [x] Comment preserved alongside constant definition
 
 **Effort**: small (<1h) | **Risk**: low | **Blocks**: none
 
@@ -133,11 +133,11 @@
 
 ---
 
-### P4-007: Replace blanket gosec exclusions with line-level nolint
+### ✅ P4-007: Replace blanket gosec exclusions with line-level nolint
 
 **Problem**: CI gosec configuration uses file-level exclusions that hide real security issues. A new security-relevant code added to an excluded file gets silently ignored.
 
-**Root Cause**: CORR-004 (Common Package Architectural Bottleneck)
+**Root Cause**: CORR-004 (Common Package Architectural Bottleneck) — **RESUELTO 2026-05-22**
 
 **Evidence**:
 - gosec configuration excludes entire files or patterns
@@ -147,12 +147,12 @@
 **Fix**: Remove blanket file exclusions. Add line-level `//nolint:gosec` with justification comments only where false positives are confirmed. This ensures new code is always scanned.
 
 **Acceptance Criteria**:
-- [ ] File-level gosec exclusions removed
-- [ ] Line-level `//nolint:gosec` added with justification comments
-- [ ] CI gosec step still passes with line-level nolints
-- [ ] New code in previously excluded files is scanned
+- [x] File-level gosec exclusions removed → `.golangci.yaml` cleaned of blanket adapter exclusions
+- [x] Line-level `//nolint:gosec` added with justification comments → 24 production nolints with `GXXX: justification` across 7 files
+- [x] CI gosec step still passes with line-level nolints → `golangci-lint run` → 0 issues
+- [x] New code in previously excluded files is scanned → verified: no blanket exclusions remain
 
-**Effort**: medium (4-8h) | **Risk**: medium (may surface false positives) | **Blocks**: CORR-004
+**Effort**: medium (4-8h) | **Risk**: medium (may surface false positives) | **Blocks**: CORR-004 | **Completado**: 2026-05-22 (PR 4 de CORR-004)
 
 ---
 
@@ -213,14 +213,14 @@
 | 🟡 MED | P4-001 | Clean typosquat go.sum entry | small | — |
 | 🟡 MED | P4-005 | Make vulncheck blocking | small | — |
 | 🟡 MED | P4-002 | Generate actual coverage data | small | P4-006 |
-| 🟡 MED | P4-004 | Extract magic number constant | small | — |
-| 🟡 MED | P4-003 | Add error context in strategy.go | small | CORR-004 |
+| 🟡 MED | P4-004 | ✅ Extract magic number constant | small | — |
+| 🟡 MED | P4-003 | ✅ Add error context in strategy.go | small | CORR-004 |
 | 🟡 MED | P4-006 | Enforce coverage threshold | small | P4-002 |
 | 🟡 MED | P4-009 | Standardize error wrapping | small | — |
 | 🟡 MED | P4-008 | Fix test registry pollution | small | CORR-002 |
 | 🟡 MED | P4-010 | Add _template tests | small | P3-007 |
-| 🟡 MED | P4-007 | Replace blanket gosec exclusions | medium | CORR-004 |
+| 🟡 MED | P4-007 | ✅ Replace blanket gosec exclusions | medium | CORR-004 |
 
-**Priority Order**: P4-001 (immediate: supply chain) → P4-005 (immediate: CVE bypass) → P4-002 + P4-006 (coverage pipeline) → P4-004 + P4-003 + P4-009 (code quality batch) → P4-008 (post-CORR-002) → P4-007 + P4-010 (medium effort)
+**Priority Order**: P4-001 (immediate: supply chain) → P4-005 (immediate: CVE bypass) → P4-002 + P4-006 (coverage pipeline) → P4-004 + ~~P4-003~~ ✅ + P4-009 (code quality batch) → P4-008 (post-CORR-002) → ~~P4-007~~ ✅ + P4-010 (medium effort)
 
 *Generated by Sequoia M2 Reporter — audit-20260521-sequoia-ai | Schema v1.0*

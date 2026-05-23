@@ -6,8 +6,8 @@ import (
 )
 
 // Registry holds all registered ToolAdapters indexed by their ID.
-// Use Register to add adapters — typically called from adapter init() functions,
-// following the database/sql self-registration pattern.
+// Use Register to add adapters via dependency injection — call adapter.RegisterIn(reg)
+// to populate a registry.
 //
 // Use RegisterFactory to defer construction until first Get() or All().
 // Factories are guarded by per-key sync.Once for thread-safe lazy construction.
@@ -36,12 +36,6 @@ func NewRegistry() *Registry {
 		onces:     make(map[string]*sync.Once),
 	}
 }
-
-// DefaultRegistry is the global adapter registry used by NewAdapter.
-// Deprecated: prefer NewRegistry() constructor and dependency injection.
-// init() functions in adapter sub-packages still register here for backward
-// compatibility. New code should use constructor DI via NewRegistry().
-var DefaultRegistry = NewRegistry()
 
 // Register adds a to the registry.
 // If an adapter with the same ID already exists, it is replaced.

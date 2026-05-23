@@ -141,19 +141,19 @@
 
 ---
 
-### P1-009: Remove typosquat package from go.sum
+### ✅ P1-009: Remove typosquat package from go.sum
 
-**Problem**: `go.sum` line 52 contains `go.yaml.in/yaml/v3` — NOT the legitimate `gopkg.in/yaml.v3`. This appears to be a domain squatting on `yaml.in`.
+**Problem**: `go.sum` line 52 contains `go.yaml.in/yaml/v3` — NOT the legitimate `gopkg.in/yaml.v3`. This appears to be a domain squatting on `yaml.in`. Cobra v1.10.2 tiene dependencia activa del typosquat, por lo que `go mod tidy` solo no bastaba.
 
-**Fix**: Run `go mod tidy` to clean stale entries. Verify no source code imports the suspicious package. Add CI step running `go mod verify`.
+**Fix**: Se aplicó `replace go.yaml.in/yaml/v3 v3.0.4 => gopkg.in/yaml.v3 v3.0.0` en `go.mod`. Se agregó `go mod verify` al job de lint en CI.
 
 **Acceptance Criteria**:
-- [ ] `go.yaml.in/yaml/v3` removed from `go.sum`
-- [ ] `grep` confirms zero source imports of the suspicious package
-- [ ] `go mod verify` added to CI lint job
-- [ ] No `go mod tidy` diff after cleanup
+- [x] `go.yaml.in/yaml/v3` removed from `go.sum`
+- [x] `grep` confirms zero source imports of the suspicious package
+- [x] `go mod verify` added to CI lint job
+- [x] No `go mod tidy` diff after cleanup
 
-**Effort**: small (<5m) | **Risk**: medium | **Blocks**: none
+**Effort**: small (<5m) | **Risk**: medium | **Blocks**: none | **Resuelto**: 2026-05-22 (SDD fast-forward, verify PASS 4/4)
 
 ---
 
@@ -178,7 +178,7 @@
 | Priority | Finding | Title | Effort | Blocks |
 |----------|---------|-------|--------|--------|
 | 🔴 CRITICAL | P1-001 | Binary verification in release | medium | CORR-001 |
-| 🟡 | P1-009 | Clean typosquat go.sum entry | small | — |
+| ✅ | P1-009 | Clean typosquat go.sum entry | small | — |
 | 🟡 | P1-002 | File permissions on install | small | — |
 | 🟡 | P1-003 | Probe file permissions | small | — |
 | 🟡 | P1-004 | Remove init() auto-registration | medium | CORR-002 |

@@ -53,9 +53,11 @@ PromptStrategy()  → injection strategy
 
 ### Registry
 
-Adapters self-register via `init()` following the `database/sql` pattern.
-See `adapters/registry.go` — `Register()` adds adapters, `Get(id)` retrieves
-them, `All()` returns everything in registration order.
+Adapters are registered via explicit dependency injection. Callers create a
+`*Registry` with `adapters.NewRegistry()` and populate it by calling each
+adapter's `RegisterIn(reg)` function. See `adapters/registry.go` —
+`Register()` adds adapters, `Get(id)` retrieves them, `All()` returns
+everything in registration order.
 
 ### Common Installer
 
@@ -95,7 +97,8 @@ Replace `{tool}` with a short lowercase identifier (e.g. `claude`, `opencode`,
 Create `adapters/{tool}/adapter.go`. It must:
 
 1. Implement the full `ToolAdapter` interface
-2. Have an `init()` function that calls `adapters.DefaultRegistry.Register()`
+2. Provide a `RegisterIn(reg *adapters.Registry)` function for explicit DI
+   (callers invoke it on a `*Registry` they own)
 3. Accept a `homeDir string` field for testability (use `os.UserHomeDir()`
    when empty)
 4. Provide a `NewAdapter(homeDir string)` constructor for tests
@@ -114,8 +117,11 @@ type Adapter struct {
     homeDir string
 }
 
-func init() {
-    adapters.DefaultRegistry.Register(&Adapter{})
+// RegisterIn registers this adapter in the given registry.
+func RegisterIn(reg *adapters.Registry) {
+    reg.RegisterFactory("{tool-id}", func() adapters.ToolAdapter {
+        return NewAdapter("")
+    })
 }
 
 func NewAdapter(homeDir string) *Adapter {
@@ -228,17 +234,25 @@ returning the error.
 
 ### Step 7: Register in `cmd/sequoia/main.go`
 
-Add a blank import at the top of `cmd/sequoia/main.go`:
+Add a named import at the top of `cmd/sequoia/main.go` and call the adapter's
+`RegisterIn()` with the explicit registry:
 
 ```go
 import (
     // ... existing imports ...
-    _ "sequoia-ai/adapters/{tool}"
+    adapterTool "sequoia-ai/adapters/{tool}"
 )
+
+func main() {
+    reg := adapters.NewRegistry()
+    // ... other adapter registrations ...
+    adapterTool.RegisterIn(reg)
+    // ...
+}
 ```
 
-This triggers the `init()` function and registers the adapter. That's it —
-the CLI, TUI, and all infrastructure pick it up automatically.
+The CLI, TUI, and all infrastructure pick it up automatically — no global
+state or import-time side effects needed.
 
 ### Step 8: Write Tests
 
