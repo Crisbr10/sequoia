@@ -64,6 +64,7 @@ func (i *Installer) Prepare() error {
 	// explicit 0o600 to avoid leaking a world-readable empty file during the
 	// brief window before deferred cleanup.
 	probe := filepath.Join(cfg.TargetDir, ".sequoia-probe")
+	//nolint:gosec // G304: probe is a known .sequoia-probe path inside TargetDir, not user input
 	f, err := os.OpenFile(probe, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("prepare: target directory not writable: %w", err)
