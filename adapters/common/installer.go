@@ -198,7 +198,7 @@ func copyFile(src, dst string) error {
 	}
 	defer func() { _ = in.Close() }()
 
-	out, err := os.Create(dst) //nolint:gosec // G304: src/dst are paths from embedded config, not user input
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644) //nolint:gosec // G304: src/dst are paths from embedded config, not user input
 	if err != nil {
 		return fmt.Errorf("create dest %q: %w", dst, err)
 	}

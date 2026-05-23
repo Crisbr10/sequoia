@@ -511,5 +511,93 @@ func TestStageFileIfNotExist_CreatesParentDirs(t *testing.T) {
 	assert.Equal(t, "hello\n", string(data))
 }
 
+// =========================================================================
+// P1-002: Explicit file permissions on installed files
+// =========================================================================
+
+// TestInstaller_CopyFilePermissions_NotWorldWritable verifies that files
+// installed by copyFile (via Installer.Apply) are created with explicit
+// 0o644 permissions — owner rw, group r, other r — and NOT world-writable.
+// Skipped on Windows: Go's os package does not enforce Unix permission bits
+// on Windows (ACL-based model); the fix is effective on Linux/macOS.
+func TestInstaller_CopyFilePermissions_NotWorldWritable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "backup")
+
+	writeFile(t, srcDir, "alpha.txt", "content-alpha")
+
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir,
+		Files:     []string{"alpha.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+
+	require.NoError(t, inst.Prepare())
+	require.NoError(t, inst.Apply())
+
+	info, err := os.Stat(filepath.Join(dstDir, "alpha.txt"))
+	require.NoError(t, err)
+
+	perm := info.Mode().Perm()
+
+	// Security: installed files must NOT be world-writable.
+	assert.Zero(t, perm&0o002, "installed file must not be world-writable (0o002 bit)")
+
+	// Security: installed files must NOT be group-writable.
+	assert.Zero(t, perm&0o020, "installed file must not be group-writable (0o020 bit)")
+
+	// Explicit permission check: installed files should be 0o644.
+	assert.Equal(t, os.FileMode(0o644), perm,
+		"installed file must have explicit 0o644 permissions (owner rw, group r, other r)")
+}
+
+// TestInstaller_CopyFilePermissions_MultipleFiles verifies that ALL files
+// installed by copyFile (triangulation) get correct 0o644 permissions,
+// not just the first file.
+// Skipped on Windows: same reasoning as above.
+func TestInstaller_CopyFilePermissions_MultipleFiles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test requires Unix semantics — skipping on Windows")
+	}
+	t.Parallel()
+
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "backup")
+
+	writeFile(t, srcDir, "one.txt", "content-1")
+	writeFile(t, srcDir, "two.txt", "content-2")
+	writeFile(t, srcDir, "three.txt", "content-3")
+
+	cfg := common.InstallerConfig{
+		SourceDir: srcDir,
+		TargetDir: dstDir,
+		BackupDir: backupDir,
+		Files:     []string{"one.txt", "two.txt", "three.txt"},
+	}
+	inst := common.NewInstaller(cfg)
+
+	require.NoError(t, inst.Prepare())
+	require.NoError(t, inst.Apply())
+
+	for _, name := range []string{"one.txt", "two.txt", "three.txt"} {
+		info, err := os.Stat(filepath.Join(dstDir, name))
+		require.NoError(t, err, "installed file %s should exist", name)
+
+		perm := info.Mode().Perm()
+		assert.Zero(t, perm&0o002, "file %s must not be world-writable", name)
+		assert.Equal(t, os.FileMode(0o644), perm,
+			"file %s must have explicit 0o644 permissions", name)
+	}
+}
+
 // NOTE: TestConfigFiles_HasExpectedEntries already exists in shared_test.go
 // (added in Batch 2). No duplicate needed here.

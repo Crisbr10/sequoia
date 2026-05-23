@@ -27,18 +27,18 @@
 
 ## 🟡 MEDIUM Findings
 
-### P1-002: Explicit file permissions on installed files
+### ✅ P1-002: Explicit file permissions on installed files
 
 **Problem**: `copyFile` at `adapters/common/installer.go:200` uses `os.Create(dst)` which creates files with umask-dependent permissions. Installed skill/command files could be world-readable on misconfigured systems.
 
-**Fix**: Use `os.OpenFile(dst, os.O_CREATE|os.O_WRONLY, 0o644)` instead of `os.Create`. Add `os.Chmod` fallback after `os.Create` if using that path. Verify `StageFile` at `installer.go:109` already uses `os.WriteFile` with `0o644`.
+**Fix**: Se cambió `os.Create(dst)` por `os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)`. `StageFile` ya usaba `os.WriteFile` con `0o644` (correcto). `AtomicWriteFile` recibe `perm os.FileMode` explícito de todos sus 14+ callers (correcto).
 
 **Acceptance Criteria**:
-- [ ] `copyFile` creates destination file with explicit `0o644` permissions
-- [ ] Test verifies installed files are not world-writable
-- [ ] Audit `StageFile` and `AtomicWriteFile` for consistent permission handling
+- [x] `copyFile` creates destination file with explicit `0o644` permissions
+- [x] Test verifies installed files are not world-writable
+- [x] Audit `StageFile` and `AtomicWriteFile` for consistent permission handling
 
-**Effort**: small (<2h) | **Risk**: low | **Blocks**: none
+**Effort**: small (<2h) | **Risk**: low | **Blocks**: none | **Resuelto**: 2026-05-23 (SDD fast-forward, verify PASS 4/4)
 
 ---
 
@@ -179,7 +179,7 @@
 |----------|---------|-------|--------|--------|
 | 🔴 CRITICAL | P1-001 | Binary verification in release | medium | CORR-001 |
 | ✅ | P1-009 | Clean typosquat go.sum entry | small | — |
-| 🟡 | P1-002 | File permissions on install | small | — |
+| ✅ | P1-002 | File permissions on install | small | — |
 | 🟡 | P1-003 | Probe file permissions | small | — |
 | 🟡 | P1-004 | Remove init() auto-registration | medium | CORR-002 |
 | 🟡 | P1-005 | Sanitize home path output | small | — |

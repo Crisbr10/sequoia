@@ -32,9 +32,9 @@
 └──► P4-003 (error context) ✅
 
 Independent Quick Wins:
-P2-001  Detect caching          P4-001  go.sum cleanup
-P4-004  Magic number 64         P6-007  Audit command
-P6-009  Separate tokens         P6-010  Structured logging
+~~P2-001  Detect caching~~ ✅     ~~P4-001  go.sum cleanup~~ ✅
+~~P4-004  Magic number 64~~ ✅    P6-007  Audit command
+~~P6-009  Separate tokens~~ ✅    P6-010  Structured logging
 ```
 
 ---
@@ -58,11 +58,11 @@ High impact, independent, can be done in parallel:
 
 | Task | Phase | Resolves | Effort |
 |------|-------|----------|--------|
-| P2-001 | Perf | Uncached PATH scans → reduces CLI latency ~40% | small |
-| P4-001 | Quality | Typosquat entry in go.sum → supply chain safe | small |
-| P4-004 | Quality | Magic number constant → consistency across 22+ files | small |
+| P2-001 | Perf | Uncached PATH scans → reduces CLI latency ~40% | small | ✅ COMPLETED |
+| P4-001 | Quality | Typosquat entry in go.sum → supply chain safe | small | ✅ COMPLETED |
+| P4-004 | Quality | Magic number constant → consistency across 22+ files | small | ✅ COMPLETED |
 | ~~P6-005~~ | Ops | CODEOWNERS → enforces review on release path | small | ✅ (in CORR-001) |
-| P6-009 | Ops | Separate tokens → least privilege | small |
+| P6-009 | Ops | Separate tokens → least privilege | small | ✅ COMPLETED |
 | CORR-002 | Arch+Sec | 4 findings, removes global mutable state | medium | ✅ COMPLETED |
 | CORR-004 | Arch+Quality | 5 findings, splits god package | large | ✅ COMPLETED |
 
@@ -94,8 +94,8 @@ Structural improvements, lower urgency, can schedule after Tier 1+2:
 |------|-----------|-----------|
 | **Release Safety** | **LOW** | ✅ CORR-001 resolved — approval gates, binary verification, CODEOWNERS, smoke tests, and cross-platform testing now in place. |
 | **CI Integrity** | **LOW** | ✅ CI phased with blocking vulncheck, coverage gate at 70%, 5-OS matrix (CORR-001). |
-| **Supply Chain** | **MEDIUM** | ✅ Actions pinned to commit SHAs (CORR-001). Binary verification in place. Typosquat entry in go.sum still pending. |
-| **TUI Performance** | **MEDIUM** | Frame-rate I/O causing jank on slow storage. Easily fixable — all fixes are caching changes. |
+| **Supply Chain** | **LOW** | ✅ Actions pinned to commit SHAs (CORR-001). Binary verification in place. Typosquat entry resolved (P4-001: replace directive + go mod verify in CI). |
+| **TUI Performance** | **LOW** | ✅ CORR-003 (precompute logo, cache styles, Grow hints, lazy adapter) + P2-001 (PATH scan caching). All fixes applied. |
 | **Architecture Debt** | **LOW** | ✅ CORR-002 (global state) + CORR-004 (pipeline/ISP/Strategy/gosec) resolved. Only P3-005 (package split), P3-006 (type assertions), P3-007 (template alignment) remain. |
 | **Code Quality** | **LOW** | Strong fundamentals: 65 test files, parallel tests, zero lint suppressions. Issues are small, isolated improvements. |
 | **User Security** | **LOW** | Only minor file permission concerns found. No PII handling, no network I/O, no authentication. |
@@ -107,9 +107,9 @@ Structural improvements, lower urgency, can schedule after Tier 1+2:
 | Tier | Tasks | Estimated Total Effort |
 |------|-------|----------------------|
 | 🔴 Tier 1 (Blocking) | ~~4~~ ✅ COMPLETED | ✅ Done |
-| 🟠 Tier 2 (High Leverage) | ~~7~~ 4 remaining | ~~36–56~~ 8–24 hours |
+| 🟠 Tier 2 (High Leverage) | ~~7~~ ✅ COMPLETED | ✅ Done |
 | 🟡 Tier 3 (Backlog) | 14 tasks | 20–36 hours |
-| **Total** | **~~25~~ 18 remaining** | **~~96–148~~ 28–60 hours** |
+| **Total** | **~~25~~ 14 remaining** | **~~96–148~~ 20–36 hours** |
 
 ---
 
