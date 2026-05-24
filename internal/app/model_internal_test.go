@@ -113,8 +113,37 @@ func TestBuildUninstallProgressTools_OnlySelectedAndInstalled(t *testing.T) {
 	assert.Equal(t, "a", result[0].ToolID)
 	assert.Equal(t, "A", result[0].ToolName)
 
+	// Uninstall should have exactly 1 step: "Uninstalling"
+	require.Len(t, result[0].Steps, 1, "uninstall should have exactly 1 step: Uninstalling")
+	assert.Equal(t, "Uninstalling", result[0].Steps[0].Name)
+
 	for _, step := range result[0].Steps {
 		assert.Equal(t, screens.StepPending, step.Status, "all steps should start pending")
+	}
+}
+
+// TestBuildUninstallProgressTools_UsesUninstallingStep verifies that
+// buildUninstallProgressTools uses the single "Uninstalling" step
+// (matching what runUninstallSteps sends), not the multi-phase
+// InstallSteps. Without this alignment, the progress UI freezes
+// because step names never match the messages from the pipeline.
+func TestBuildUninstallProgressTools_UsesUninstallingStep(t *testing.T) {
+	tools := []model.ToolState{
+		{Adapter: &stubAdapter{id: "tool-a", name: "Tool A", installed: true}, Selected: true},
+		{Adapter: &stubAdapter{id: "tool-b", name: "Tool B", installed: true}, Selected: true},
+	}
+
+	result := buildUninstallProgressTools(tools)
+	require.Len(t, result, 2, "both selected+installed tools should be included")
+
+	for i := range result {
+		t.Run(result[i].ToolName, func(t *testing.T) {
+			require.Len(t, result[i].Steps, 1, "uninstall should have exactly 1 step, not 5 install phases")
+			assert.Equal(t, "Uninstalling", result[i].Steps[0].Name,
+				"the single step must be 'Uninstalling' to match runUninstallSteps")
+			assert.Equal(t, screens.StepPending, result[i].Steps[0].Status,
+				"step should start pending")
+		})
 	}
 }
 

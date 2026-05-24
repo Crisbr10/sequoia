@@ -339,8 +339,10 @@ func buildProgressTools(tools []model.ToolState) []screens.ProgressTool {
 
 // buildUninstallProgressTools creates progress state for uninstall.
 // Only tools that are BOTH selected and installed are included.
+// Uses a single "Uninstalling" step to match the single-phase uninstall
+// dispatched by runUninstallSteps in the pipeline.
 func buildUninstallProgressTools(tools []model.ToolState) []screens.ProgressTool {
-	stepNames := pipeline.InstallSteps
+	stepNames := []string{"Uninstalling"}
 	var result []screens.ProgressTool
 	for _, ts := range tools {
 		if !ts.Selected || !ts.Adapter.IsInstalled() {
