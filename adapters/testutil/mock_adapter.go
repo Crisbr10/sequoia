@@ -134,13 +134,13 @@ var _ adapters.AdapterPaths = (*MockAdapterPaths)(nil)
 // It also satisfies common.Strategy so that the pipeline's type assertions
 // succeed when the adapter passes through production wrappers (e.g. toolInfoAdapter).
 type MockAdapter struct {
-	IDFunc               func() string
-	NameFunc             func() string
-	DetectFunc           func() bool
-	IsInstalledFunc      func() bool
-	InstallFunc          func(adapters.InstallOpts) error
-	UninstallFunc        func(adapters.InstallOpts) error
-	StatusFunc           func() adapters.AdapterStatus
+	IDFunc          func() string
+	NameFunc        func() string
+	DetectFunc      func() bool
+	IsInstalledFunc func() bool
+	InstallFunc     func(adapters.InstallOpts) error
+	UninstallFunc   func(adapters.InstallOpts) error
+	StatusFunc      func() adapters.AdapterStatus
 
 	// Strategy method overrides for common.Strategy interface.
 	PrepareFunc  func(adapters.InstallOpts) error
