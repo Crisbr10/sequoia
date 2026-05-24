@@ -131,6 +131,8 @@ var _ adapters.AdapterPaths = (*MockAdapterPaths)(nil)
 
 // MockAdapter is a configurable ToolAdapter test double.
 // Set function fields to customize behavior; nil fields use sensible defaults.
+// It also satisfies common.Strategy so that the pipeline's type assertions
+// succeed when the adapter passes through production wrappers (e.g. toolInfoAdapter).
 type MockAdapter struct {
 	IDFunc               func() string
 	NameFunc             func() string
@@ -139,6 +141,15 @@ type MockAdapter struct {
 	InstallFunc          func(adapters.InstallOpts) error
 	UninstallFunc        func(adapters.InstallOpts) error
 	StatusFunc           func() adapters.AdapterStatus
+
+	// Strategy method overrides for common.Strategy interface.
+	PrepareFunc  func(adapters.InstallOpts) error
+	DownloadFunc func(adapters.InstallOpts) error
+	VerifyFunc   func() error
+	StageFunc    func(adapters.InstallOpts) error
+	ApplyFunc    func(adapters.InstallOpts) error
+	RollbackFunc func() error
+
 	SkillsPathFunc       func() string
 	CommandsPathFunc     func() string
 	SystemPromptPathFunc func() string
@@ -189,6 +200,46 @@ func (m *MockAdapter) Status() adapters.AdapterStatus {
 	}
 	return adapters.AdapterStatus{}
 }
+
+// -- common.Strategy methods ---------------------------------------------------
+
+func (m *MockAdapter) Prepare(opts adapters.InstallOpts) error {
+	if m.PrepareFunc != nil {
+		return m.PrepareFunc(opts)
+	}
+	return nil
+}
+func (m *MockAdapter) Download(opts adapters.InstallOpts) error {
+	if m.DownloadFunc != nil {
+		return m.DownloadFunc(opts)
+	}
+	return nil
+}
+func (m *MockAdapter) Verify() error {
+	if m.VerifyFunc != nil {
+		return m.VerifyFunc()
+	}
+	return nil
+}
+func (m *MockAdapter) Stage(opts adapters.InstallOpts) error {
+	if m.StageFunc != nil {
+		return m.StageFunc(opts)
+	}
+	return nil
+}
+func (m *MockAdapter) Apply(opts adapters.InstallOpts) error {
+	if m.ApplyFunc != nil {
+		return m.ApplyFunc(opts)
+	}
+	return nil
+}
+func (m *MockAdapter) Rollback() error {
+	if m.RollbackFunc != nil {
+		return m.RollbackFunc()
+	}
+	return nil
+}
+
 func (m *MockAdapter) SkillsPath() string {
 	if m.SkillsPathFunc != nil {
 		return m.SkillsPathFunc()

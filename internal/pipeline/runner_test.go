@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/pipeline"
 )
@@ -1131,4 +1132,148 @@ func TestDefaultStepNames_FivePhases(t *testing.T) {
 	assert.Equal(t, "Verifying", steps[2])
 	assert.Equal(t, "Staging", steps[3])
 	assert.Equal(t, "Applying", steps[4])
+}
+
+// =========================================================================
+// toolInfoAdapterWrapper — regression tests for ISP narrowing wrapper
+// =========================================================================
+
+// installStatusBridge wraps a *testAdapter to satisfy adapters.InstallStatus.
+// testAdapter has Status() model.ToolStatus but adapters.InstallStatus requires
+// Status() adapters.AdapterStatus — this bridge converts between the two.
+// In production, ToolAdapter directly satisfies InstallStatus via BaseAdapter.
+type installStatusBridge struct {
+	ta *testAdapter
+}
+
+func (b *installStatusBridge) Status() adapters.AdapterStatus {
+	return adapters.AdapterStatus{
+		Installed: b.ta.installed,
+		Version:   "v0.1.0",
+		Path:      "/fake/path",
+	}
+}
+
+// toolInfoAdapterWrapper mirrors the production toolInfoAdapter pattern:
+// it embeds narrow role interfaces (Identifier, Detector, InstallStatus)
+// PLUS Installer and Strategy so that the pipeline type assertions succeed
+// when called through a ToolState.Adapter wrapper.
+//
+// The Status() override converts adapters.AdapterStatus to model.ToolStatus,
+// matching the production toolInfoAdapter.Status() behavior.
+type toolInfoAdapterWrapper struct {
+	adapters.Identifier
+	adapters.Detector
+	adapters.InstallStatus
+	adapters.Installer
+	common.Strategy
+}
+
+// Status returns the adapter's installation status as a model.ToolStatus.
+// This override shadows the embedded adapters.InstallStatus.Status() which
+// returns adapters.AdapterStatus — model.ToolInfo expects model.ToolStatus.
+func (w toolInfoAdapterWrapper) Status() model.ToolStatus {
+	s := w.InstallStatus.Status()
+	return model.ToolStatus{
+		Installed: s.Installed,
+		Version:   s.Version,
+		Path:      s.Path,
+	}
+}
+
+// TestRunInstall_ToolInfoAdapterWrapper verifies the pipeline's install flow
+// works correctly through a wrapper that mirrors the fixed toolInfoAdapter
+// pattern. The key assertion: no "does not implement Strategy" error is
+// produced, confirming the Strategy type assertion at runner.go:87 succeeds.
+func TestRunInstall_ToolInfoAdapterWrapper(t *testing.T) {
+	t.Parallel()
+
+	a := &testAdapter{id: "wrap-install", name: "Wrapped Install Tool"}
+	is := &installStatusBridge{ta: a} // bridges Status() model.ToolStatus → AdapterStatus
+	w := toolInfoAdapterWrapper{
+		Identifier:    a,
+		Detector:      a,
+		InstallStatus: is,
+		Installer:     a,
+		Strategy:      a, // testAdapter implements common.Strategy
+	}
+	tools := []model.ToolState{
+		{Adapter: w, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunInstall(ctx, tools, ch)
+	require.NotNil(t, cmd, "RunInstall should return a non-nil tea.Cmd")
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// 5 phases × 2 messages each = 10 messages.
+	require.Len(t, msgs, 10, "Should receive exactly 10 progress messages (5 phases × 2)")
+
+	// Verify no message contains "does not implement Strategy" error.
+	for i, msg := range msgs {
+		assert.NotContains(t, msg.Error, "does not implement Strategy",
+			"message %d should not have Strategy error — wrapper must forward interfaces", i)
+	}
+
+	// Verify phase methods were called on the underlying adapter.
+	assert.Equal(t, 1, a.prepareCalls, "Prepare should be called once through wrapper")
+	assert.Equal(t, 1, a.downloadCalls, "Download should be called once through wrapper")
+	assert.Equal(t, 1, a.verifyCalls, "Verify should be called once through wrapper")
+	assert.Equal(t, 1, a.stageCalls, "Stage should be called once through wrapper")
+	assert.Equal(t, 1, a.applyCalls, "Apply should be called once through wrapper")
+}
+
+// TestRunUninstall_ToolInfoAdapterWrapper verifies the pipeline's uninstall
+// flow works correctly through a wrapper that mirrors the fixed
+// toolInfoAdapter pattern. Key assertions:
+//   - No "does not implement Strategy" error (gate at runner.go:199 passes)
+//   - The Installer.Uninstall() path (runner.go:222) is reachable through
+//     the wrapper — this was dead code before the fix
+//   - Uninstall() is called, not the Rollback() fallback
+func TestRunUninstall_ToolInfoAdapterWrapper(t *testing.T) {
+	t.Parallel()
+
+	a := &testAdapter{id: "wrap-uninstall", name: "Wrapped Uninstall Tool", installed: true}
+	is := &installStatusBridge{ta: a}
+	w := toolInfoAdapterWrapper{
+		Identifier:    a,
+		Detector:      a,
+		InstallStatus: is,
+		Installer:     a,
+		Strategy:      a,
+	}
+	tools := []model.ToolState{
+		{Adapter: w, Selected: true},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan model.ProgressMsg, model.ProgressChannelBufferSize)
+	cmd := pipeline.RunUninstall(ctx, tools, ch)
+	require.NotNil(t, cmd, "RunUninstall should return a non-nil tea.Cmd")
+
+	cmd()
+	msgs := collectProgress(ch)
+
+	// Uninstall: 1 running + 1 done = 2 messages.
+	require.Len(t, msgs, 2, "Should receive exactly 2 messages: 1 running + 1 done")
+
+	// Verify no message contains "does not implement Strategy" error.
+	for i, msg := range msgs {
+		assert.NotContains(t, msg.Error, "does not implement Strategy",
+			"message %d should not have Strategy error — wrapper must forward interfaces", i)
+	}
+
+	// The Installer fallback path at runner.go:222 should be reachable.
+	// This proves the adapter.(adapters.Installer) assertion succeeds on the wrapper.
+	assert.Equal(t, 1, a.uninstallCallCount(),
+		"Uninstall should be called once through wrapper (Installer path at runner.go:222)")
+	assert.Equal(t, 0, a.rollbackCalls,
+		"Rollback should NOT be called — Installer.Uninstall() path should be taken instead")
 }

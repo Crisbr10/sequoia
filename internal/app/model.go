@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"github.com/Crisbr10/sequoia/adapters"
+	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 
@@ -80,13 +81,15 @@ type Model struct {
 type EngramDetectedMsg bool
 
 // toolInfoAdapter adapts a ToolAdapter to satisfy model.ToolInfo by embedding
-// narrow role interfaces (Identifier, Detector, InstallStatus) instead of the
-// full ToolAdapter, per ISP narrowing P3-003. The Status() override converts
-// adapters.AdapterStatus to model.ToolStatus.
+// narrow role interfaces (Identifier, Detector, InstallStatus, Installer,
+// Strategy) instead of the full ToolAdapter, per ISP narrowing P3-003.
+// The Status() override converts adapters.AdapterStatus to model.ToolStatus.
 type toolInfoAdapter struct {
 	adapters.Identifier
 	adapters.Detector
 	adapters.InstallStatus
+	adapters.Installer
+	common.Strategy
 }
 
 // Status returns the adapter's installation status as a model.ToolStatus.
@@ -147,6 +150,8 @@ func (m *Model) LoadTools(toolID string) {
 				Identifier:    a,
 				Detector:      a,
 				InstallStatus: a,
+				Installer:     a,
+				Strategy:      a.(common.Strategy),
 			},
 			Selected: toolID == "" || a.ID() == toolID,
 		}
