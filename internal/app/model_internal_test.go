@@ -272,7 +272,6 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 
 	m := Model{
 		Tools:            tools,
-		Config:           model.TUIConfig{Persistence: "engram"},
 		Progress:         make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
 		InstallCompleted: 5, // Non-zero to verify reset
 		InstallFailed:    3, // Non-zero to verify reset
@@ -319,7 +318,6 @@ func TestStartPipeline_UninstallMode(t *testing.T) {
 
 	m := Model{
 		Tools:            tools,
-		Config:           model.TUIConfig{Persistence: "files"},
 		Progress:         make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
 		InstallCompleted: 10,
 		InstallFailed:    5,
@@ -343,38 +341,4 @@ func TestStartPipeline_UninstallMode(t *testing.T) {
 
 	// Verify returned command is not nil.
 	assert.NotNil(t, cmd, "startPipeline should return a non-nil tea.Cmd")
-}
-
-// TestDetectEngram_ReturnsMsg calls detectEngram() directly and verifies
-// it returns an EngramDetectedMsg whose boolean value reflects whether
-// the engram binary is present on the system PATH.
-func TestDetectEngram_ReturnsMsg(t *testing.T) {
-	msg := detectEngram()
-	detected, ok := msg.(EngramDetectedMsg)
-	require.True(t, ok, "detectEngram should return EngramDetectedMsg, got %T", msg)
-
-	// The boolean value depends on whether engram is installed.
-	// We only assert the type is correct and the value is a valid bool.
-	_ = bool(detected)
-}
-
-// TestEngramDetectedMsg_UpdatesModel verifies that sending EngramDetectedMsg
-// through Update correctly sets the EngramAvailable field.
-func TestEngramDetectedMsg_UpdatesModel(t *testing.T) {
-	// Start with EngramAvailable: false.
-	m := Model{EngramAvailable: false}
-
-	// Send EngramDetectedMsg(true) → EngramAvailable should become true.
-	updated, cmd := m.Update(EngramDetectedMsg(true))
-	m2 := updated.(Model)
-	assert.True(t, m2.EngramAvailable,
-		"EngramDetectedMsg(true) should set EngramAvailable to true")
-	assert.Nil(t, cmd, "EngramDetectedMsg should not produce a command")
-
-	// Send EngramDetectedMsg(false) → EngramAvailable should become false.
-	updated, cmd = m2.Update(EngramDetectedMsg(false))
-	m3 := updated.(Model)
-	assert.False(t, m3.EngramAvailable,
-		"EngramDetectedMsg(false) should set EngramAvailable to false")
-	assert.Nil(t, cmd, "EngramDetectedMsg should not produce a command")
 }

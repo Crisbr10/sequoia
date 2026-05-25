@@ -5,7 +5,6 @@ package app
 
 import (
 	"context"
-	"os/exec"
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
@@ -26,8 +25,7 @@ type Model struct {
 	Screen model.Screen
 	// Tools is a snapshot of registered adapters with their UI state.
 	Tools []model.ToolState
-	// Config holds user choices from the Configuration screen (persistence backend).
-	Config model.TUIConfig
+
 	// Width is the terminal width in characters.
 	Width int
 	// Height is the terminal height in characters.
@@ -57,9 +55,7 @@ type Model struct {
 	// InstallWarned counts tools that completed with non-fatal warnings
 	// (e.g., partial uninstall where some files could not be removed).
 	InstallWarned int
-	// EngramAvailable indicates whether the Engram MCP backend was detected at startup.
-	// When false, the Engram option on the Configuration screen is greyed out.
-	EngramAvailable bool
+
 	// UninstallConfirming is true when the Uninstall screen is in
 	// confirmation mode (user pressed Enter and is being asked y/N).
 	UninstallConfirming bool
@@ -75,10 +71,6 @@ type Model struct {
 	// Stored for potential lookup operations after construction.
 	reg *adapters.Registry
 }
-
-// EngramDetectedMsg is a Bubbletea message sent when the asynchronous engram
-// detection completes. The boolean value indicates whether engram was found on PATH.
-type EngramDetectedMsg bool
 
 // toolInfoAdapter adapts a ToolAdapter to satisfy model.ToolInfo by embedding
 // narrow role interfaces (Identifier, Detector, InstallStatus, Installer,
@@ -122,15 +114,13 @@ func NewModel(toolID string, version string, reg *adapters.Registry) Model {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return Model{
-		Version:         version,
-		Screen:          model.ScreenWelcome,
-		Tools:           nil, // loaded lazily by loadTools()
-		Config:          model.TUIConfig{Persistence: "engram"},
-		Progress:        make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
-		EngramAvailable: false,
-		reg:             reg,
-		ctx:             ctx,
-		cancel:          cancel,
+		Version:  version,
+		Screen:   model.ScreenWelcome,
+		Tools:    nil, // loaded lazily by loadTools()
+		Progress: make(chan model.ProgressMsg, model.ProgressChannelBufferSize),
+		reg:      reg,
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 }
 
@@ -159,19 +149,7 @@ func (m *Model) LoadTools(toolID string) {
 	}
 }
 
-// detectEngram is an async Bubbletea command that checks whether the engram
-// binary is available on the system PATH. It returns EngramDetectedMsg so
-// the Model can update EngramAvailable without blocking the initial render.
-func detectEngram() tea.Msg {
-	_, err := exec.LookPath("engram")
-	return EngramDetectedMsg(err == nil)
-}
-
-// Init is the Bubbletea init command. It returns the batched initial
-// commands: detectEngram runs asynchronously to avoid blocking the first
-// TUI render.
+// Init is the Bubbletea init command.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		detectEngram,
-	)
+	return nil
 }

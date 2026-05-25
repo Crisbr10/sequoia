@@ -1,8 +1,0 @@
-   Configuration 
-
-  Persistence:
-  ► Engram
-    Files
-    Both
-
-  ↑/↓/←/→ change option  Enter confirm  Esc back  

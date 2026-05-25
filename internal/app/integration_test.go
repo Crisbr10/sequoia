@@ -85,16 +85,11 @@ func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
 	m = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter}, 3)
 	assert.Equal(t, model.ScreenToolSelection, m.Screen)
 
-	// ToolSelection → Configuration (tool is selected by default).
-	m = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter}, 3)
-	assert.Equal(t, model.ScreenConfiguration, m.Screen)
-	assert.Contains(t, m.View(), "Persistence")
-
-	// Configuration confirm builds ProgressTools.
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(app.Model)
+	// ToolSelection → InstallProgress (confirm builds pipeline directly).
+	m = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter}, 5)
 	require.NotEmpty(t, m.ProgressTools, "ProgressTools should be populated from confirm")
 	assert.Equal(t, "Test Tool", m.ProgressTools[0].ToolName)
+	assert.Equal(t, "install", m.OperationMode)
 }
 
 func TestIntegration_ProgressToComplete_Transition(t *testing.T) {

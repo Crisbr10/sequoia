@@ -11,8 +11,6 @@ const (
 	ScreenWelcome Screen = iota
 	// ScreenToolSelection shows a checkbox list for picking tools to install.
 	ScreenToolSelection
-	// ScreenConfiguration offers persistence backend choices.
-	ScreenConfiguration
 	// ScreenInstallProgress displays per-tool step-by-step progress during installation.
 	ScreenInstallProgress
 	// ScreenComplete shows the success summary after all tools are installed.
@@ -117,20 +115,4 @@ type ProgressMsg struct {
 // memory overhead negligible.
 const ProgressChannelBufferSize = 64
 
-// PersistenceBackend represents a supported artifact persistence backend.
-type PersistenceBackend string
 
-const (
-	// PersistenceEngram uses the Engram MCP server for artifact storage.
-	PersistenceEngram PersistenceBackend = "engram"
-	// PersistenceFiles uses the local filesystem (openspec) for artifact storage.
-	PersistenceFiles PersistenceBackend = "files"
-	// PersistenceBoth writes artifacts to both Engram and the local filesystem.
-	PersistenceBoth PersistenceBackend = "both"
-)
-
-// TUIConfig holds the user's choices from the Configuration screen.
-type TUIConfig struct {
-	// Persistence selects the artifact storage backend ("engram", "files", or "both").
-	Persistence string
-}

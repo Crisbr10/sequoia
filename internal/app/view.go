@@ -13,8 +13,6 @@ func (m Model) View() string {
 		return screens.WelcomeView(m.Version, m.Cursor)
 	case model.ScreenToolSelection:
 		return screens.ToolSelectionView(m.Tools, m.Cursor, m.ErrorMsg)
-	case model.ScreenConfiguration:
-		return screens.ConfigurationView(m.Config, m.Cursor, m.EngramAvailable)
 	case model.ScreenInstallProgress:
 		return screens.InstallProgressView(m.ProgressTools, m.InstallCompleted, len(m.ProgressTools), m.OperationMode)
 	case model.ScreenComplete:

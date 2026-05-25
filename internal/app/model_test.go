@@ -33,15 +33,6 @@ func TestNewModel_StoresVersion(t *testing.T) {
 	assert.Equal(t, "v9.9.9-test", m.Version, "NewModel should store the version string")
 }
 
-// TestNewModel_EngramAvailableDefaultsFalse verifies that after construction,
-// EngramAvailable is false — detection happens asynchronously via detectEngram().
-func TestNewModel_EngramAvailableDefaultsFalse(t *testing.T) {
-
-	m := app.NewModel("", "test", adapters.NewRegistry())
-	assert.False(t, m.EngramAvailable,
-		"EngramAvailable should default to false; detection happens asynchronously via Init()")
-}
-
 func TestNewModel_DefaultScreen(t *testing.T) {
 
 	m := app.NewModel("", "test", adapters.NewRegistry())
@@ -73,12 +64,11 @@ func TestNewModel_ProgressChannel(t *testing.T) {
 	assert.Equal(t, 64, cap(m.Progress), "Progress channel buffer capacity should be 64")
 }
 
-func TestNewModel_InitReturnsCmd(t *testing.T) {
+func TestNewModel_InitReturnsNil(t *testing.T) {
 
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	cmd := m.Init()
-	// Init now returns a tea.Batch wrapping detectEngram (async engram detection).
-	assert.NotNil(t, cmd, "Init should return detecEngram batch command for async detection")
+	assert.Nil(t, cmd, "Init should return nil")
 }
 
 func TestModel_ImplementsBubbleteaModel(_ *testing.T) {
@@ -275,7 +265,7 @@ func TestToolSelection_EnterWithNoSelectionShowsError(t *testing.T) {
 	assert.NotEmpty(t, m2.ErrorMsg, "Error message should be set when no tools selected")
 }
 
-func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) {
+func TestToolSelection_EnterWithSelectionStartsPipeline(t *testing.T) {
 	// Register one tool and select it.
 	reg := adapters.NewRegistry()
 
@@ -292,67 +282,13 @@ func TestToolSelection_EnterWithSelectionNavigatesToConfiguration(t *testing.T) 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 	updated, cmd := m.Update(msg)
 
-	require.NotNil(t, cmd, "Enter with selection should produce a command")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Enter should produce NavigateMsg")
-	assert.Equal(t, model.ScreenConfiguration, nav.Target,
-		"Enter with selection should navigate to Configuration")
-	_ = updated
-}
-
-func TestConfigurationView_RendersLanguageAndPersistence(t *testing.T) {
-	reg := adapters.NewRegistry()
-
-	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
-
-	m := app.NewModel("", "test", reg)
-	m.Screen = model.ScreenConfiguration
-	m.EngramAvailable = true
-	m.Config = model.TUIConfig{Persistence: "engram"}
-
-	view := m.View()
-	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view)
-	assert.Contains(t, view, "Persistence", "Configuration should show persistence label")
-	assert.Contains(t, view, "Engram", "Configuration should show persistence option")
-}
-
-func TestConfiguration_EnterConfirmBuildsProgressAndNavigates(t *testing.T) {
-	reg := adapters.NewRegistry()
-
-	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
-
-	m := app.NewModel("", "test", reg)
-	m.Screen = model.ScreenConfiguration
-	m.LoadTools("") // Lazy load tools after screen is set.
-	// Select the tool so that confirm builds progress.
-	m.Tools[0].Selected = true
-
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	updated, cmd := m.Update(msg)
-
-	require.NotNil(t, cmd, "Enter on Configuration should produce a tea.Cmd")
+	require.NotNil(t, cmd, "Enter with selection should produce a command (start pipeline)")
 	m2 := updated.(app.Model)
 	require.NotEmpty(t, m2.ProgressTools, "ProgressTools should be built from selected tools")
 	assert.Equal(t, "Claude Code", m2.ProgressTools[0].ToolName)
+	assert.Equal(t, "install", m2.OperationMode)
 	assert.Equal(t, 0, m2.InstallCompleted)
 	assert.Equal(t, 0, m2.InstallFailed)
-}
-
-func TestConfiguration_EscGoesBackToToolSelection(t *testing.T) {
-
-	m := app.NewModel("", "test", adapters.NewRegistry())
-	m.Screen = model.ScreenConfiguration
-
-	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	updated, cmd := m.Update(msg)
-
-	require.NotNil(t, cmd, "Esc on Configuration should produce a command")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Esc should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenToolSelection, nav.Target)
-	_ = updated
 }
 
 func TestInstallProgressView_RendersProgressTable(t *testing.T) {
@@ -911,19 +847,16 @@ func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
 	assert.True(t, ok, "q on Complete should produce tea.QuitMsg")
 }
 
-// TestNewModel_NoExecLookPath verifies that NewModel does not block on exec.LookPath.
-// The call was moved to an async Bubbletea command (detectEngram) so the TUI
-// renders immediately without blocking.
+// TestNewModel_NoExecLookPath verifies that NewModel returns quickly without blocking.
 func TestNewModel_NoExecLookPath(t *testing.T) {
 
 	start := time.Now()
 	_ = app.NewModel("", "test", adapters.NewRegistry())
 	elapsed := time.Since(start)
 
-	// NewModel should return in well under 100ms when no exec.LookPath blocks.
-	// Even on slow CI, 50ms provides generous margin for adapter registration.
+	// NewModel should return in well under 100ms.
 	assert.Less(t, elapsed, 50*time.Millisecond,
-		"NewModel should not block on exec.LookPath; took %v", elapsed)
+		"NewModel should return quickly; took %v", elapsed)
 }
 
 func TestToolSelection_SpaceToggles(t *testing.T) {

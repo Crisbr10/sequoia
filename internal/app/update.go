@@ -14,10 +14,6 @@ import (
 // handled at the top before screen-specific delegation.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case EngramDetectedMsg:
-		m.EngramAvailable = bool(msg)
-		return m, nil
-
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
@@ -92,33 +88,11 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.ErrorMsg = ""
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenConfiguration}
-			}
-		case "back":
-			m.ErrorMsg = ""
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
-			}
-		case "quit":
-			m.Quitting = true
-			return m, tea.Quit
-		}
-		return m, nil
-
-	case model.ScreenConfiguration:
-		newActiveField, newConfig, action := screens.ConfigurationUpdate(msg, m.Cursor, m.Config, m.EngramAvailable)
-		m.Cursor = newActiveField
-		m.Config = newConfig
-
-		switch action {
-		case "confirm":
-			m.ErrorMsg = ""
 			return m, m.startPipeline("install")
 		case "back":
 			m.ErrorMsg = ""
 			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenToolSelection}
+				return tui.NavigateMsg{Target: model.ScreenWelcome}
 			}
 		case "quit":
 			m.Quitting = true

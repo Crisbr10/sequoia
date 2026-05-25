@@ -184,15 +184,14 @@ func TestScreen_EnumValues(t *testing.T) {
 
 	// Verify all Screen constants have distinct values and cover the expected range.
 	require.NotEqual(t, model.ScreenWelcome, model.ScreenToolSelection)
-	require.NotEqual(t, model.ScreenToolSelection, model.ScreenConfiguration)
-	require.NotEqual(t, model.ScreenConfiguration, model.ScreenInstallProgress)
+	require.NotEqual(t, model.ScreenToolSelection, model.ScreenInstallProgress)
 	require.NotEqual(t, model.ScreenInstallProgress, model.ScreenComplete)
 	require.NotEqual(t, model.ScreenComplete, model.ScreenError)
 	require.NotEqual(t, model.ScreenError, model.ScreenStatus)
 	require.NotEqual(t, model.ScreenStatus, model.ScreenUninstall)
 
 	// ScreenCount should equal the number of screens.
-	assert.Equal(t, 8, int(model.ScreenCount), "ScreenCount must match the number of Screen constants")
+	assert.Equal(t, 7, int(model.ScreenCount), "ScreenCount must match the number of Screen constants")
 }
 
 func TestToolState_Construction(t *testing.T) {
@@ -329,26 +328,6 @@ func TestProgressMsg_WithError(t *testing.T) {
 	assert.Equal(t, "opencode", msg.ToolID)
 	assert.False(t, msg.Done)
 	assert.Equal(t, "checksum mismatch", msg.Error)
-}
-
-func TestTUIConfig_Defaults(t *testing.T) {
-	t.Parallel()
-
-	cfg := model.TUIConfig{
-		Persistence: "engram",
-	}
-
-	assert.Equal(t, "engram", cfg.Persistence)
-}
-
-func TestPersistenceBackend_Constants(t *testing.T) {
-	t.Parallel()
-
-	require.NotEqual(t, model.PersistenceEngram, model.PersistenceFiles)
-	require.NotEqual(t, model.PersistenceFiles, model.PersistenceBoth)
-	assert.Equal(t, model.PersistenceBackend("engram"), model.PersistenceEngram)
-	assert.Equal(t, model.PersistenceBackend("files"), model.PersistenceFiles)
-	assert.Equal(t, model.PersistenceBackend("both"), model.PersistenceBoth)
 }
 
 func TestStepResult_Construction(t *testing.T) {
