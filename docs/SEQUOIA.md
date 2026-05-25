@@ -563,7 +563,7 @@ Optional file at the project root:
     "quality": "relaxed"
   },
   "outputs": {
-    "dir": "docs/sequoia",
+    "dir": ".sequoia",
     "master": true,
     "phases": true,
     "scorecard": true

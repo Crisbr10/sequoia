@@ -35,7 +35,7 @@ User: /sequoia-dev P1-003 [--ff | --full]
 1. Orchestrator reads commands/sequoia-dev.md
 2. Template instructs orchestrator to:
    a. Read ~/.config/opencode/.sequoia-dev.yaml (merge with defaults)
-   b. Locate task P1-003 in docs/sequoia/tasks/{area}.md
+   b. Locate task P1-003 in .sequoia/tasks/{area}.md
    c. Parse task metadata (risk, effort, files, dependencies)
    d. Compute complexity score
    e. Decision:
@@ -134,7 +134,7 @@ allowed-tools: Read, Glob, Grep, Bash, mem_search, mem_get_observation, mem_save
      complexity:
        ff_max_score: 2
    paths:
-     tasks_dir: docs/sequoia/tasks/
+     tasks_dir: .sequoia/tasks/
    ```
 
 3. **Task location**: Search `{tasks_dir}` for the TASK-ID pattern. Parse the task metadata:
@@ -242,7 +242,7 @@ sdd:
 # Paths for task file discovery
 paths:
   # Directory where Sequoia task files are stored (relative to project root)
-  tasks_dir: docs/sequoia/tasks/
+  tasks_dir: .sequoia/tasks/
 ```
 
 ---
@@ -389,7 +389,7 @@ Example:
 ```
 
 The command automatically:
-- Reads the task from `docs/sequoia/tasks/`
+- Reads the task from `.sequoia/tasks/`
 - Launches SDD with your configured strategies (see `~/.config/opencode/.sequoia-dev.yaml`)
 - Uses fast-forward (`sdd-ff`) for simple tasks, full SDD cycle for complex ones
 - Optionally force mode: `/sequoia-dev P1-003 --ff` or `/sequoia-dev P1-003 --full`

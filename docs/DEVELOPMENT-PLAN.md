@@ -133,7 +133,7 @@ Two prompt strategies:
 - **Description**: `README.md` references files that do not exist. Update all paths to match the actual file tree.
 - **Acceptance criteria**:
   - [x] All paths in `README.md` resolve to real files
-  - [x] No references to non-existent files (`flows/re-audit.md`, `flows/quick-check.md`, `references/health-score.md`, `references/project-map.md`, `references/report-template.md`)
+  - [x] No references to non-existent files (`flows/re-audit.md`, `flows/quick-check.md`, `references/project-map.md`, `references/report-template.md`)
   - [x] Agent count matches actual (C0 + P1–P6 + M1–M2 = 9)
 
 ---

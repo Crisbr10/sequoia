@@ -46,7 +46,7 @@ Si ambos `--ff` y `--full` están presentes, error inmediato: "Cannot use both -
 | `sdd.chain` | `stacked-to-main` | `stacked-to-main` \| `feature-branch-chain` |
 | `sdd.auto_ff` | `true` | `true` \| `false` |
 | `sdd.complexity.ff_max_score` | `2` | 0–9 |
-| `paths.tasks_dir` | `docs/sequoia/tasks/` | ruta relativa al proyecto |
+| `paths.tasks_dir` | `.sequoia/tasks/` | ruta relativa al proyecto |
 
 **Manejo de errores de configuración:**
 - **Archivo no existe** → usá defaults en silencio (primer uso, todavía no hay config).
@@ -201,7 +201,7 @@ sdd:
     ff_max_score: 2          # 0-9
 
 paths:
-  tasks_dir: docs/sequoia/tasks/
+  tasks_dir: .sequoia/tasks/
 ```
 
 Este archivo se crea automáticamente con `sequoia install`. Podés editarlo cuando quieras — `/sequoia-dev` lo lee fresco en cada invocación.

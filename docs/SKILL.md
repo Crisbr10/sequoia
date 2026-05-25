@@ -213,13 +213,13 @@ action_plan:
 
 4. **Generate task files by area**:
    - Group findings by phase (P1→security, P2→performance, P3→architecture, P4→quality, P5→experience, P6→operations)
-    - Generate `docs/sequoia/tasks/{area}.md` with self-contained tasks (each task includes: ID, status, priority, evidence, steps, dependencies, risk, acceptance criteria, verification command)
-   - Generate `docs/sequoia/tasks/index.md` with global dependency graph and priority tiers
-   - Generate `docs/sequoia/summary.md` (consolidated: score + root causes + verified state + gaps + trajectory)
+    - Generate `.sequoia/tasks/{area}.md` with self-contained tasks (each task includes: ID, status, priority, evidence, steps, dependencies, risk, acceptance criteria, verification command)
+   - Generate `.sequoia/tasks/index.md` with global dependency graph and priority tiers
+   - Generate `.sequoia/summary.md` (consolidated: score + root causes + verified state + gaps + trajectory)
    - Merge findings sharing a root cause into a single task
    - Do NOT generate individual phase reports
 
-**Output**: `docs/sequoia/summary.md` + `docs/sequoia/tasks/{area}.md` + `docs/sequoia/tasks/index.md`
+**Output**: `.sequoia/summary.md` + `.sequoia/tasks/{area}.md` + `.sequoia/tasks/index.md`
 
 ### Phase 6: Delivery
 
@@ -228,9 +228,9 @@ Present to the user:
 2. **Critical findings** first — those requiring immediate action
 3. **Root cause summary** — where to focus effort
 4. **Generated files**:
-   - `docs/sequoia/summary.md` — Full score + root causes + gaps + trajectory
-   - `docs/sequoia/tasks/index.md` — Dependency graph and sprint plan
-   - `docs/sequoia/tasks/{area}.md` — Self-contained tasks per area (open only the one to implement)
+   - `.sequoia/summary.md` — Full score + root causes + gaps + trajectory
+   - `.sequoia/tasks/index.md` — Dependency graph and sprint plan
+   - `.sequoia/tasks/{area}.md` — Self-contained tasks per area (open only the one to implement)
 
 > **Note**: To regenerate tasks from an existing audit without re-running phase agents, use `/sequoia fix`.
 

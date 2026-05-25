@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`lang` parameter** from all TUI view functions, `RenderConfirmPrompt`, pipeline helpers, and `InstallOpts`.
 - **`RenderTemplateLang`** from adapters; all call sites use `RenderTemplate`.
 - **`adapters/interface_test.go`** — language-specific adapter tests removed.
-- **P7 i18n agent** documentation and specs (`docs/agents/sequoia-i18n.md`, `docs/sequoia/sequoia-phases/07-i18n.md`).
+- **P7 i18n agent** documentation and specs (`docs/agents/sequoia-i18n.md`, `.sequoia/sequoia-phases/07-i18n.md`).
 - **Legacy roadmap and task files** (`futuras-implementaciones/`).
 - **`openspec/specs/agent-p7-i18n/` and `openspec/specs/i18n-engine/`** specs.
 

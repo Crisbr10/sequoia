@@ -163,7 +163,7 @@ Meta-agentes (siempre secuenciales):
 ### Entregables generados
 
 ```
-docs/sequoia/
+.sequoia/
 ├── sequoia-master.md          # Documento maestro
 ├── sequoia-score.md           # Health scorecard
 ├── sequoia-tasks.md           # [si --output=tasks|both]

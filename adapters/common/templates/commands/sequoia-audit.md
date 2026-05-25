@@ -39,41 +39,14 @@ Before execution, validate:
   │     └─ M2 sequoia-reporter (calculates health scores + generates documents)
   │
   ├─ 5. Generate deliverables
-  │     ├─ docs/sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
-  │     └─ docs/sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
+  │     ├─ .sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
+  │     └─ .sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
   │
   ├─ 6. Persist in Engram
   │     ├─ Findings with timestamp
   │     ├─ Health scores
   │     └─ State snapshot for future diff
-  │
-  └─ 7. Filesystem Persistence
-        ├─ Create .sequoia/audit_YYYY-MM-DD/ directory in project root
-        ├─ health-score.md — Category scores table + methodology
-        ├─ findings.md — All findings in standard YAML format
-        └─ state-snapshot.md — Project Map snapshot + audit metadata
 ```
-
-## Step 7: Filesystem Persistence
-
-After persisting to Engram (step 6), write machine-readable audit artifacts to the audited project's `.sequoia/` directory:
-
-1. **Create directory** `.sequoia/audit_YYYY-MM-DD/` in the project root (use current date). If the directory already exists (same-day re-audit), overwrite files in place.
-2. **Write `health-score.md`** — Category scores table with trend indicators and scoring methodology:
-   ```markdown
-   # Health Score — {project-name} ({date})
-   
-   | Category | Score | Trend |
-   |----------|-------|-------|
-   | Global | {score} | — |
-   | Security | {score} | {trend} |
-   ...
-   
-   Methodology: score = 100 − Σ(severity_weight × scope_multiplier)
-   ```
-3. **Write `findings.md`** — All findings in the standard YAML block format (one `finding:` section per finding), with correlator-merged IDs and recalibrated severities.
-4. **Write `state-snapshot.md`** — Project Map at audit time, audit timestamp, Sequoia version, agent list, and scope. This snapshot is consumed by `/sequoia diff` for structure-change detection.
-5. **If write fails** (permissions, read-only filesystem) — warn user and continue. Engram persistence (step 6) remains the canonical copy.
 
 ## Flag reference
 
@@ -128,8 +101,8 @@ With `--scope=changed`, each agent only inspects files from the diff. Meta-agent
 
 | Value | Generates |
 |-------|--------|
-| `report` | `docs/sequoia/summary.md` |
-| `tasks` | `docs/sequoia/tasks/*.md` (area files + index) |
+| `report` | `.sequoia/summary.md` |
+| `tasks` | `.sequoia/tasks/*.md` (area files + index) |
 | `both` | All of the above (default) |
 
 With `--output=report`, only `summary.md` is generated (tasks are skipped). With `--output=tasks`, only area task files are generated (`summary.md` is skipped). The default `both` generates all deliverables.
@@ -170,10 +143,10 @@ Each agent returns its findings in the standard format. The orchestrator does no
 
 ## Generated deliverables
 
-All are created in the configured directory (default: `docs/sequoia/`):
+All are created in the configured directory (default: `.sequoia/`):
 
 ```
-docs/sequoia/
+.sequoia/
 ├── summary.md                  # Health score + root causes + verified state + missing items + trajectory
 └── tasks/
     ├── index.md                # Global dependency graph, priority tiers, risk estimate

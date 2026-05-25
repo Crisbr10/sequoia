@@ -29,7 +29,7 @@ versioning:
 
 ### Backup and Overwrite Policy
 
-- **Before overwriting** any existing report, create a backup: `docs/sequoia/backups/{audit_id}/`
+- **Before overwriting** any existing report, create a backup: `.sequoia/backups/{audit_id}/`
 - **Retention**: Keep last 5 audit backups; auto-delete older ones
 - **Append mode**: If `--output=tasks` and tasks already exist, new tasks are appended (not overwritten) unless running a full re-audit
 

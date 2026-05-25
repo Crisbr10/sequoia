@@ -39,8 +39,8 @@ Before execution, validate:
   │     └─ M2 sequoia-reporter (calculates health scores + generates documents)
   │
   ├─ 5. Generate deliverables
-  │     ├─ docs/sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
-  │     └─ docs/sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
+  │     ├─ .sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
+  │     └─ .sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
   │
   └─ 6. Persist in Engram
         ├─ Findings with timestamp
@@ -101,8 +101,8 @@ With `--scope=changed`, each agent only inspects files from the diff. Meta-agent
 
 | Value | Generates |
 |-------|--------|
-| `report` | `docs/sequoia/summary.md` |
-| `tasks` | `docs/sequoia/tasks/*.md` (area files + index) |
+| `report` | `.sequoia/summary.md` |
+| `tasks` | `.sequoia/tasks/*.md` (area files + index) |
 | `both` | All of the above (default) |
 
 With `--output=report`, only `summary.md` is generated (tasks are skipped). With `--output=tasks`, only area task files are generated (`summary.md` is skipped). The default `both` generates all deliverables.
@@ -143,10 +143,10 @@ Each agent returns its findings in the standard format. The orchestrator does no
 
 ## Generated deliverables
 
-All are created in the configured directory (default: `docs/sequoia/`):
+All are created in the configured directory (default: `.sequoia/`):
 
 ```
-docs/sequoia/
+.sequoia/
 ├── summary.md                  # Health score + root causes + verified state + missing items + trajectory
 └── tasks/
     ├── index.md                # Global dependency graph, priority tiers, risk estimate

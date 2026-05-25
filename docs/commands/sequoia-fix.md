@@ -128,10 +128,10 @@ If multiple findings point to the same root cause (detected by the correlator), 
 
 ## Output
 
-Generates task files under `docs/sequoia/tasks/` using the same format and structure as `/sequoia audit`:
+Generates task files under `.sequoia/tasks/` using the same format and structure as `/sequoia audit`:
 
 ```
-docs/sequoia/tasks/
+.sequoia/tasks/
 ├── index.md           # Global dependency graph, priority tiers, risk estimate
 ├── security.md        # Security tasks with full evidence
 ├── architecture.md    # Architecture tasks with full evidence

@@ -128,10 +128,10 @@ If multiple findings point to the same root cause (detected by the correlator), 
 
 ## Output
 
-Generates task files under `docs/sequoia/tasks/` using the same format and structure as `/sequoia audit`:
+Generates task files under `.sequoia/tasks/` using the same format and structure as `/sequoia audit`:
 
 ```
-docs/sequoia/tasks/
+.sequoia/tasks/
 ├── index.md           # Global dependency graph, priority tiers, risk estimate
 ├── security.md        # Security tasks with full evidence
 ├── architecture.md    # Architecture tasks with full evidence
@@ -205,7 +205,7 @@ Example:
 ```
 
 The command automatically:
-- Reads the task from `docs/sequoia/tasks/`
+- Reads the task from `.sequoia/tasks/`
 - Launches SDD with your configured strategies (see `~/__SEQUOIA_BASE__/.sequoia-dev.yaml`)
 - Uses fast-forward (`sdd-ff`) for simple tasks, full SDD cycle for complex ones
 - Optionally force mode: `/sequoia-dev P1-003 --ff` or `/sequoia-dev P1-003 --full`

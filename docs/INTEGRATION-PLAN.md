@@ -127,7 +127,6 @@ El `README.md` referencia archivos que **no existen** en el directorio actual:
 |-------------------------------|-------------|
 | `flows/re-audit.md` | No existe. El archivo real es `flows/incremental-flow.md` |
 | `flows/quick-check.md` | No existe. El archivo real es `flows/simple-project-flow.md` |
-| `references/health-score.md` | No existe. El scoring está en `references/scoring-criteria.md` |
 | `references/project-map.md` | No existe. El schema está en `ARCHITECTURE.md` y `agents/sequoia-context.md` |
 | `references/report-template.md` | No existe. La plantilla está en `references/phase-template.md` |
 
@@ -1475,7 +1474,7 @@ Para cada herramienta, verificar manualmente:
 - [ ] El Health Score se calcula y presenta
 - [ ] `/sequoia-review --diff=HEAD~1..HEAD` funciona
 - [ ] `/sequoia-fix` genera tareas accionables
-- [ ] Los reportes se guardan en `docs/sequoia/`
+- [ ] Los reportes se guardan en `.sequoia/`
 - [ ] El estado se persiste entre sesiones
 - [ ] La desinstalación limpia todos los archivos
 
