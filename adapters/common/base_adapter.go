@@ -372,7 +372,7 @@ func (a *BaseAdapter) Download(opts adapters.InstallOpts) error {
 			return fmt.Errorf("download: read command %q: %w", cmd, err)
 		}
 		// Replace adapter-specific placeholders so commands are tool-agnostic.
-		content = replaceSequoiaPlaceholders(content, a.strategyState.base, a.HomeDir())
+		content = ReplaceSequoiaPlaceholders(content, a.strategyState.base, a.HomeDir())
 		if err := StageFile(staging, cmd, content); err != nil {
 			return fmt.Errorf("download: stage command %q: %w", cmd, err)
 		}
@@ -395,11 +395,11 @@ func (a *BaseAdapter) Download(opts adapters.InstallOpts) error {
 	return nil
 }
 
-// replaceSequoiaPlaceholders substitutes adapter-specific tokens in command
+// ReplaceSequoiaPlaceholders substitutes adapter-specific tokens in command
 // templates so they remain tool-agnostic. Currently supported:
 //
 //	__SEQUOIA_BASE__ → home-relative adapter base directory (e.g., ".config/opencode")
-func replaceSequoiaPlaceholders(content []byte, base, homeDir string) []byte {
+func ReplaceSequoiaPlaceholders(content []byte, base, homeDir string) []byte {
 	if homeDir == "" || base == "" {
 		return content
 	}

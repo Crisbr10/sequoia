@@ -481,14 +481,20 @@ func TestBackupIsolation_FreshInstallProducesIdenticalOutput(t *testing.T) {
 			"command file %s should have non-empty content", cmd)
 
 		// Command files come from CommandFS (static, no rendering).
-		// Verify they match the embedded template content byte-for-byte.
+		// Verify they match the embedded template content byte-for-byte
+		// after applying the same placeholder replacement the installer uses.
 		expectedBytes, err := common.CommandFS.ReadFile("templates/commands/" + cmd)
 		require.NoError(t, err, "CommandFS should contain %s", cmd)
 		// Normalize line endings for cross-platform comparison.
 		got := strings.ReplaceAll(string(cmdBytes), "\r\n", "\n")
 		want := strings.ReplaceAll(string(expectedBytes), "\r\n", "\n")
-		assert.Equal(t, want, got,
-			"installed command %s should match CommandFS content byte-for-byte", cmd)
+		// Apply __SEQUOIA_BASE__ replacement to expected content, matching
+		// what the installer does via ReplaceSequoiaPlaceholders during Stage.
+		base, err := a.Base()
+		require.NoError(t, err, "Base() should succeed for test adapter")
+		expectedReplaced := common.ReplaceSequoiaPlaceholders([]byte(want), base, a.HomeDir())
+		assert.Equal(t, string(expectedReplaced), got,
+			"installed command %s should match CommandFS content after placeholder replacement", cmd)
 	}
 
 	// Verify version file exists and has correct content.
