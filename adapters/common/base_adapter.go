@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"errors"
@@ -370,6 +371,8 @@ func (a *BaseAdapter) Download(opts adapters.InstallOpts) error {
 		if err != nil {
 			return fmt.Errorf("download: read command %q: %w", cmd, err)
 		}
+		// Replace adapter-specific placeholders so commands are tool-agnostic.
+		content = replaceSequoiaPlaceholders(content, a.strategyState.base, a.HomeDir())
 		if err := StageFile(staging, cmd, content); err != nil {
 			return fmt.Errorf("download: stage command %q: %w", cmd, err)
 		}
@@ -390,6 +393,23 @@ func (a *BaseAdapter) Download(opts adapters.InstallOpts) error {
 	a.strategyState.stagingDir = staging
 	a.strategyState.data = data
 	return nil
+}
+
+// replaceSequoiaPlaceholders substitutes adapter-specific tokens in command
+// templates so they remain tool-agnostic. Currently supported:
+//
+//	__SEQUOIA_BASE__ → home-relative adapter base directory (e.g., ".config/opencode")
+func replaceSequoiaPlaceholders(content []byte, base, homeDir string) []byte {
+	if homeDir == "" || base == "" {
+		return content
+	}
+	relPath := strings.TrimPrefix(base, homeDir)
+	relPath = strings.TrimPrefix(relPath, string(filepath.Separator))
+	relPath = filepath.ToSlash(relPath)
+	if relPath == "" {
+		return content
+	}
+	return bytes.ReplaceAll(content, []byte("__SEQUOIA_BASE__"), []byte(relPath))
 }
 
 // Verify checks that the staging directory created by Download exists

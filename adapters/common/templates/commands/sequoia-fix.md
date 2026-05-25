@@ -206,7 +206,7 @@ Example:
 
 The command automatically:
 - Reads the task from `docs/sequoia/tasks/`
-- Launches SDD with your configured strategies (see `~/.config/opencode/.sequoia-dev.yaml`)
+- Launches SDD with your configured strategies (see `~/__SEQUOIA_BASE__/.sequoia-dev.yaml`)
 - Uses fast-forward (`sdd-ff`) for simple tasks, full SDD cycle for complex ones
 - Optionally force mode: `/sequoia-dev P1-003 --ff` or `/sequoia-dev P1-003 --full`
 
