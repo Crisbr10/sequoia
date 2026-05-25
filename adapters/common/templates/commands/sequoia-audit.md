@@ -160,7 +160,16 @@ All are created in the configured directory (default: `.sequoia/`):
 
 Each area task file is self-contained: an implementing agent opens ONE file (~150-250 lines) instead of the full report.
 
-All generated tasks MUST include a `[TASK-ID]` identifier and a `**Status**` field (`⏳ Pending` or `✅ Resolved`). New tasks default to `⏳ Pending`. The task format is defined in the Sequoia SKILL.md (`Task Plan Format` section) and in the `/sequoia fix` command.
+## 🔴 Task Generation Requirements (NON-NEGOTIABLE)
+
+When the Reporter (M2) generates tasks, every single task MUST include:
+
+1. **`[TASK-ID]`** — format `{PHASE}-{NNN}` (e.g., `P1-003`, `P3-012`, `M1-001`). This is the task's permanent reference for all Sequoia commands and dependency tracking.
+2. **`**Status**`** — `⏳ Pending` or `✅ Resolved`. New tasks always default to `⏳ Pending`. The status enables progress tracking across audits and `/sequoia-dev` sessions.
+
+**A task without both `[TASK-ID]` and `**Status**` is INVALID.** The Reporter MUST NOT output a task unless both fields are present. The orchestrator MUST reject any task file that is missing either field and request regeneration.
+
+The task format is defined in the Sequoia SKILL.md (`Task Plan Format` section) and in the `/sequoia fix` command. The Reporter agent (`docs/agents/sequoia-reporter.md`) contains the canonical Task Plan Format with `id` and `status` as the first two fields.
 
 ## Usage examples
 

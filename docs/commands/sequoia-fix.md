@@ -37,6 +37,15 @@ Each finding used to generate a task must have: (a) a valid file location, (b) a
 /sequoia fix security --task=P1-003
 ```
 
+## 🔴 CRITICAL: Task ID and Status are NON-NEGOTIABLE
+
+Every generated task, without exception, MUST include:
+
+1. **`[TASK-ID]`** — a unique identifier in the format `{PHASE}-{NNN}` (e.g., `P1-003`, `P3-012`, `M1-001`). This ID is the task's permanent reference for `/sequoia-dev`, `/sequoia fix --task=`, dependency tracking, and status updates.
+2. **`**Status**`** — exactly one of `⏳ Pending` or `✅ Resolved`. New tasks ALWAYS default to `⏳ Pending`.
+
+**Tasks missing either field are INVALID.** They cannot be tracked, referenced, or automated. If you encounter a task without `[TASK-ID]` or `**Status**`, regenerate it immediately.
+
 ## Per-task format
 
 Each generated task follows this mandatory structure:

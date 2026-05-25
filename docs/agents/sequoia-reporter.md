@@ -196,9 +196,12 @@ quick_wins:
 
 ## Task Plan Format (Optimized for Implementers)
 
+> **🔴 MANDATORY**: Every task MUST include `id` and `status` fields. Tasks without both fields are **INVALID** and cannot be tracked. The `id` follows the format `{phase_agent}-{NNN}` (e.g., P1-003, P3-012, M1-001). The `status` field defaults to `pending` for all newly generated tasks.
+
 ```yaml
 task_plan:
   - id: P3-001
+    status: pending  # 🔴 MANDATORY: pending | resolved — current state of the task
     title: "Split UserService into specialized modules"
     priority: 🔴 Blocking
     phase: architecture
@@ -217,6 +220,7 @@ task_plan:
     blocks: [P1-005, P3-003]
 
   - id: P1-005
+    status: pending  # 🔴 MANDATORY: pending | resolved
     title: "Add server-side auth middleware"
     priority: 🔴 Blocking
     phase: security
@@ -234,6 +238,8 @@ task_plan:
 
 **Task ID format**: `{phase_agent}-{NNN}` (e.g., P1-003, P3-012, M1-001). This matches the finding format defined in SKILL.md.
 
+**Status lifecycle**: `pending` → `resolved`. All tasks start as `pending`. The `/sequoia-dev` and `sequoia review` commands update status to `resolved` when acceptance criteria are met.
+
 **Priority levels**: 🔴 Blocking | 🟠 High leverage | 🟡 Backlog
 
 ## Reporter Anti-patterns
@@ -247,6 +253,8 @@ task_plan:
 | **Everything is CRITICAL** | 30 findings marked as critical | If everything is urgent, nothing is urgent. Alert fatigue. |
 | **No business context** | "The score is 65/100" | Is it good or bad for THIS project at THIS stage? |
 | **Technical jargon for non-technical** | "Dependency injection for decoupling" | Stakeholders don't understand, don't approve budget |
+| **Missing status field** | Task generated without `status: pending` | Impossible to track what was implemented and what remains. Every task becomes invisible. |
+| **Missing task ID** | Task generated without an `id` field | Cannot be referenced by `/sequoia-dev`, `/sequoia fix --task=`, or any automation. The task is orphaned. |
 
 ## Output constraints
 
