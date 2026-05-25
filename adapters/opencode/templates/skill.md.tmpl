@@ -312,7 +312,7 @@ Compare Project Map and findings against the previous audit. Show delta.
 - Phase agents are independent and don't depend on each other. They can run in parallel.
 - Meta agents depend on all phase agents. They run sequentially afterwards.
 - The orchestrator does not analyze code. It only coordinates and synthesizes.
-- All state is kept in memory during the session. There is no persistence between sessions except for explicitly generated reports.
+- All state is kept in memory during the session. Between sessions, audit artifacts persist in `.sequoia/audit_YYYY-MM-DD/` inside the audited project. Engram serves as backup storage.
 
 ---
 
