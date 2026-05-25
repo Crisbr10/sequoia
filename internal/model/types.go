@@ -114,5 +114,3 @@ type ProgressMsg struct {
 // prevents pipeline blocking during bursty progress updates while keeping
 // memory overhead negligible.
 const ProgressChannelBufferSize = 64
-
-
