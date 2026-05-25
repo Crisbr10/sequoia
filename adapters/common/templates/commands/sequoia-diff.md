@@ -6,11 +6,11 @@ allowed-tools: Read, Glob, Grep
 
 # /sequoia diff
 
-Compares the current project state against the last audit recorded in Engram. Shows evolution: what improved, what worsened, what's new.
+Compares the current project state against the last recorded audit (filesystem `.sequoia/` first, Engram fallback). Shows evolution: what improved, what worsened, what's new.
 
 ## Precondition
 
-There must be at least one prior audit in Engram, **less than 60 days old**. If no prior audit exists, suggest running `/sequoia audit` first.
+There must be at least one prior audit — either in `.sequoia/audit_*/` on the filesystem or in Engram — **less than 60 days old**. If no prior audit exists in either location, suggest running `/sequoia audit` first.
 
 **Obsolescence policy**:
 - 30-60 days old → Warning: "Baseline audit is {N} days old. Results may be incomplete."
@@ -18,7 +18,7 @@ There must be at least one prior audit in Engram, **less than 60 days old**. If 
 
 ## What it does
 
-1. Retrieves the last audit from Engram
+1. Finds the baseline audit: scans `.sequoia/audit_*/` directories first (picks the most recent by date); falls back to Engram if `.sequoia/` is absent or empty
 2. Runs a quick scan of the current project state
 3. Compares previous findings vs current state
 4. Classifies each finding into an evolution category
@@ -39,10 +39,15 @@ There must be at least one prior audit in Engram, **less than 60 days old**. If 
 ```
 /sequoia diff
   │
-  ├─ 1. Retrieve last audit from Engram
-  │     ├─ Findings with timestamp
-  │     ├─ Health scores
-  │     └─ Project Map snapshot
+  ├─ 1. Retrieve baseline audit
+  │     ├─ If --baseline=<date> flag is set:
+  │     │     └─ Resolve to .sequoia/audit_<date>/ directory
+  │     │         ├─ If directory exists → use as baseline
+  │     │         └─ If directory missing → error: "No audit found for date <date>"
+  │     ├─ Otherwise, scan .sequoia/audit_*/ directories — pick most recent by date
+  │     ├─ If .sequoia/ exists with valid data → use as baseline
+  │     └─ If .sequoia/ absent or empty → fall back to Engram retrieval
+  │         └─ Warn: "No .sequoia/ baseline found. Using Engram snapshot."
   │
 ├─ 2. Verify changes in project structure
 │     ├─ New or deleted files since the last audit?

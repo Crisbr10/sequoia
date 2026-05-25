@@ -42,11 +42,38 @@ Before execution, validate:
   │     ├─ docs/sequoia/summary.md (score + root causes + trajectory + verified state + gaps)
   │     └─ docs/sequoia/tasks/{area}.md + index.md (self-contained tasks per area)
   │
-  └─ 6. Persist in Engram
-        ├─ Findings with timestamp
-        ├─ Health scores
-        └─ State snapshot for future diff
+  ├─ 6. Persist in Engram
+  │     ├─ Findings with timestamp
+  │     ├─ Health scores
+  │     └─ State snapshot for future diff
+  │
+  └─ 7. Filesystem Persistence
+        ├─ Create .sequoia/audit_YYYY-MM-DD/ directory in project root
+        ├─ health-score.md — Category scores table + methodology
+        ├─ findings.md — All findings in standard YAML format
+        └─ state-snapshot.md — Project Map snapshot + audit metadata
 ```
+
+## Step 7: Filesystem Persistence
+
+After persisting to Engram (step 6), write machine-readable audit artifacts to the audited project's `.sequoia/` directory:
+
+1. **Create directory** `.sequoia/audit_YYYY-MM-DD/` in the project root (use current date). If the directory already exists (same-day re-audit), overwrite files in place.
+2. **Write `health-score.md`** — Category scores table with trend indicators and scoring methodology:
+   ```markdown
+   # Health Score — {project-name} ({date})
+   
+   | Category | Score | Trend |
+   |----------|-------|-------|
+   | Global | {score} | — |
+   | Security | {score} | {trend} |
+   ...
+   
+   Methodology: score = 100 − Σ(severity_weight × scope_multiplier)
+   ```
+3. **Write `findings.md`** — All findings in the standard YAML block format (one `finding:` section per finding), with correlator-merged IDs and recalibrated severities.
+4. **Write `state-snapshot.md`** — Project Map at audit time, audit timestamp, Sequoia version, agent list, and scope. This snapshot is consumed by `/sequoia diff` for structure-change detection.
+5. **If write fails** (permissions, read-only filesystem) — warn user and continue. Engram persistence (step 6) remains the canonical copy.
 
 ## Flag reference
 
