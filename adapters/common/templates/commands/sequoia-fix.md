@@ -44,6 +44,7 @@ Each generated task follows this mandatory structure:
 ```markdown
 ### [TASK-ID] · [Actionable title]
 
+**Status**: ⏳ Pending | ✅ Resolved
 **Priority**: 🔴 Blocking | 🟠 High leverage | 🟡 Backlog
 **Source phase**: [P1-P6 | M1-M2]
 **Source finding(s)**: [ID(s) of the finding that generates this task]
@@ -86,11 +87,12 @@ Concrete command or manual step.
 
 A well-generated task meets these rules:
 
-1. **Does not require reading the full audit** — all context is in the task
-2. **Is not ambiguous** — a developer (or agent) can implement without questions
-3. **Has verifiable acceptance criteria** — not "improve X," but "test Y passes"
-4. **Declares explicit dependencies** — knows which tasks must go first
-5. **Declares risk honestly** — not everything is "low risk"
+1. **Has a mandatory identifier and status** — every task MUST have a `[TASK-ID]` and a `**Status**` field (`⏳ Pending` or `✅ Resolved`). New tasks default to Pending.
+2. **Does not require reading the full audit** — all context is in the task
+3. **Is not ambiguous** — a developer (or agent) can implement without questions
+4. **Has verifiable acceptance criteria** — not "improve X," but "test Y passes"
+5. **Declares explicit dependencies** — knows which tasks must go first
+6. **Declares risk honestly** — not everything is "low risk"
 
 ## Generation by phase vs all
 

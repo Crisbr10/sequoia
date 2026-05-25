@@ -160,6 +160,8 @@ docs/sequoia/
 
 Each area task file is self-contained: an implementing agent opens ONE file (~150-250 lines) instead of the full report.
 
+All generated tasks MUST include a `[TASK-ID]` identifier and a `**Status**` field (`⏳ Pending` or `✅ Resolved`). New tasks default to `⏳ Pending`. The task format is defined in the Sequoia SKILL.md (`Task Plan Format` section) and in the `/sequoia fix` command.
+
 ## Usage examples
 
 ```bash
