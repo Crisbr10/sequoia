@@ -229,6 +229,25 @@ func TestAdapter_CommandsPath(t *testing.T) {
 	assert.NotEmpty(t, p)
 }
 
+// TestAdapter_Detect_ProductionPath verifies that Detect() resolves the
+// tool config directory through PathResolver when homeDir="" (production).
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_Detect_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Clear PATH so exec.LookPath cannot find the binary.
+	t.Setenv("PATH", "")
+
+	// Create .cursor/rules dir inside the controlled home.
+	cursorDir := filepath.Join(tmpHome, ".cursor", "rules")
+	require.NoError(t, os.MkdirAll(cursorDir, 0o755))
+
+	a := cursor.NewAdapter("")
+	require.True(t, a.Detect(), "Detect should find .cursor/rules via PathResolver with empty homeDir")
+}
+
 func TestAdapter_SystemPromptPath(t *testing.T) {
 	t.Parallel()
 	a := newAdapter(t)

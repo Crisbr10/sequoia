@@ -288,6 +288,25 @@ func TestAdapter_VersionFilePath_Suffix(t *testing.T) {
 		"expected path to end with .config/opencode/skills/sequoia/.sequoia-version, got %s", p)
 }
 
+// TestAdapter_Detect_ProductionPath verifies that Detect() resolves the
+// tool config directory through PathResolver when homeDir="" (production).
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_Detect_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Clear PATH so exec.LookPath cannot find the binary.
+	t.Setenv("PATH", "")
+
+	// Create .config/opencode dir inside the controlled home.
+	opencodeDir := filepath.Join(tmpHome, ".config", "opencode")
+	require.NoError(t, os.MkdirAll(opencodeDir, 0o755))
+
+	a := opencode.NewAdapter("")
+	require.True(t, a.Detect(), "Detect should find .config/opencode via PathResolver with empty homeDir")
+}
+
 func TestAdapter_Base_SymlinkResolved(t *testing.T) {
 	realHome := t.TempDir()
 	linkHome := filepath.Join(t.TempDir(), "link-home")

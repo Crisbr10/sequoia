@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -56,11 +57,12 @@ func newAdapter(homeDir string) *Adapter {
 			return containsSequoiaSection(string(data))
 		},
 		func() bool {
-			base, err := codexBase(homeDir)
-			if err != nil {
-				return false
+			if base, err := a.Base(); err == nil {
+				if _, err := os.Stat(base); err == nil {
+					return true
+				}
 			}
-			_, err = os.Stat(base)
+			_, err := exec.LookPath("codex")
 			return err == nil
 		},
 	))

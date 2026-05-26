@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -59,11 +60,12 @@ func newAdapter(homeDir string) *Adapter {
 			return strings.Contains(string(data), sequoiaMarker)
 		},
 		func() bool {
-			base, err := geminiBase(homeDir)
-			if err != nil {
-				return false
+			if base, err := a.Base(); err == nil {
+				if _, err := os.Stat(base); err == nil {
+					return true
+				}
 			}
-			_, err = os.Stat(base)
+			_, err := exec.LookPath("gemini")
 			return err == nil
 		},
 	))

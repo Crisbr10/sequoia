@@ -4,6 +4,7 @@ package codex_test
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -46,7 +47,13 @@ func TestAdapter_Detect_NoDir(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	a := codex.NewAdapter(tmp)
-	assert.False(t, a.Detect())
+
+	_, binErr := exec.LookPath("codex")
+	if binErr != nil {
+		assert.False(t, a.Detect())
+	} else {
+		t.Skip("codex binary found in PATH — Detect() will return true regardless of dir")
+	}
 }
 
 func TestAdapter_IsInstalled_DirAndTablePresent(t *testing.T) {
@@ -273,6 +280,25 @@ func TestAdapter_Install_ReturnsSentinelError(t *testing.T) {
 	require.Error(t, err, "Install should fail when skills dir is a file")
 	assert.True(t, errors.Is(err, adapters.ErrInstallFailed),
 		"error should wrap ErrInstallFailed, got: %v", err)
+}
+
+// TestAdapter_Detect_ProductionPath verifies that Detect() resolves the
+// tool config directory through PathResolver when homeDir="" (production).
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_Detect_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Clear PATH so exec.LookPath cannot find the binary.
+	t.Setenv("PATH", "")
+
+	// Create .codex dir inside the controlled home.
+	codexDir := filepath.Join(tmpHome, ".codex")
+	require.NoError(t, os.MkdirAll(codexDir, 0o755))
+
+	a := codex.NewAdapter("")
+	require.True(t, a.Detect(), "Detect should find .codex via PathResolver with empty homeDir")
 }
 
 // TestAdapter_ProductionPath verifies that Codex's Install and Uninstall,

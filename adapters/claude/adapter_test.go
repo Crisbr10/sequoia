@@ -306,6 +306,26 @@ func TestAdapter_VersionFilePath_Suffix(t *testing.T) {
 		"expected path to end with .claude/skills/sequoia/.sequoia-version, got %s", p)
 }
 
+// TestAdapter_Detect_ProductionPath verifies that Detect() resolves the
+// tool config directory through PathResolver when homeDir="" (production).
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_Detect_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Clear PATH so exec.LookPath cannot find the binary.
+	// This forces the test to rely solely on path-based detection.
+	t.Setenv("PATH", "")
+
+	// Create .claude dir inside the controlled home.
+	claudeDir := filepath.Join(tmpHome, ".claude")
+	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+
+	a := claude.NewAdapter("")
+	require.True(t, a.Detect(), "Detect should find .claude via PathResolver with empty homeDir")
+}
+
 func TestAdapter_Base_SymlinkResolved(t *testing.T) {
 	// Symlinks may require admin privileges on Windows.
 	// If os.Symlink fails, skip the test rather than failing.

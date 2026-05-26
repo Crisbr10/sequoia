@@ -52,7 +52,7 @@ func newAdapter(homeDir string) *Adapter {
 			return err == nil
 		},
 		func() bool {
-			if base, err := cursorBase(homeDir); err == nil {
+			if base, err := a.Base(); err == nil {
 				if _, err := os.Stat(filepath.Join(base, "..")); err == nil {
 					return true
 				}

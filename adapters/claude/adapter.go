@@ -55,7 +55,7 @@ func newAdapter(homeDir string) *Adapter {
 			return strings.Contains(string(data), sequoiaMarker)
 		},
 		func() bool {
-			if base, err := claudeBase(homeDir); err == nil {
+			if base, err := a.Base(); err == nil {
 				if _, err := os.Stat(base); err == nil {
 					return true
 				}

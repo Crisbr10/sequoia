@@ -4,6 +4,7 @@ package gemini_test
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -52,7 +53,13 @@ func TestAdapter_Detect_NoDir(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	a := gemini.NewAdapter(tmp)
-	assert.False(t, a.Detect())
+
+	_, binErr := exec.LookPath("gemini")
+	if binErr != nil {
+		assert.False(t, a.Detect())
+	} else {
+		t.Skip("gemini binary found in PATH — Detect() will return true regardless of dir")
+	}
 }
 
 func TestAdapter_IsInstalled_MarkerPresent(t *testing.T) {
@@ -377,6 +384,25 @@ func TestAdapter_Install_ReturnsSentinelError(t *testing.T) {
 // when homeDir="" (production), resolves the correct home directory via
 // a.base() instead of operating on a relative path.
 // NOT parallel-safe: uses t.Setenv which is incompatible with t.Parallel().
+// TestAdapter_Detect_ProductionPath verifies that Detect() resolves the
+// tool config directory through PathResolver when homeDir="" (production).
+// NOT parallel-safe: uses t.Setenv.
+func TestAdapter_Detect_ProductionPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("USERPROFILE", tmpHome) // Windows
+	t.Setenv("HOME", tmpHome)        // Unix
+
+	// Clear PATH so exec.LookPath cannot find the binary.
+	t.Setenv("PATH", "")
+
+	// Create .gemini dir inside the controlled home.
+	geminiDir := filepath.Join(tmpHome, ".gemini")
+	require.NoError(t, os.MkdirAll(geminiDir, 0o755))
+
+	a := gemini.NewAdapter("")
+	require.True(t, a.Detect(), "Detect should find .gemini via PathResolver with empty homeDir")
+}
+
 func TestAdapter_Uninstall_ProductionPath(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("USERPROFILE", tmpHome) // Windows
