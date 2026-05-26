@@ -1,7 +1,7 @@
 # `/sequoia-dev` — Automated SDD Task Development Command
 
 **Date**: 2026-05-21
-**Status**: Design complete — ready for implementation
+**Status**: Design complete — implementation in progress (v1.0.1: added preflight bypass)
 **Author**: Orchestrator + Cris (user validation)
 
 ---
@@ -481,6 +481,50 @@ go test ./adapters/... -v
 ```
 
 If any test in `adapters/opencode/testdata/` has golden files or snapshots that reference command files, update them to include `sequoia-dev.md`.
+
+---
+
+## v1.0.1 Update (2026-05-26): SDD Session Preflight Bypass
+
+### Problem
+
+The `/sequoia-dev` command loaded configuration from `.sequoia-dev.yaml` but the SDD orchestrator still required an interactive **SDD Session Preflight** with 4 questions (Pace, Artifacts, PRs, Review). The config was missing two keys and the command template didn't tell the orchestrator to skip the preflight.
+
+### Solution
+
+1. **Added two missing config keys** to `.sequoia-dev.yaml.default`:
+   - `sdd.artifact_store`: `engram` | `openspec` | `both` (default: `engram`)
+   - `sdd.review_budget_lines`: `400` | `800` | custom number (default: `400`)
+
+2. **Added "SDD Session Preflight Bypass" section** to `sequoia-dev.md`:
+   - Maps all config keys to canonical SDD preflight values
+   - Constructs the preflight answer block from config
+   - HARD RULE: never ask the user preflight questions when running under `/sequoia-dev`
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `adapters/common/templates/.sequoia-dev.yaml.default` | Added `artifact_store` and `review_budget_lines` |
+| `adapters/common/templates/commands/sequoia-dev.md` | Added preflight bypass section + new config keys to defaults table, SDD launch params, feedback output, and config reference |
+| `~/.config/opencode/.sequoia-dev.yaml` (installed) | Synced with template changes |
+| `~/.config/opencode/commands/sequoia-dev.md` (installed) | Synced with template changes |
+| `docs/plans/2026-05-21-sequoia-dev-design.md` | This update |
+
+### Preflight Value Mapping
+
+| Config key | Preflight canonical |
+|-----------|-------------------|
+| `execution_mode: auto` | `auto` |
+| `execution_mode: interactive` | `interactive` |
+| `artifact_store: engram` | `engram` |
+| `artifact_store: openspec` | `openspec` |
+| `artifact_store: both` | `both` |
+| `delivery: ask-on-risk` | `ask-always` |
+| `delivery: auto-chain` | `force-chained` |
+| `delivery: single-pr` | `single-pr-default` |
+| `delivery: exception-ok` | `single-pr-default` |
+| `review_budget_lines: N` | `review_budget_lines: N` |
 
 ---
 

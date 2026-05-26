@@ -10,6 +10,12 @@ sdd:
   # Execution mode: auto (run all phases back-to-back) or interactive (pause after each phase)
   execution_mode: auto
 
+  # Artifact store: where SDD planning artifacts are saved
+  #   engram    — Persistent memory only (fast, no repo files)
+  #   openspec  — File-based in openspec/ directory (traceable in review)
+  #   both      — OpenSpec files plus Engram copy (cross-session recovery)
+  artifact_store: engram
+
   # TDD mode: strict (red-green-refactor) or standard (tests optional)
   tdd: strict
 
@@ -24,6 +30,10 @@ sdd:
   #   stacked-to-main     — Each PR merges to main in order
   #   feature-branch-chain — Tracker branch accumulates, one merge to main
   chain: stacked-to-main
+
+  # Review budget: maximum changed lines before stopping for approval
+  # The orchestrator uses this as the SDD preflight review threshold
+  review_budget_lines: 400
 
   # Automatic fast-forward for simple tasks
   # When true, tasks scoring ≤ complexity.ff_max_score use sdd-ff

@@ -205,22 +205,22 @@ func TestToolSelectionView_RendersCheckboxes(t *testing.T) {
 	// Register mock adapters, then navigate to ToolSelection.
 	reg := adapters.NewRegistry()
 
-	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code"})
+	reg.Register(&testutil.MockAdapter{IDVal: "claude-code", NameVal: "Claude Code", DetectFunc: func() bool { return true }})
 	reg.Register(&testutil.MockAdapter{IDVal: "opencode", NameVal: "OpenCode"})
 
 	m := app.NewModel("", "test", reg)
 	m.Screen = model.ScreenToolSelection
 	m.LoadTools("") // Lazy load after screen is set.
-	// NewModel("") selects all tools — deselect first to test [ ] rendering.
-	m.Tools[0].Selected = false
+	// NewModel("") selects only detected tools — Claude Code is detected, OpenCode is not.
+	// Deselect Claude to test [ ] rendering (OpenCode was never selected).
 
 	view := m.View()
 	assert.NotEqual(t, "Sequoia TUI — screen not yet implemented", view,
 		"ToolSelection should render real content")
-	assert.Contains(t, view, "[ ]",
-		"ToolSelection should show unselected checkboxes")
 	assert.Contains(t, view, "[x]",
-		"ToolSelection should show selected checkboxes")
+		"ToolSelection should show selected checkboxes (Claude Code detected)")
+	assert.Contains(t, view, "[ ]",
+		"ToolSelection should show unselected checkboxes (OpenCode not detected)")
 	assert.Contains(t, view, "Claude Code",
 		"ToolSelection should list tools by name")
 }

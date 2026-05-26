@@ -126,7 +126,8 @@ func NewModel(toolID string, version string, reg *adapters.Registry) Model {
 
 // LoadTools populates m.Tools from the registry if not already loaded.
 // It is safe to call multiple times; subsequent calls are no-ops.
-// toolID is the optional adapter ID to pre-select; empty means select all.
+// toolID is the optional adapter ID to force-select; empty means auto-select
+// only adapters that are detected (Detect() returns true) on this system.
 // Exported for test use; production code calls this internally in updateScreenKey.
 func (m *Model) LoadTools(toolID string) {
 	if m.Tools != nil {
@@ -135,6 +136,11 @@ func (m *Model) LoadTools(toolID string) {
 	all := m.reg.All()
 	m.Tools = make([]model.ToolState, 0, len(all))
 	for _, a := range all {
+		// Pre-select only if user targeted this tool specifically OR
+		// (no specific tool requested AND the tool is detected on this system).
+		detected := a.Detect()
+		selected := a.ID() == toolID || (toolID == "" && detected)
+
 		ts := model.ToolState{
 			Adapter: toolInfoAdapter{
 				Identifier:    a,
@@ -143,7 +149,7 @@ func (m *Model) LoadTools(toolID string) {
 				Installer:     a,
 				Strategy:      a.(common.Strategy),
 			},
-			Selected: toolID == "" || a.ID() == toolID,
+			Selected: selected,
 		}
 		m.Tools = append(m.Tools, ts)
 	}

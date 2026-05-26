@@ -41,10 +41,19 @@ func ToolSelectionView(tools []model.ToolState, cursor int, errorMsg string) str
 				cursorMark = styles.Accent().Render("▶ ")
 			}
 
-			fmt.Fprintf(&b, "%s%s %s\n",
+			// Show detection status: detected tools get a green check,
+			// undetected tools get a warning label.
+			detected := ts.Adapter.Detect()
+			detectLabel := ""
+			if !detected {
+				detectLabel = "  " + styles.Muted().Render("(not detected)")
+			}
+
+			fmt.Fprintf(&b, "%s%s %s%s\n",
 				cursorMark,
 				checkbox,
-				styles.Body().Render(ts.Adapter.Name()))
+				styles.Body().Render(ts.Adapter.Name()),
+				detectLabel)
 		}
 	}
 

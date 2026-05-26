@@ -70,10 +70,11 @@ func safeProcessCmd(t *testing.T, m app.Model, cmd tea.Cmd, maxIter int) app.Mod
 }
 
 func TestIntegration_FullInstallFlow_ScreenSequence(t *testing.T) {
-	// Setup: register a mock adapter.
+	// Setup: register a mock adapter that IS detected (DetectFunc returns true)
+	// so it gets pre-selected by LoadTools().
 	reg := adapters.NewRegistry()
 
-	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool"})
+	reg.Register(&testutil.MockAdapter{IDVal: "test-tool", NameVal: "Test Tool", DetectFunc: func() bool { return true }})
 
 	m := app.NewModel("", "test", reg)
 

@@ -50,6 +50,20 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 				continue
 			}
 
+			// Defensive guard: skip tools that are not detected on this system,
+			// even if the user manually selected them. Installing into an undetected
+			// tool can write files to unexpected locations (e.g., ~/.claude/).
+			if !tool.Adapter.Detect() {
+				sendProgress(ctx, ch, model.ProgressMsg{
+					ToolID:  tool.Adapter.ID(),
+					Step:    InstallSteps[0],
+					Done:    true,
+					Warning: true,
+					Error:   "tool not detected on this system — skipping install",
+				})
+				continue
+			}
+
 			select {
 			case <-ctx.Done():
 				// Context cancelled before goroutine starts — stop launching new goroutines.
