@@ -12,7 +12,7 @@ import (
 
 // StatusView renders the Status screen with a table showing per-tool
 // installation state: name, installed indicator, and version.
-func StatusView(tools []model.ToolState, cursor int) string {
+func StatusView(tools []model.ToolState, cursor int, errorMsg string) string {
 	var b strings.Builder
 	b.Grow(80 * (len(tools) + 3)) // ~80 bytes per tool row + title + hints
 
@@ -30,6 +30,13 @@ func StatusView(tools []model.ToolState, cursor int) string {
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
+	}
+
+	// Error message (if any).
+	if errorMsg != "" {
+		b.WriteString(styles.Error().Render("  "))
+		b.WriteString(styles.Error().Render(errorMsg))
+		b.WriteString("\n\n")
 	}
 
 	// Key hints.

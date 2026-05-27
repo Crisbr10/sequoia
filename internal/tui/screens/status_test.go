@@ -21,7 +21,7 @@ func TestStatusView_ShowsInstalledToolsWithCheckmark(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.Contains(t, view, "Claude Code", "Status should show tool name")
 	assert.Contains(t, view, "✅", "Status should show installed indicator")
@@ -33,7 +33,7 @@ func TestStatusView_ShowsNotInstalledToolsWithCross(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.Contains(t, view, "OpenCode", "Status should show tool name")
 	assert.Contains(t, view, "❌", "Status should show not-installed indicator")
@@ -45,7 +45,7 @@ func TestStatusView_ShowsVersion(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.Contains(t, view, "v0.1.0", "Status should show version")
 	assert.NotContains(t, view, "/home/user/.claude", "Status should not show install path")
@@ -58,7 +58,7 @@ func TestStatusView_ShowsMixedState(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	// Both checkmark and cross should appear.
 	assert.Contains(t, view, "✅", "Status should show installed indicator")
@@ -71,7 +71,7 @@ func TestStatusView_ShowsEmptyMessageWhenNoAdapters(t *testing.T) {
 	t.Parallel()
 
 	tools := []model.ToolState{}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.Contains(t, view, "No adapters registered", "Status should show empty message when no adapters")
 }
@@ -82,7 +82,7 @@ func TestStatusView_ShowsKeyHints(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.Contains(t, view, "u", "Status should show 'u' key hint")
 	assert.Contains(t, view, "r", "Status should show 'r' key hint")
@@ -96,7 +96,7 @@ func TestStatusView_ShowsNonEmptyView(t *testing.T) {
 	tools := []model.ToolState{
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	assert.NotEmpty(t, view, "Status view should not be empty")
 	lines := strings.Split(strings.TrimSpace(view), "\n")
@@ -219,7 +219,7 @@ func TestStatusView_Golden_AllInstalled(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: true, ver: "v0.1.0", path: "/home/user/.config/opencode"}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	golden := goldenPath("status_all_installed.txt")
 	if updateGolden {
@@ -237,7 +237,7 @@ func TestStatusView_Golden_AllInstalled(t *testing.T) {
 //nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
 func TestStatusView_Golden_Empty(t *testing.T) {
 	tools := []model.ToolState{}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	golden := goldenPath("status_empty.txt")
 	if updateGolden {
@@ -258,9 +258,57 @@ func TestStatusView_Golden_Mixed(t *testing.T) {
 		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
 		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
 	}
-	view := screens.StatusView(tools, 0)
+	view := screens.StatusView(tools, 0, "")
 
 	golden := goldenPath("status_mixed.txt")
+	if updateGolden {
+		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
+		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))
+		t.Logf("updated golden file: %s", golden)
+		return
+	}
+
+	expected, err := os.ReadFile(golden)
+	require.NoError(t, err, "golden file missing — run with UPDATE_GOLDEN=1 to generate")
+	assert.Equal(t, string(expected), view, "golden file mismatch — run with UPDATE_GOLDEN=1 to regenerate")
+}
+
+// ErrorMsg parameter tests (RED phase — these will fail to compile until TASK-002).
+
+func TestStatusView_ErrorMsg_NonEmptyRendersErrorLine(t *testing.T) {
+	t.Parallel()
+
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
+	}
+	view := screens.StatusView(tools, 0, "Select an installed tool to reinstall")
+
+	assert.Contains(t, view, "Select an installed tool to reinstall", "Status should render error message text")
+	assert.Contains(t, view, "Claude Code", "Status should still render tool list")
+	assert.Contains(t, view, "navigate", "Status should still render key hints")
+}
+
+func TestStatusView_ErrorMsg_EmptyProducesNoErrorLine(t *testing.T) {
+	t.Parallel()
+
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true}, Selected: false},
+	}
+	view := screens.StatusView(tools, 0, "")
+
+	assert.NotContains(t, view, "Select an installed tool", "Empty errorMsg should produce no error text")
+	assert.Contains(t, view, "Claude Code", "Status should still render tool list")
+}
+
+//nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
+func TestStatusView_Golden_StatusError(t *testing.T) {
+	tools := []model.ToolState{
+		{Adapter: &dummyAdapter{id: "claude-code", name: "Claude Code", inst: true, ver: "v0.1.0", path: "/home/user/.claude"}, Selected: false},
+		{Adapter: &dummyAdapter{id: "opencode", name: "OpenCode", inst: false}, Selected: false},
+	}
+	view := screens.StatusView(tools, 0, "Select an installed tool to reinstall")
+
+	golden := goldenPath("status_error.txt")
 	if updateGolden {
 		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0755))
 		require.NoError(t, os.WriteFile(golden, []byte(view), 0644))

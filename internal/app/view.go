@@ -20,7 +20,7 @@ func (m Model) View() string {
 	case model.ScreenError:
 		return screens.ErrorView(m.ProgressTools, m.OperationMode)
 	case model.ScreenStatus:
-		return screens.StatusView(m.Tools, m.Cursor)
+		return screens.StatusView(m.Tools, m.Cursor, m.ErrorMsg)
 	case model.ScreenUninstall:
 		view := screens.UninstallView(m.Tools, m.Cursor, m.ErrorMsg)
 		if m.UninstallConfirming {
