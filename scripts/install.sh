@@ -348,11 +348,13 @@ fi
 # -- Cosign signature verification --------------------------------------------
 # Attempt cryptographic signature verification (REQ-IV-001).
 # cosign absence → warn + offer install (SHA-256 remains the baseline)
-# .sig/.cert download failure → warn + continue (network issue, not tampering)
+# .sigstore.json bundle download failure → fall back to .sig/.cert (backward compat)
 # Verification failure → error exit (signature does not match → tampered binary)
 # Cosign is additive — SKIP_CHECKSUMS does NOT skip this step.
+BUNDLE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.sigstore.json"
 COSIGN_SIG_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.sig"
 CERT_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}.cert"
+BUNDLE_FILE="${TMPDIR}/${TARBALL}.sigstore.json"
 COSIGN_SIG_FILE="${TMPDIR}/${TARBALL}.sig"
 CERT_FILE="${TMPDIR}/${TARBALL}.cert"
 
@@ -368,30 +370,54 @@ done
 if [ -n "$COSIGN_CMD" ]; then
     log_info "Cosign detected ($COSIGN_CMD) — verifying cryptographic signature..."
 
-    SIG_DOWNLOAD_OK=true
+    # Try .sigstore.json bundle first (cosign v3 format)
+    BUNDLE_DOWNLOAD_OK=true
     if [ "$DOWNLOADER" = "curl" ]; then
-        curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
-        curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        curl -fsSL --retry 2 --retry-delay 2 -o "$BUNDLE_FILE" "$BUNDLE_URL" 2>/dev/null || BUNDLE_DOWNLOAD_OK=false
     else
-        wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
-        wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        wget -q --retry-connrefused --tries=2 -O "$BUNDLE_FILE" "$BUNDLE_URL" 2>/dev/null || BUNDLE_DOWNLOAD_OK=false
     fi
 
-    if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
-        log_warn "Failed to download .sig or .cert file. Skipping cosign verification."
-        log_warn "SHA-256 checksum remains the integrity baseline."
-    else
+    if [ "$BUNDLE_DOWNLOAD_OK" = "true" ] && [ -f "$BUNDLE_FILE" ]; then
+        # New format: verify with --bundle
         if "$COSIGN_CMD" verify-blob \
-            --signature "$COSIGN_SIG_FILE" \
-            --certificate "$CERT_FILE" \
+            --bundle "$BUNDLE_FILE" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
             "${TMPDIR}/${TARBALL}" 2>/dev/null; then
-            log_info "Cosign signature verified"
+            log_info "Cosign signature verified (sigstore bundle)"
         else
             log_error "Cosign signature verification FAILED."
             log_error "The downloaded binary may have been tampered with. Aborting."
             exit $EXIT_CHECKSUM
+        fi
+    else
+        # Fallback: try legacy .sig + .cert (pre-migration releases)
+        SIG_DOWNLOAD_OK=true
+        if [ "$DOWNLOADER" = "curl" ]; then
+            curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+            curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        else
+            wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+            wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+        fi
+
+        if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
+            log_warn "Failed to download signature files. Skipping cosign verification."
+            log_warn "SHA-256 checksum remains the integrity baseline."
+        else
+            if "$COSIGN_CMD" verify-blob \
+                --signature "$COSIGN_SIG_FILE" \
+                --certificate "$CERT_FILE" \
+                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
+                "${TMPDIR}/${TARBALL}" 2>/dev/null; then
+                log_info "Cosign signature verified (legacy format)"
+            else
+                log_error "Cosign signature verification FAILED."
+                log_error "The downloaded binary may have been tampered with. Aborting."
+                exit $EXIT_CHECKSUM
+            fi
         fi
     fi
 else
@@ -432,29 +458,52 @@ else
                 done
                 if [ -n "$COSIGN_CMD" ]; then
                     log_info "Cosign installed successfully. Verifying signature..."
-                    SIG_DOWNLOAD_OK=true
+                    # Try .sigstore.json bundle first (cosign v3 format)
+                    BUNDLE_DOWNLOAD_OK=true
                     if [ "$DOWNLOADER" = "curl" ]; then
-                        curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
-                        curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        curl -fsSL --retry 2 --retry-delay 2 -o "$BUNDLE_FILE" "$BUNDLE_URL" 2>/dev/null || BUNDLE_DOWNLOAD_OK=false
                     else
-                        wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
-                        wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        wget -q --retry-connrefused --tries=2 -O "$BUNDLE_FILE" "$BUNDLE_URL" 2>/dev/null || BUNDLE_DOWNLOAD_OK=false
                     fi
-                    if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
-                        log_warn "Failed to download .sig or .cert file. Skipping cosign verification."
-                        log_warn "SHA-256 checksum remains the integrity baseline."
-                    else
+
+                    if [ "$BUNDLE_DOWNLOAD_OK" = "true" ] && [ -f "$BUNDLE_FILE" ]; then
                         if "$COSIGN_CMD" verify-blob \
-                            --signature "$COSIGN_SIG_FILE" \
-                            --certificate "$CERT_FILE" \
+                            --bundle "$BUNDLE_FILE" \
                             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
                             --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
                             "${TMPDIR}/${TARBALL}" 2>/dev/null; then
-                            log_info "Cosign signature verified"
+                            log_info "Cosign signature verified (sigstore bundle)"
                         else
                             log_error "Cosign signature verification FAILED."
                             log_error "The downloaded binary may have been tampered with. Aborting."
                             exit $EXIT_CHECKSUM
+                        fi
+                    else
+                        # Fallback: legacy .sig + .cert
+                        SIG_DOWNLOAD_OK=true
+                        if [ "$DOWNLOADER" = "curl" ]; then
+                            curl -fsSL --retry 2 --retry-delay 2 -o "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                            curl -fsSL --retry 2 --retry-delay 2 -o "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        else
+                            wget -q --retry-connrefused --tries=2 -O "$COSIGN_SIG_FILE" "$COSIGN_SIG_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                            wget -q --retry-connrefused --tries=2 -O "$CERT_FILE" "$CERT_URL" 2>/dev/null || SIG_DOWNLOAD_OK=false
+                        fi
+                        if [ "$SIG_DOWNLOAD_OK" != "true" ]; then
+                            log_warn "Failed to download signature files. Skipping cosign verification."
+                            log_warn "SHA-256 checksum remains the integrity baseline."
+                        else
+                            if "$COSIGN_CMD" verify-blob \
+                                --signature "$COSIGN_SIG_FILE" \
+                                --certificate "$CERT_FILE" \
+                                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                                --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}" \
+                                "${TMPDIR}/${TARBALL}" 2>/dev/null; then
+                                log_info "Cosign signature verified (legacy format)"
+                            else
+                                log_error "Cosign signature verification FAILED."
+                                log_error "The downloaded binary may have been tampered with. Aborting."
+                                exit $EXIT_CHECKSUM
+                            fi
                         fi
                     fi
                 fi

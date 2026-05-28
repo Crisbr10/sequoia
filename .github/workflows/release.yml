@@ -123,11 +123,7 @@ jobs:
           echo "Signing release binaries with cosign..."
           find dist -type f \( -name "sequoia" -o -name "sequoia.exe" \) | while read -r binary; do
             echo "  Signing $binary..."
-            cosign sign-blob --yes \
-              --oidc-issuer https://token.actions.githubusercontent.com \
-              --output-signature="${binary}.sig" \
-              --output-certificate="${binary}.pem" \
-              "$binary"
+            cosign sign-blob --bundle="${binary}.sigstore.json" "$binary" --yes
           done
           echo "Cosign signing complete."
 

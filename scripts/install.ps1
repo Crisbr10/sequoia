@@ -261,11 +261,13 @@ try {
     # -- Cosign signature verification ----------------------------------------
     # Attempt cryptographic signature verification (REQ-IV-002).
     # cosign absence → warn + offer install (SHA-256 remains the baseline)
-    # .sig/.cert download failure → warn + continue (network issue, not tampering)
+    # .sigstore.json bundle download failure → fall back to .sig/.cert (backward compat)
     # Verification failure → error exit (signature does not match → tampered binary)
     # Cosign is additive — -SkipChecksum does NOT skip this step.
+    $bundleUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball.sigstore.json"
     $sigUrl  = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball.sig"
     $certUrl = "https://github.com/$Repo/releases/download/$ResolvedVersion/$Tarball.cert"
+    $bundleFile = Join-Path $TempDir "$Tarball.sigstore.json"
     $sigFile = Join-Path $TempDir "$Tarball.sig"
     $certFile = Join-Path $TempDir "$Tarball.cert"
 
@@ -279,27 +281,20 @@ try {
     if ($cosignCmd) {
         Write-Info "Cosign detected ($cosignCmd) — verifying cryptographic signature..."
 
-        $sigDownloadOk = $true
+        # Try .sigstore.json bundle first (cosign v3 format)
+        $bundleDownloadOk = $true
         try {
-            Invoke-WebRequest -Uri $sigUrl -OutFile $sigFile -UseBasicParsing -ErrorAction Stop
+            Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
         } catch {
-            $sigDownloadOk = $false
-        }
-        try {
-            Invoke-WebRequest -Uri $certUrl -OutFile $certFile -UseBasicParsing -ErrorAction Stop
-        } catch {
-            $sigDownloadOk = $false
+            $bundleDownloadOk = $false
         }
 
-        if (-not $sigDownloadOk) {
-            Write-Warn "Failed to download .sig or .cert file. Skipping cosign verification."
-            Write-Warn "SHA-256 checksum remains the integrity baseline."
-        } else {
+        if ($bundleDownloadOk -and (Test-Path $bundleFile)) {
+            # New format: verify with --bundle
             $archivePath = Join-Path $TempDir $Tarball
             $cosignArgs = @(
                 "verify-blob",
-                "--signature", $sigFile,
-                "--certificate", $certFile,
+                "--bundle", $bundleFile,
                 "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
                 "--certificate-identity", "https://github.com/$Repo/.github/workflows/release.yml@refs/tags/$ResolvedVersion",
                 $archivePath
@@ -307,11 +302,48 @@ try {
 
             & $cosignCmd $cosignArgs *>$null
             if ($LASTEXITCODE -eq 0) {
-                Write-Info "Cosign signature verified"
+                Write-Info "Cosign signature verified (sigstore bundle)"
             } else {
                 Write-Err "Cosign signature verification FAILED."
                 Write-Err "The downloaded binary may have been tampered with. Aborting."
                 exit $EXIT_CHECKSUM
+            }
+        } else {
+            # Fallback: try legacy .sig + .cert (pre-migration releases)
+            $sigDownloadOk = $true
+            try {
+                Invoke-WebRequest -Uri $sigUrl -OutFile $sigFile -UseBasicParsing -ErrorAction Stop
+            } catch {
+                $sigDownloadOk = $false
+            }
+            try {
+                Invoke-WebRequest -Uri $certUrl -OutFile $certFile -UseBasicParsing -ErrorAction Stop
+            } catch {
+                $sigDownloadOk = $false
+            }
+
+            if (-not $sigDownloadOk) {
+                Write-Warn "Failed to download signature files. Skipping cosign verification."
+                Write-Warn "SHA-256 checksum remains the integrity baseline."
+            } else {
+                $archivePath = Join-Path $TempDir $Tarball
+                $cosignArgs = @(
+                    "verify-blob",
+                    "--signature", $sigFile,
+                    "--certificate", $certFile,
+                    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+                    "--certificate-identity", "https://github.com/$Repo/.github/workflows/release.yml@refs/tags/$ResolvedVersion",
+                    $archivePath
+                )
+
+                & $cosignCmd $cosignArgs *>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Info "Cosign signature verified (legacy format)"
+                } else {
+                    Write-Err "Cosign signature verification FAILED."
+                    Write-Err "The downloaded binary may have been tampered with. Aborting."
+                    exit $EXIT_CHECKSUM
+                }
             }
         }
     } else {
@@ -332,29 +364,53 @@ try {
                         if ($found) { $cosignCmd = $found.Name; break }
                     }
                     if ($cosignCmd) {
-                        $sigDownloadOk = $true
-                        try { Invoke-WebRequest -Uri $sigUrl -OutFile $sigFile -UseBasicParsing -ErrorAction Stop } catch { $sigDownloadOk = $false }
-                        try { Invoke-WebRequest -Uri $certUrl -OutFile $certFile -UseBasicParsing -ErrorAction Stop } catch { $sigDownloadOk = $false }
-                        if (-not $sigDownloadOk) {
-                            Write-Warn "Failed to download .sig or .cert file. Skipping cosign verification."
-                            Write-Warn "SHA-256 checksum remains the integrity baseline."
-                        } else {
+                        # Try .sigstore.json bundle first (cosign v3 format)
+                        $bundleDownloadOk = $true
+                        try { Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop } catch { $bundleDownloadOk = $false }
+
+                        if ($bundleDownloadOk -and (Test-Path $bundleFile)) {
                             $archivePath = Join-Path $TempDir $Tarball
                             $cosignArgs = @(
                                 "verify-blob",
-                                "--signature", $sigFile,
-                                "--certificate", $certFile,
+                                "--bundle", $bundleFile,
                                 "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
                                 "--certificate-identity", "https://github.com/$Repo/.github/workflows/release.yml@refs/tags/$ResolvedVersion",
                                 $archivePath
                             )
                             & $cosignCmd $cosignArgs *>$null
                             if ($LASTEXITCODE -eq 0) {
-                                Write-Info "Cosign signature verified"
+                                Write-Info "Cosign signature verified (sigstore bundle)"
                             } else {
                                 Write-Err "Cosign signature verification FAILED."
                                 Write-Err "The downloaded binary may have been tampered with. Aborting."
                                 exit $EXIT_CHECKSUM
+                            }
+                        } else {
+                            # Fallback: legacy .sig + .cert
+                            $sigDownloadOk = $true
+                            try { Invoke-WebRequest -Uri $sigUrl -OutFile $sigFile -UseBasicParsing -ErrorAction Stop } catch { $sigDownloadOk = $false }
+                            try { Invoke-WebRequest -Uri $certUrl -OutFile $certFile -UseBasicParsing -ErrorAction Stop } catch { $sigDownloadOk = $false }
+                            if (-not $sigDownloadOk) {
+                                Write-Warn "Failed to download signature files. Skipping cosign verification."
+                                Write-Warn "SHA-256 checksum remains the integrity baseline."
+                            } else {
+                                $archivePath = Join-Path $TempDir $Tarball
+                                $cosignArgs = @(
+                                    "verify-blob",
+                                    "--signature", $sigFile,
+                                    "--certificate", $certFile,
+                                    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+                                    "--certificate-identity", "https://github.com/$Repo/.github/workflows/release.yml@refs/tags/$ResolvedVersion",
+                                    $archivePath
+                                )
+                                & $cosignCmd $cosignArgs *>$null
+                                if ($LASTEXITCODE -eq 0) {
+                                    Write-Info "Cosign signature verified (legacy format)"
+                                } else {
+                                    Write-Err "Cosign signature verification FAILED."
+                                    Write-Err "The downloaded binary may have been tampered with. Aborting."
+                                    exit $EXIT_CHECKSUM
+                                }
                             }
                         }
                     }

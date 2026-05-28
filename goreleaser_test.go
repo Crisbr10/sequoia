@@ -111,6 +111,7 @@ type goreleaserScoop struct {
 
 type goreleaserSign struct {
 	Cmd       string   `yaml:"cmd"`
+	Signature string   `yaml:"signature,omitempty"`
 	Args      []string `yaml:"args"`
 	Artifacts string   `yaml:"artifacts"`
 	Output    bool     `yaml:"output"`
@@ -271,37 +272,45 @@ func TestGoreleaserConfig_HasSignsSection(t *testing.T) {
 			"signs must use cosign command")
 	})
 
-	t.Run("uses sign-blob subcommand with output flags", func(t *testing.T) {
+	t.Run("uses sign-blob subcommand with --bundle", func(t *testing.T) {
 		sign := cfg.Signs[0]
 		require.Contains(t, sign.Args, "sign-blob",
 			"signs must invoke sign-blob subcommand")
-		// --output-signature=${signature} produces the .sig file
-		foundSigFlag := false
-		foundCertFlag := false
+		// cosign v3: --bundle=${signature} produces the .sigstore.json file
+		foundBundleFlag := false
 		for _, a := range sign.Args {
-			if contains(a, "--output-signature=") {
-				foundSigFlag = true
-			}
-			if contains(a, "--output-certificate=") {
-				foundCertFlag = true
+			if contains(a, "--bundle=") {
+				foundBundleFlag = true
 			}
 		}
-		assert.True(t, foundSigFlag,
-			"sign-blob must emit --output-signature to produce .sig file")
-		assert.True(t, foundCertFlag,
-			"sign-blob must emit --output-certificate to produce .pem file")
+		assert.True(t, foundBundleFlag,
+			"sign-blob must use --bundle= flag for cosign v3 bundle format")
+
+		// Verify no deprecated flags remain
+		for _, a := range sign.Args {
+			assert.NotContains(t, a, "--output-signature=",
+				"cosign v3 must not use deprecated --output-signature flag")
+			assert.NotContains(t, a, "--output-certificate=",
+				"cosign v3 must not use deprecated --output-certificate flag")
+		}
 	})
 
-	t.Run("signs all artifacts", func(t *testing.T) {
+	t.Run("signature template uses .sigstore.json", func(t *testing.T) {
 		sign := cfg.Signs[0]
-		assert.Equal(t, "all", sign.Artifacts,
-			"signs should cover all release artifacts")
+		assert.Equal(t, "${artifact}.sigstore.json", sign.Signature,
+			"signature template must produce .sigstore.json bundle files")
+	})
+
+	t.Run("signs checksum artifacts", func(t *testing.T) {
+		sign := cfg.Signs[0]
+		assert.Equal(t, "checksum", sign.Artifacts,
+			"signs should cover checksum artifacts (provenance chain covers all binaries)")
 	})
 
 	t.Run("output enabled", func(t *testing.T) {
 		sign := cfg.Signs[0]
 		assert.True(t, sign.Output,
-			"signs output must be true so .sig and .pem are published")
+			"signs output must be true so .sigstore.json bundles are published")
 	})
 }
 
