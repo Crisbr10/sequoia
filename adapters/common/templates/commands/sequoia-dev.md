@@ -42,7 +42,7 @@ The user request below is the canonical implementation objective for the entire 
 
 USER TASK:
 """
-{user_input}
+$ARGUMENTS
 """
 
 All SDD phases, specifications, design decisions, implementation steps and verification activities MUST remain strictly scoped to this task.
