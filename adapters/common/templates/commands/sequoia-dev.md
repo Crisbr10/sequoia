@@ -1,15 +1,13 @@
+---
+description: "Develop a task using SDD with configured strategies. Always executes through SDD subagents."
+argument-hint: "<task-id | task description> [--ff | --full]"
+allowed-tools: Read, Glob, Grep, Bash, Edit, Write, mem_search, mem_get_observation, mem_save
+---
+
 # /sequoia-dev
 
 > SDD task executor and orchestration entrypoint.
 > Always executes through SDD subagents. Never performs implementation directly in the main context.
-
----
-
-description: "Develop a task using SDD with configured strategies. Always executes through SDD subagents."
-argument-hint: "<task-id | task description> [--ff | --full]"
-allowed-tools: Read, Glob, Grep, Bash, Edit, Write, mem_search, mem_get_observation, mem_save
-
----
 
 # ROLE
 
