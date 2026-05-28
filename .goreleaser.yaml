@@ -61,7 +61,7 @@ signs:
       - --bundle=${signature}
       - ${artifact}
       - --yes
-    artifacts: checksum
+    artifacts: all
     output: true
 
 release:

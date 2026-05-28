@@ -115,18 +115,6 @@ jobs:
           fi
           echo "All SHA-256 checksums verified successfully."
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
-
-      - name: Sign with Cosign
-        run: |
-          echo "Signing release binaries with cosign..."
-          find dist -type f \( -name "sequoia" -o -name "sequoia.exe" \) | while read -r binary; do
-            echo "  Signing $binary..."
-            cosign sign-blob --bundle="${binary}.sigstore.json" "$binary" --yes
-          done
-          echo "Cosign signing complete."
-
       - name: Publish (GoReleaser)
         if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_publish }}
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89  # v7

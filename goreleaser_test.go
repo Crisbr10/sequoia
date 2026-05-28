@@ -301,10 +301,10 @@ func TestGoreleaserConfig_HasSignsSection(t *testing.T) {
 			"signature template must produce .sigstore.json bundle files")
 	})
 
-	t.Run("signs checksum artifacts", func(t *testing.T) {
+	t.Run("signs all artifacts", func(t *testing.T) {
 		sign := cfg.Signs[0]
-		assert.Equal(t, "checksum", sign.Artifacts,
-			"signs should cover checksum artifacts (provenance chain covers all binaries)")
+		assert.Equal(t, "all", sign.Artifacts,
+			"signs should cover all artifacts for complete provenance chain")
 	})
 
 	t.Run("output enabled", func(t *testing.T) {
