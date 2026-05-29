@@ -20,7 +20,7 @@ None. This is always the first command.
 
 ## Post-condition
 
-The Project Map is persisted in Engram and saved to `.sequoia/project-map.md` in the project root. All subsequent commands (`audit`, `review`, `diff`, `fix`) consume it automatically.
+The Project Map is persisted in Engram and saved to `.sequoia/project-map.md` in the project root. All subsequent commands (`audit`, `review`, `diff`) consume it automatically.
 
 ## Delegate prompt
 

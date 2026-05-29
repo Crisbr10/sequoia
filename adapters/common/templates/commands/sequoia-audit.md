@@ -169,7 +169,7 @@ When the Reporter (M2) generates tasks, every single task MUST include:
 
 **A task without both `[TASK-ID]` and `**Status**` is INVALID.** The Reporter MUST NOT output a task unless both fields are present. The orchestrator MUST reject any task file that is missing either field and request regeneration.
 
-The task format is defined in the Sequoia SKILL.md (`Task Plan Format` section) and in the `/sequoia fix` command. The Reporter agent (`docs/agents/sequoia-reporter.md`) contains the canonical Task Plan Format with `id` and `status` as the first two fields.
+The task format is defined in the Sequoia SKILL.md (`Task Plan Format` section). The Reporter agent (`docs/agents/sequoia-reporter.md`) contains the canonical Task Plan Format with `id` and `status` as the first two fields.
 
 ## Usage examples
 

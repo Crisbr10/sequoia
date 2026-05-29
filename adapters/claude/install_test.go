@@ -29,7 +29,6 @@ func TestInstall_CreatesAllFiles(t *testing.T) {
 		"sequoia-init.md",
 		"sequoia-audit.md",
 		"sequoia-review.md",
-		"sequoia-fix.md",
 		"sequoia-diff.md",
 	} {
 		assert.FileExists(t, filepath.Join(a.CommandsPath(), cmd))
@@ -124,7 +123,6 @@ func TestUninstall_RemovesAllFiles(t *testing.T) {
 		"sequoia-init.md",
 		"sequoia-audit.md",
 		"sequoia-review.md",
-		"sequoia-fix.md",
 		"sequoia-diff.md",
 	} {
 		assert.NoFileExists(t, filepath.Join(a.CommandsPath(), cmd))
@@ -194,7 +192,6 @@ func TestVerify_AllFilesReadable(t *testing.T) {
 		"sequoia-init.md",
 		"sequoia-audit.md",
 		"sequoia-review.md",
-		"sequoia-fix.md",
 		"sequoia-diff.md",
 	} {
 		cmdPath := filepath.Join(a.CommandsPath(), cmd)

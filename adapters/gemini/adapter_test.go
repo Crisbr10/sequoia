@@ -261,7 +261,7 @@ func TestAdapter_Install_ValidatesCommands(t *testing.T) {
 	a := gemini.NewAdapter(tmp)
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
-	commands := []string{"sequoia-init.md", "sequoia-audit.md", "sequoia-review.md", "sequoia-fix.md", "sequoia-diff.md"}
+	commands := []string{"sequoia-init.md", "sequoia-audit.md", "sequoia-review.md", "sequoia-diff.md"}
 	for _, cmd := range commands {
 		cmdPath := filepath.Join(geminiDir, "sequoia", "commands", cmd)
 		_, err := os.Stat(cmdPath)

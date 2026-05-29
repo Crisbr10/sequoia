@@ -232,8 +232,6 @@ Present to the user:
    - `.sequoia/tasks/index.md` — Dependency graph and sprint plan
    - `.sequoia/tasks/{area}.md` — Self-contained tasks per area (open only the one to implement)
 
-> **Note**: To regenerate tasks from an existing audit without re-running phase agents, use `/sequoia fix`.
-
 ---
 
 ## Agent Delegation
@@ -309,9 +307,6 @@ Run Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6. Complet
 
 ### `/sequoia review`
 Run Phase 1, then phase agents only on modified files (diff). Limited correlation to the diff.
-
-### `/sequoia fix`
-> **Note**: Since Sequoia v1.0.7, tasks are auto-generated during `/sequoia audit`. This command remains as a fallback to regenerate tasks from the latest audit in Engram without re-running phase agents.
 
 ### `/sequoia diff`
 Compare Project Map and findings against the previous audit. Show delta.

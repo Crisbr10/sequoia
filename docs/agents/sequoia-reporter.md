@@ -254,7 +254,7 @@ task_plan:
 | **No business context** | "The score is 65/100" | Is it good or bad for THIS project at THIS stage? |
 | **Technical jargon for non-technical** | "Dependency injection for decoupling" | Stakeholders don't understand, don't approve budget |
 | **Missing status field** | Task generated without `status: pending` | Impossible to track what was implemented and what remains. Every task becomes invisible. |
-| **Missing task ID** | Task generated without an `id` field | Cannot be referenced by `/sequoia-dev`, `/sequoia fix --task=`, or any automation. The task is orphaned. |
+| **Missing task ID** | Task generated without an `id` field | Cannot be referenced by `/sequoia-dev` or any automation. The task is orphaned. |
 
 ## Output constraints
 

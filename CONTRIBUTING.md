@@ -180,7 +180,6 @@ Create the following under `adapters/{tool}/templates/`:
 | `commands/sequoia-init.md` | Init command |
 | `commands/sequoia-audit.md` | Audit command |
 | `commands/sequoia-review.md` | Review command |
-| `commands/sequoia-fix.md` | Fix command |
 | `commands/sequoia-diff.md` | Diff command |
 
 Templates use `text/template` with a `templateData` struct containing at least

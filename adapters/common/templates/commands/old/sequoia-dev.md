@@ -12,7 +12,7 @@ Develops a Sequoia task using the SDD (Spec-Driven Development) workflow. It aut
 
 ## Purpose
 
-`/sequoia-dev` bridges the gap between Sequoia's audit/fix output and SDD's structured development process. When you run `/sequoia audit` or `/sequoia fix`, you get tasks — this command takes a task ID and launches the right development workflow to implement it.
+`/sequoia-dev` bridges the gap between Sequoia's audit output and SDD's structured development process. When you run `/sequoia audit`, tasks are generated — this command takes a task ID and launches the right development workflow to implement it.
 
 It reads the task metadata (risk, effort, files involved, dependencies) and applies a complexity heuristic to decide whether the task is simple enough for fast-forward (`sdd-ff`) or needs the full SDD cycle. You can override this with `--ff` or `--full`.
 
@@ -290,7 +290,7 @@ Only one override flag is accepted. If both `--ff` and `--full` are passed, erro
 
 | Error condition | Behavior |
 |-----------------|----------|
-| **Task not found** | Search ALL area files (`*.md` in `tasks_dir`) for the task ID. If found in a different area, suggest: "Task P1-003 not found in security.md. Did you mean P1-003 in architecture.md?" If not found anywhere, error: "Task {id} not found in {tasks_dir}. Run `/sequoia fix` to regenerate tasks." |
+| **Task not found** | Search ALL area files (`*.md` in `tasks_dir`) for the task ID. If found in a different area, suggest: "Task P1-003 not found in security.md. Did you mean P1-003 in architecture.md?" If not found anywhere, error: "Task {id} not found in {tasks_dir}. Run `/sequoia audit` to regenerate tasks." |
 | **Config file missing** | Use defaults silently. First-time users won't have it. |
 | **Config syntax error** | Warn: "⚠️ .sequoia-dev.yaml has a syntax error: {parse_error}. Falling back to defaults." Continue with defaults. |
 | **Task missing metadata** | Use safe defaults: risk=Medium (1), effort=medium (1), files=3, deps=none (0). Warn: "⚠️ Task {id} is missing some metadata. Using safe defaults." |

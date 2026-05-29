@@ -122,20 +122,6 @@ Generates the project Health Scorecard. Requires at least one prior audit. Shows
 ---
 
 ```bash
-/sequoia report
-```
-Regenerates documents from cached findings. Does not re-run agents.
-
----
-
-```bash
-/sequoia fix <phase> [--task=<id>]
-```
-Generates an actionable task plan from a phase's findings, optimized for another agent to implement. Includes: minimum necessary context, candidate files, acceptance criteria, risk.
-
----
-
-```bash
 /sequoia diff
 ```
 Compares current project state against the last recorded audit. Shows what improved, what worsened, what's new.
@@ -534,15 +520,6 @@ List with reason (from context map).
         └─► Shows: resolved / new / worsened / unchanged
 ```
 
-### Flow 4: Generate Tasks for Implementing Agent
-
-```
-/sequoia fix security
-  └─► sequoia-reporter generates task plan from P1
-        Format: each task self-sufficient, with minimum context for another agent
-        No need to re-read the entire audit
-```
-
 ---
 
 ## Configuration: `sequoia.config.json`
@@ -611,7 +588,6 @@ Optional file at the project root:
 | `/sequoia-security` | `sequoia:security` | Security audit |
 | `/sequoia-review` | `sequoia:review` | PR/diff review |
 | `/sequoia-score` | `sequoia:scorecard` | Health scorecard |
-| `/sequoia-fix` | `sequoia:fix` | Generates task plan |
 
 ### Integration with Engram (Persistent Memory)
 
@@ -642,7 +618,7 @@ This enables:
 | **API DX** | Does not exist | P3 includes DX for API consumers |
 | **PII/Data** | Mentioned in security | Dedicated data integrity checks in P6 |
 | **Deps** | Mentioned in DevOps | Dedicated CVE, license, risk score checks |
-| **Tasks for agent** | Static format | /sequoia fix: output optimized for implementer |
+| **Tasks for agent** | Static format | `/sequoia audit` generates tasks optimized for implementer |
 | **Project maturity** | Ignores context | Adapts criteria based on maturity (prototype vs production) |
 | **Future findings** | Mixed with current | `[ONLY IF SCALING]` separates them explicitly |
 | **External access** | Not considered | `[REQUIRES EXTERNAL ACCESS]` declares verifiable limits |

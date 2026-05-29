@@ -63,7 +63,6 @@ func TestCommandFiles_HasExpectedEntries(t *testing.T) {
 		"sequoia-init.md",
 		"sequoia-audit.md",
 		"sequoia-review.md",
-		"sequoia-fix.md",
 		"sequoia-diff.md",
 		"sequoia-dev.md",
 	}

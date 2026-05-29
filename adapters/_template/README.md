@@ -19,7 +19,6 @@ Copy-paste boilerplate for adding a new tool integration to Sequoia.
    ```bash
    cp templates/commands/sequoia-init.md templates/commands/sequoia-audit.md
    cp templates/commands/sequoia-init.md templates/commands/sequoia-review.md
-   cp templates/commands/sequoia-init.md templates/commands/sequoia-fix.md
    cp templates/commands/sequoia-init.md templates/commands/sequoia-diff.md
    ```
    Then edit each command file with tool-specific content.

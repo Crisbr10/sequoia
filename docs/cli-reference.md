@@ -66,9 +66,8 @@ For each selected tool:
 
 1. **Skills**: A `SKILL.md` file in the tool's skills directory (containing
    all 9 agent definitions)
-2. **Commands**: Five slash commands in the tool's commands directory
-   (`sequoia-init`, `sequoia-audit`, `sequoia-review`, `sequoia-fix`,
-   `sequoia-diff`)
+2. **Commands**: Four slash commands in the tool's commands directory
+   (`sequoia-init`, `sequoia-audit`, `sequoia-review`, `sequoia-diff`)
 3. **System prompt**: Section injection or file generation into the tool's
    configuration file (e.g. `CLAUDE.md`, `AGENTS.md`)
 4. **Version marker**: `.sequoia-version` file for tracking

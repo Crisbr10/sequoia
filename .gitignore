@@ -68,7 +68,6 @@ docs/.atl/
 
 # SDD generated artifacts (persisted in Engram, not needed in repo)
 sdd/
-sequoia-fix/
 
 # Misc
 *.orig

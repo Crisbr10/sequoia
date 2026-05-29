@@ -94,7 +94,6 @@ Sequoia integrates directly into your AI coding assistant:
 /sequoia init          # Analyze project context
 /sequoia audit         # Full parallel audit
 /sequoia review        # PR / diff review
-/sequoia fix           # Generate task list from findings
 /sequoia diff          # Compare against last audit
 ```
 

@@ -12,7 +12,6 @@
 | [`/sequoia init`](#sequoia-init) | Detectar stack, construir Project Map | Ninguna (primer paso obligatorio) |
 | [`/sequoia audit`](#sequoia-audit) | Auditoría técnica completa | `init` ejecutado |
 | [`/sequoia review`](#sequoia-review) | Revisión de PR/diff focalizada | `init` ejecutado |
-| [`/sequoia fix`](#sequoia-fix) | Generar tareas accionables | Auditoría previa existente |
 | [`/sequoia diff`](#sequoia-diff) | Comparar estado vs última auditoría | Auditoría previa existente |
 
 ---
@@ -23,7 +22,6 @@
 Primera vez:
   /sequoia init     →  mapea el proyecto
   /sequoia audit    →  auditoría completa
-  /sequoia fix all  →  genera plan de tareas
 
 Día a día:
   /sequoia review                    →  review del último commit
@@ -284,86 +282,6 @@ El review compara contra auditorías anteriores:
 
 ---
 
-## `/sequoia fix`
-
-**Qué hace**: Genera tareas implementables desde los hallazgos de una auditoría. Cada tarea es autosuficiente: un agente implementador puede ejecutarla sin releer la auditoría completa.
-
-**Precondición**: Al menos una auditoría previa ejecutada (`audit` o `review`).
-
-### Uso
-
-```bash
-/sequoia fix <fase>           # Tareas de una fase específica
-/sequoia fix all              # Tareas de todas las fases
-/sequoia fix <fase> --task=ID # Una tarea específica
-```
-
-### Fases disponibles
-
-| Argumento | Qué hace |
-|-----------|----------|
-| `security` | Tareas solo de P1 Security |
-| `performance` | Tareas solo de P2 Performance |
-| `architecture` | Tareas solo de P3 Architecture |
-| `quality` | Tareas solo de P4 Quality |
-| `experience` | Tareas solo de P5 Experience |
-| `operations` | Tareas solo de P6 Operations |
-| `all` | Todas las fases, usando correlación de causas raíz |
-
-### Formato de cada tarea
-
-```markdown
-### [TASK-ID] · Título accionable
-
-**Prioridad**: 🔴 Bloqueante | 🟠 Alto leverage | 🟡 Backlog
-**Fase origen**: P1-P6 | M1-M2
-**Hallazgo(s) origen**: IDs del hallazgo
-
-**Contexto mínimo**:
-Qué está mal y por qué importa (3-5 líneas).
-
-**Archivos involucrados**:
-- path/al/archivo.ext — qué papel cumple
-- path/otro/archivo.ext — qué modificar
-
-**Qué hacer**:
-1. Paso concreto 1
-2. Paso concreto 2
-3. Paso concreto 3
-
-**Criterio de aceptación**:
-- [ ] Condición verificable 1
-- [ ] Condición verificable 2
-```
-
-### Orden de implementación
-
-Las tareas se ordenan por:
-
-1. 🔴 **Bloqueantes de producción** → primero (sin excepción)
-2. **Causas raíz** → antes que sus síntomas (del correlator)
-3. **Dependencias técnicas** → B requiere que A esté hecha
-4. **Alto leverage** → máximo impacto con mínimo cambio
-5. **Riesgo bajo** → quick wins primero
-
-### Ejemplos
-
-```bash
-# Generar tareas de seguridad
-/sequoia fix security
-
-# Generar todas las tareas (cross-fase, con correlación)
-/sequoia fix all
-
-# Generar una tarea específica
-/sequoia fix security --task=P1-003
-
-# Generar tareas de rendimiento
-/sequoia fix performance
-```
-
----
-
 ## `/sequoia diff`
 
 **Qué hace**: Compara el estado actual del proyecto contra la última auditoría registrada. Muestra evolución: qué mejoró, qué empeoró, qué apareció nuevo.
@@ -455,13 +373,6 @@ Las tareas se ordenan por:
 /sequoia review [--diff=<git-range>]
                 [--pr=<number>]
                 [--strict]
-```
-
-### `fix`
-
-```
-/sequoia fix <security|performance|architecture|quality|experience|operations|all>
-             [--task=<ID>]
 ```
 
 ### `init` / `diff`
