@@ -166,8 +166,6 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenWelcome}
 			}
-		case "update":
-			// Placeholder — update functionality not yet implemented.
 		}
 		return m, nil
 

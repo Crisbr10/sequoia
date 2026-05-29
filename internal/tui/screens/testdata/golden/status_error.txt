@@ -5,4 +5,4 @@
 
   Select an installed tool to reinstall
 
-  ↑/↓ j/k navigate  u update  r reinstall  d uninstall  Esc back  q quit
+  ↑/↓ j/k navigate  r reinstall  d uninstall  Esc back  q quit

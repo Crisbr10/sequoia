@@ -84,7 +84,6 @@ func TestStatusView_ShowsKeyHints(t *testing.T) {
 	}
 	view := screens.StatusView(tools, 0, "")
 
-	assert.Contains(t, view, "u", "Status should show 'u' key hint")
 	assert.Contains(t, view, "r", "Status should show 'r' key hint")
 	assert.Contains(t, view, "d", "Status should show 'd' key hint")
 	assert.Contains(t, view, "q", "Status should show 'q' key hint")
@@ -123,16 +122,6 @@ func TestStatusUpdate_RKeyReturnsReinstall(t *testing.T) {
 
 	assert.Equal(t, 0, newCursor, "Cursor should not change on 'r'")
 	assert.Equal(t, "reinstall", action, "'r' should return reinstall action")
-}
-
-func TestStatusUpdate_UKeyReturnsUpdate(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}}
-	newCursor, action := screens.StatusUpdate(msg, 0, 3)
-
-	assert.Equal(t, 0, newCursor, "Cursor should not change on 'u'")
-	assert.Equal(t, "update", action, "'u' should return update action")
 }
 
 func TestStatusUpdate_UpArrowMovesCursor(t *testing.T) {

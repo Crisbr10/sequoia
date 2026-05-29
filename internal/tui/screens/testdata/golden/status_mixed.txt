@@ -3,4 +3,4 @@
 ▶ ✅ Claude Code  v0.1.0
   ❌ OpenCode  —
 
-  ↑/↓ j/k navigate  u update  r reinstall  d uninstall  Esc back  q quit
+  ↑/↓ j/k navigate  r reinstall  d uninstall  Esc back  q quit

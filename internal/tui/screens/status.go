@@ -43,8 +43,6 @@ func StatusView(tools []model.ToolState, cursor int, errorMsg string) string {
 	b.WriteString(styles.Muted().Render("  "))
 	b.WriteString(styles.Accent().Render("↑/↓ j/k"))
 	b.WriteString(styles.Muted().Render(" navigate  "))
-	b.WriteString(styles.Accent().Render("u"))
-	b.WriteString(styles.Muted().Render(" update  "))
 	b.WriteString(styles.Accent().Render("r"))
 	b.WriteString(styles.Muted().Render(" reinstall  "))
 	b.WriteString(styles.Accent().Render("d"))
@@ -91,7 +89,7 @@ func renderStatusRow(ts model.ToolState, highlighted bool) string {
 
 // StatusUpdate handles key events on the Status screen.
 // It returns the new cursor position and an action string.
-// Actions: "uninstall" (d), "reinstall" (r), "update" (u), "back" (Esc/Left), or "".
+// Actions: "uninstall" (d), "reinstall" (r), "back" (Esc/Left), or "".
 func StatusUpdate(msg tea.KeyMsg, cursor int, numTools int) (int, string) {
 	switch msg.Type {
 	case tea.KeyUp:
@@ -147,9 +145,6 @@ func StatusUpdate(msg tea.KeyMsg, cursor int, numTools int) (int, string) {
 
 		case 'r':
 			return cursor, "reinstall"
-
-		case 'u':
-			return cursor, "update"
 
 		default:
 			return cursor, ""
