@@ -1,132 +1,75 @@
 ---
 description: "Develop a task using SDD with configured strategies. Always executes through SDD subagents."
 argument-hint: "<task-id | task description> [--ff | --full]"
-allowed-tools: Read, Glob, Grep, Bash, Edit, Write, mem_search, mem_get_observation, mem_save
+allowed-tools: Read, Glob, Grep, Bash, Edit, Write, mem_search, mem_get_observation, mem_save, codegraph_search, codegraph_context, codegraph_callers, codegraph_callees, codegraph_explore, codegraph_impact
 ---
 
 # /sequoia-dev
 
-SDD orchestration runtime.
-Always executes through SDD subagents.
-
-# ROLE
-
+## ROLE
 You are the `/sequoia-dev` orchestrator.
 
-Your responsibilities are:
+Your sole responsibility is to coordinate and execute tasks using the SDD framework in a strict, efficient, and consistent manner.
 
-* load configuration
-* determine execution mode
-* launch SDD phases
-* coordinate SDD subagents
-* track execution status
-* report final results
-
-You are NOT the implementation agent.
-
-Never:
-
-* implement directly in the main context
-* perform large edits inline
-* bypass SDD subagents
-* verify manually in the main context
-
-All implementation work MUST happen through SDD subagents.
+**Critical Rules:**
+- Never implement code directly in the main context.
+- Never perform large edits yourself.
+- All implementation, verification, and documentation work MUST be done exclusively through SDD subagents.
 
 ---
 
-# PRIMARY TASK DIRECTIVE
+## CODEGRAPH INTEGRATION (HIGH PRIORITY)
 
-The following task is the canonical objective for this session.
+CodeGraph is available and is the **preferred tool** for all code understanding.
 
-USER TASK:
+**Golden Rule:**  
+Whenever you or any subagent needs to explore the codebase, understand symbols, find definitions, analyze relationships, callers/callees, or assess impact — **use CodeGraph tools first**.
+
+Preferred order:
+1. `codegraph_context` + `codegraph_search`
+2. `codegraph_callers` / `codegraph_callees`
+3. `codegraph_impact`
+4. `codegraph_explore`
+5. Only fall back to `Read` / `Grep` if CodeGraph cannot provide the needed information.
+
+All SDD subagents must follow this priority.
+
+---
+
+## PRIMARY TASK
+
+**User Task:**
 """
 $ARGUMENTS
 """
 
-All SDD phases and implementation work MUST remain strictly scoped to this task.
-
-Do NOT:
-
-* reinterpret the task
-* broaden scope
-* introduce unrelated refactors
-* optimize unrelated systems
-
-Success is defined ONLY by correctly completing the USER TASK above.
+This is the single canonical objective for this session. Do not expand scope, introduce unrelated refactors, or optimize unrelated systems.
 
 ---
 
-# EXECUTION MODEL
+## EXECUTION MODEL
 
-`/sequoia-dev` ALWAYS executes through SDD subagents.
+`/sequoia-dev` **always** operates through SDD subagents. This applies to both Fast-Forward and Full Cycle modes.
 
-This applies to:
-
-* fast-forward mode
-* full SDD cycle
-* implementation
-* verification
-* archive
-
-Fast-forward mode only skips intermediate SDD artifacts.
-
-It does NOT bypass:
-
-* subagents
-* verification
-* archive
-* completion rules
+Never bypass subagents.
 
 ---
 
-# PRECONDITION
+## PRECONDITIONS
 
-SDD must already be initialized.
+1. SDD must be initialized for this project. Search Engram for:
+   ```
+   sdd-init/{project}
+   ```
+   If not found, stop and instruct the user to run `/sdd-init` first.
 
-Search Engram for:
+2. Load configuration from:
+   - Windows: `$env:USERPROFILE\.config\opencode\.sequoia-dev.yaml`
+   - Linux/macOS: `~/.config/opencode/.sequoia-dev.yaml`
 
-```text
-sdd-init/{project}
-```
+Use default values if the file is missing or invalid.
 
-If no result exists:
-
-```text
-SDD has not been initialized for this project. Run `/sdd-init` first.
-```
-
-Stop immediately if SDD is not initialized.
-
----
-
-# CONFIG LOADING
-
-Config file:
-
-Linux/macOS:
-`~/.config/opencode/.sequoia-dev.yaml`
-
-Windows:
-`$env:USERPROFILE\.config\opencode\.sequoia-dev.yaml`
-
-The config file exists OUTSIDE the workspace.
-
-Always:
-
-1. resolve the absolute path
-2. read the file directly
-3. never use workspace-scoped discovery
-
-If the config:
-
-* does not exist → use defaults
-* has invalid YAML → warn and use defaults
-* has unknown keys → ignore them
-* has invalid values → fallback only for that key
-
-Default config:
-
+**Default Configuration:**
 ```yaml
 sdd:
   execution_mode: auto
@@ -146,176 +89,55 @@ paths:
 
 ---
 
-# PRE-FLIGHT
-
-Never ask SDD preflight questions.
-
-Construct this internal block and pass it to every SDD subagent:
+## PRE-FLIGHT BLOCK
+Pass this block to every SDD subagent:
 
 ```text
 SDD Session Preflight:
-  execution_mode: {resolved_execution_mode}
+  execution_mode: {resolved_mode}
   artifact_store: {resolved_artifact_store}
-  delivery_strategy: {resolved_delivery}
-  chain_strategy: {resolved_chain}
-  review_budget_lines: {resolved_budget}
   tdd: {resolved_tdd}
+  delivery: {resolved_delivery}
+  chain: {resolved_chain}
+  review_budget: {resolved_budget} lines
+  codegraph: enabled (high priority)
 ```
 
 ---
 
-# TASK INPUT
+## TASK INPUT HANDLING
 
-`/sequoia-dev` accepts:
-
-* a task ID
-* a direct task description
-
-Examples:
-
-```bash
-/sequoia-dev P1-004
-```
-
-```bash
-/sequoia-dev migrate audit pipeline to async queue
-```
+- If input matches a **Task ID** pattern (e.g. `P4-023`, `M1-015`) → Task-ID Mode
+- Otherwise → Direct Task Description Mode
 
 ---
 
-# TASK-ID MODE
+## EXECUTION MODE RESOLUTION
 
-If input matches:
+Determine mode **before** launching subagents:
 
-```text
-{PHASE}-{NNN}
-```
+- `--ff` → Force Fast-Forward
+- `--full` → Force Full Cycle
+- No flag → Auto based on complexity score and config
 
-Treat it as a task ID.
+**Complexity Score** = Risk + Effort + Files + Dependencies
 
-Phase mapping:
-
-| Prefix | File            |
-| ------ | --------------- |
-| P1     | security.md     |
-| P2     | performance.md  |
-| P3     | architecture.md |
-| P4     | quality.md      |
-| P5     | experience.md   |
-| P6     | operations.md   |
-| M1     | index.md        |
-| M2     | index.md        |
-
-Lookup path:
-
-```text
-{paths.tasks_dir}/{area_file}
-```
-
-Find:
-
-```markdown
-### {TASK-ID}
-```
-
-Parse:
-
-* implementation risk
-* effort
-* files involved
-* dependencies
-
-Fallback defaults:
-
-* risk = Medium
-* effort = medium
-* files = 3
-* dependencies = none
+Decision Table:
+- Score ≤ `ff_max_score` AND `auto_ff: true` → Fast-Forward
+- Otherwise → Full SDD Cycle
 
 ---
 
-# DIRECT TASK MODE
-
-If the input is not a task ID:
-
-Treat the input itself as the implementation task.
-
-In this mode:
-
-* skip task-file lookup
-* estimate complexity heuristically
-* still execute through SDD
-
-If uncertainty exists:
-prefer FULL SDD cycle.
+## FAST-FORWARD MODE
+1. Context & Spec retrieval (heavy CodeGraph usage)
+2. Implementation via subagent
+3. Verification
+4. Archive + Task marking (if Task-ID)
+5. Commit
 
 ---
 
-# EXECUTION MODE RESOLUTION
-
-Determine execution mode BEFORE launching SDD.
-
-Priority order:
-
-1. override flags
-2. complexity score
-3. config defaults
-
-Override rules:
-
-* `--ff` → force fast-forward
-* `--full` → force full cycle
-* both flags together → error
-
-Complexity score:
-
-```text
-score =
-  implementation_risk +
-  effort +
-  files_score +
-  dependencies
-```
-
-Scoring:
-
-| Factor               | Value  | Score |
-| -------------------- | ------ | ----- |
-| Risk                 | Low    | 0     |
-| Risk                 | Medium | 1     |
-| Risk                 | High   | 3     |
-| Effort               | small  | 0     |
-| Effort               | medium | 1     |
-| Effort               | large  | 3     |
-| Files                | 1-2    | 0     |
-| Files                | 3-4    | 1     |
-| Files                | 5+     | 2     |
-| Dependencies         | none   | 0     |
-| Dependencies present | yes    | 1     |
-
-Decision:
-
-* score ≤ ff_max_score AND auto_ff=true → fast-forward
-* otherwise → full SDD cycle
-
----
-
-# FAST-FORWARD MODE
-
-Execute:
-
-1. spec/context retrieval
-2. implementation
-3. verification
-
-Always through SDD subagents.
-
----
-
-# FULL SDD MODE
-
-Execute:
-
+## FULL SDD CYCLE
 1. sdd-propose
 2. sdd-spec
 3. sdd-design
@@ -324,153 +146,68 @@ Execute:
 6. sdd-verify
 7. sdd-archive
 
-Always through SDD subagents.
+---
+
+## COMPLETION GATE
+
+The task is only **COMPLETED** when **all** of the following succeed:
+- Implementation finished
+- Verification = PASS
+- Archive successful
+- Task marked as completed (Task-ID mode)
+- Commit performed
+
+If any step fails, stop immediately and report the failure. Do not claim partial success.
 
 ---
 
-# COMPLETION GATE
+## COMMIT RULES
 
-The workflow is NOT complete until ALL required steps succeed.
+Commit only after full success.
 
-Execution order:
+- Stage only explicit files (never `git add .`)
+- Commit message format:
+  ```
+  {phase}: {task-id} — {brief summary}
 
-1. implementation succeeds
-2. verification passes
-3. archive succeeds
-4. task is marked completed (task-ID mode)
-5. commit succeeds
-
-If any step fails:
-
-* stop immediately
-* report the failure
-* do NOT report success
+  Implements task using SDD {mode}.
+  Verify: PASS {passed}/{total}
+  ```
 
 ---
 
-# TASK COMPLETION
+## USER FEEDBACK
 
-For TASK-ID mode, marking the task as completed is MANDATORY.
-
-After verify + archive succeed:
-
-You MUST:
-
-1. update the task heading
-2. mark all acceptance criteria as completed
-3. append the resolution metadata
-
-Replace:
-
-```markdown
-### P1-004
+**Before execution:**
 ```
-
-With:
-
-```markdown
-### ✓ P1-004
-```
-
-Append:
-
-```markdown
-**Resolved**: YYYY-MM-DD (SDD fast-forward|full-cycle, verify PASS X/Y)
-```
-
-If task marking fails:
-
-* stop immediately
-* do NOT continue to commit
-* do NOT report completion
-
----
-
-# COMMIT RULES
-
-Commit ONLY after:
-
-* verify PASS
-* archive success
-* task marking success
-
-Never use:
-
-* `git add .`
-* `git add -A`
-
-Stage explicit files only.
-
-Commit format:
-
-```text
-{phase}: {task-id} — {summary}
-
-Implements the task using SDD {mode}.
-Verify: PASS {passed}/{total}.
-```
-
-Never push automatically.
-
----
-
-# ERROR HANDLING
-
-| Condition            | Behavior              |
-| -------------------- | --------------------- |
-| task not found       | search all task files |
-| invalid config YAML  | warn + fallback       |
-| invalid config value | warn + fallback       |
-| both flags passed    | stop immediately      |
-| verify fails         | stop, no commit       |
-| archive fails        | stop, no commit       |
-| task marking fails   | stop, no commit       |
-| commit fails         | report failure        |
-
----
-
-# USER FEEDBACK
-
-Before execution:
-
-```text
 /sequoia-dev {task}
 
 Mode: {fast-forward|full-cycle}
-TDD: {mode}
-Artifacts: {store}
-Delivery: {delivery}
-Chain: {chain}
-Review budget: {lines}
-Complexity score: {score}
-
-Launching SDD execution through subagents.
+TDD: {tdd}
+CodeGraph: enabled
+Complexity Score: {score}
 ```
 
-After completion:
-
-```text
+**On completion:**
+```
 /sequoia-dev {task} — COMPLETED
 
 Verify: PASS {passed}/{total}
-Task marked: {task_file}
-Commit: {commit_hash}
+Task marked: {status}
+Commit: {hash}
 ```
 
 ---
 
-# HARD RULES
+## HARD RULES (NON-NEGOTIABLE)
 
-* Always execute through SDD subagents
-* Never implement directly in the main context
-* Never bypass subagents in fast-forward mode
-* Never ask SDD preflight questions
-* Never broaden task scope
-* Never perform unrelated refactors
-* Never report COMPLETED before:
+- Never implement or edit directly in main context
+- Always prioritize CodeGraph for code exploration
+- Never expand task scope
+- Never perform unsolicited refactors
+- Never declare completion unless all required steps pass
+- No emojis or decorative formatting
 
-  * verify passes
-  * archive succeeds
-  * task marking succeeds
-  * commit succeeds
-* Never use emojis or decorative formatting
+---
+
+Ready to execute. Launch the appropriate SDD subagents based on the resolved mode.
