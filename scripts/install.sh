@@ -559,6 +559,26 @@ if ! "${INSTALL_DIR}/${BINARY}" install --no-tui; then
     log_warn "'sequoia install' completed with warnings. Check output above."
 fi
 
+# -- Install CodeGraph (non-blocking convenience) --------------------------
+install_codegraph() {
+    if command -v codegraph >/dev/null 2>&1; then
+        log_info "CodeGraph is already installed ($(codegraph --version 2>/dev/null || echo 'ok'))."
+    else
+        log_info "Installing CodeGraph for enhanced code intelligence..."
+        if curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh; then
+            log_info "CodeGraph installed. Auto-configuring agents..."
+            codegraph install --target=auto --location=global --yes 2>/dev/null || true
+            log_info "CodeGraph integration ready."
+        else
+            log_warn "CodeGraph installation skipped (network issue or unsupported platform)."
+            log_warn "Sequoia works fine without it — /sequoia-dev will fall back to file-based exploration."
+            log_warn "Install manually: curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh"
+        fi
+    fi
+}
+
+install_codegraph
+
 # -- Done ---------------------------------------------------------------------
 echo ""
 printf "${GREEN}%s${NC}\n" "=============================================="

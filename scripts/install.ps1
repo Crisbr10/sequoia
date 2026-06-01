@@ -515,6 +515,24 @@ try {
         Write-Warn "'sequoia install' completed with warnings. Check output above."
     }
 
+    # -- Install CodeGraph (non-blocking) ------------------------------------
+    $codegraphCmd = Get-Command codegraph -ErrorAction SilentlyContinue
+    if ($codegraphCmd) {
+        Write-Info "CodeGraph is already installed ($($codegraphCmd.Source))."
+    } else {
+        Write-Info "Installing CodeGraph for enhanced code intelligence..."
+        try {
+            irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex
+            Write-Info "CodeGraph installed. Auto-configuring agents..."
+            & codegraph install --target=auto --location=global --yes 2>$null
+            Write-Info "CodeGraph integration ready."
+        } catch {
+            Write-Warn "CodeGraph installation skipped (network issue or unsupported platform)."
+            Write-Warn "Sequoia works fine without it — /sequoia-dev will fall back to file-based exploration."
+            Write-Warn "Install manually: irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex"
+        }
+    }
+
     # -- Done -----------------------------------------------------------------
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
