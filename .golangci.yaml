@@ -63,6 +63,13 @@ linters:
       - path: internal/pipeline/runner\.go
         linters:
           - errcheck
+      # CodeGraph: exec.CommandContext with variable args is intentional (testability injection)
+      - path: internal/codegraph/install\.go
+        linters:
+          - gosec
+      - path: internal/codegraph/install_test\.go
+        linters:
+          - gosec
 
 formatters:
   enable:

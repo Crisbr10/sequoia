@@ -76,10 +76,10 @@ var runCommandWithOutput = func(ctx context.Context, name string, args ...string
 
 // Install attempts to install and configure CodeGraph as a non-blocking convenience step.
 // It mirrors the logic in scripts/install.sh and scripts/install.ps1:
-//   1. Check if "codegraph" is on PATH → skip if yes
-//   2. Download CodeGraph via official installer
-//   3. Run "codegraph install --target=auto --location=global --yes" to configure agents
-//   4. Any failure produces a warning; the function never returns an error
+//  1. Check if "codegraph" is on PATH → skip if yes
+//  2. Download CodeGraph via official installer
+//  3. Run "codegraph install --target=auto --location=global --yes" to configure agents
+//  4. Any failure produces a warning; the function never returns an error
 //
 // out receives progress messages (may be nil to suppress output).
 func Install(ctx context.Context, out io.Writer) InstallResult {

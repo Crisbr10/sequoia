@@ -750,7 +750,7 @@ func TestRunInstall_WarningEmitter(t *testing.T) {
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
-cmd()
+	cmd()
 	msgs := collectProgress(ch)
 	adapterMsgs := filterCodegraphMessages(msgs)
 

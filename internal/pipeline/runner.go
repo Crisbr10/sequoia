@@ -393,18 +393,18 @@ func codegraphInstallProgress(ctx context.Context, ch chan<- model.ProgressMsg) 
 		})
 	} else {
 		sendProgress(ctx, ch, model.ProgressMsg{
-			ToolID: "codegraph",
-			Step:   "Installing",
-			Done:   true,
+			ToolID:  "codegraph",
+			Step:    "Installing",
+			Done:    true,
 			Warning: true,
-			Error:  result.Message,
+			Error:   result.Message,
 		})
 		sendProgress(ctx, ch, model.ProgressMsg{
-			ToolID: "codegraph",
-			Step:   "Configuring",
-			Done:   true,
+			ToolID:  "codegraph",
+			Step:    "Configuring",
+			Done:    true,
 			Warning: true,
-			Error:  "skipped",
+			Error:   "skipped",
 		})
 	}
 }
