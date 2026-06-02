@@ -82,7 +82,7 @@ var runCommandWithOutput = func(ctx context.Context, name string, args ...string
 //  4. Any failure produces a warning; the function never returns an error
 //
 // out receives progress messages (may be nil to suppress output).
-func Install(ctx context.Context, out io.Writer) InstallResult {
+var InstallFunc = func(ctx context.Context, out io.Writer) InstallResult {
 	// Check for cancellation before starting.
 	if ctx.Err() != nil {
 		return InstallResult{Failed: true, Message: "CodeGraph install skipped: " + errCancelled.Error()}
@@ -156,4 +156,9 @@ func Install(ctx context.Context, out io.Writer) InstallResult {
 		Installed: true,
 		Message:   "CodeGraph installed and configured successfully.",
 	}
+}
+
+// Install delegates to InstallFunc. Exposed as a variable so tests can override it.
+func Install(ctx context.Context, out io.Writer) InstallResult {
+	return InstallFunc(ctx, out)
 }

@@ -5,6 +5,7 @@ package pipeline_test
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -14,9 +15,29 @@ import (
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
+	"github.com/Crisbr10/sequoia/internal/codegraph"
 	"github.com/Crisbr10/sequoia/internal/model"
 	"github.com/Crisbr10/sequoia/internal/pipeline"
 )
+
+// mockCodegraphInstallFunc is installed by TestMain to suppress real
+// codegraph exec calls in all tests. Tests that verify CodeGraph message
+// counts must account for whether this mock is active.
+var mockCodegraphInstallFunc = func(ctx context.Context, out io.Writer) codegraph.InstallResult {
+	// Simulates "already installed" — produces 3 CodeGraph messages:
+	// Installing running, Installing done (info=already installed), Configuring done (info=already configured).
+	return codegraph.InstallResult{
+		AlreadyInstalled: true,
+		Message:          "CodeGraph is already installed.",
+	}
+}
+
+func init() {
+	// Suppress real codegraph exec in all tests (prevents hangs on windows-latest CI
+	// where the PowerShell script hangs in non-interactive environments).
+	// Tests that verify specific CodeGraph message counts rely on this mock.
+	codegraph.InstallFunc = mockCodegraphInstallFunc
+}
 
 // testAdapter is a mock ToolAdapter for testing the pipeline runner.
 // It records call counts and can simulate success, failure, or delay.
