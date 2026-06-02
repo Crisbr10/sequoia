@@ -74,7 +74,7 @@ var runCommandWithOutput = func(ctx context.Context, name string, args ...string
 	return buf.String(), err
 }
 
-// Install attempts to install and configure CodeGraph as a non-blocking convenience step.
+// InstallFunc attempts to install and configure CodeGraph as a non-blocking convenience step.
 // It mirrors the logic in scripts/install.sh and scripts/install.ps1:
 //  1. Check if "codegraph" is on PATH → skip if yes
 //  2. Download CodeGraph via official installer

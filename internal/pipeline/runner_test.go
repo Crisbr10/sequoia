@@ -249,7 +249,9 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 
 	msgs := collectProgress(ch)
 
-	// 5 phases × 2 messages each = 10 messages, plus CodeGraph's 3 = 13.
+	// 5 phases × 2 messages each = 10 messages, plus CodeGraph's 3 (Installing running + Installing done + Configuring done).
+	// Note: the mock returns AlreadyInstalled=true, bypassing the CI skip path in codegraphInstallProgress,
+	// so tests see the full 3-message sequence regardless of whether CI env var is set.
 	require.Len(t, msgs, 13, "Should receive 13 messages (10 phase messages + 3 CodeGraph)")
 
 	// Verify phase names appear in order.
@@ -270,7 +272,7 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 	codegraphStart := len(msgs) - 3
 	assert.Equal(t, "codegraph", msgs[codegraphStart].ToolID)
 	assert.Equal(t, "Installing", msgs[codegraphStart].Step)
-	assert.False(t, msgs[codegraphStart].Done)
+	assert.False(t, msgs[codegraphStart].Done, "CodeGraph Installing should be 'running' (Done=false)")
 
 	assert.Equal(t, 1, adapter.applyCalls, "Apply should be called once")
 }
@@ -365,10 +367,20 @@ func TestRunInstall_SkipsUnselectedTools(t *testing.T) {
 	cmd()
 	msgs := collectProgress(ch)
 
-	// CodeGraph always produces 3 messages (Installing running/done + Configuring done),
-	// even when no adapters are selected.
+	// CodeGraph always produces 3 messages (Installing running + Installing done + Configuring done),
+	// even when no adapters are selected. The mock returns AlreadyInstalled=true, bypassing the CI skip path.
 	require.Len(t, msgs, 3, "CodeGraph should produce 3 progress messages even when no tools selected")
 	assert.Equal(t, "codegraph", msgs[0].ToolID)
+	assert.Equal(t, "Installing", msgs[0].Step)
+	assert.False(t, msgs[0].Done, "CodeGraph Installing should be 'running' (Done=false)")
+	assert.Equal(t, "codegraph", msgs[1].ToolID)
+	assert.Equal(t, "Installing", msgs[1].Step)
+	assert.True(t, msgs[1].Done, "CodeGraph Installing should be 'done'")
+	assert.Contains(t, msgs[1].Info, "already installed")
+	assert.Equal(t, "codegraph", msgs[2].ToolID)
+	assert.Equal(t, "Configuring", msgs[2].Step)
+	assert.True(t, msgs[2].Done, "CodeGraph Configuring should be 'done'")
+	assert.Contains(t, msgs[2].Info, "already configured")
 	assert.Equal(t, 0, adapter.installCallCount(), "Unselected tool's Install should not be called")
 }
 
