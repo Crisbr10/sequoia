@@ -216,7 +216,10 @@ test_download_failure() {
 test_config_failure() {
     TESTS_RUN=$((TESTS_RUN + 1))
     echo ""
-    echo "--- Test: Download OK but codegraph install fails → continues ---"
+    echo "--- Test: Download OK but codegraph install fails → warns and continues ---"
+
+    local stderr_file
+    stderr_file="$(mktemp)"
 
     # Mock: command -v codegraph → not found
     command() {
@@ -239,6 +242,7 @@ test_config_failure() {
     # Mock: codegraph install → failure (returns 1)
     codegraph() {
         if [ "$1" = "install" ]; then
+            echo "no agents detected" >&2
             return 1
         fi
         return 1
@@ -246,12 +250,15 @@ test_config_failure() {
     export -f codegraph
 
     local output
-    output="$(install_codegraph 2>/dev/null)" || true
+    output="$(install_codegraph 2>"$stderr_file")" || true
     local exit_code=$?
+    local stderr_output
+    stderr_output="$(cat "$stderr_file")"
+    rm -f "$stderr_file"
 
     assert_exit_code 0 "$exit_code" "exit code is 0 (non-blocking on config failure)"
-    assert_output_contains "$output" "CodeGraph integration ready" "continues past config failure"
-    assert_output_not_contains "$output" "FAILED" "does NOT mention failure"
+    assert_output_contains "$stderr_output" "configuration failed" "warns about configuration failure"
+    assert_output_contains "$stderr_output" "Run manually" "includes manual fix command"
 }
 
 # ---- Test runner ------------------------------------------------------------

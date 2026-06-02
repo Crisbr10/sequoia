@@ -75,16 +75,22 @@ func TestBuildProgressTools_SingleSelected(t *testing.T) {
 	}
 
 	result := buildProgressTools(tools)
-	require.Len(t, result, 1, "only selected tools should be included")
+	require.Len(t, result, 2, "selected tools + CodeGraph should be included")
 	assert.Equal(t, "tool-1", result[0].ToolID)
 	assert.Equal(t, "Tool 1", result[0].ToolName)
 	assert.Len(t, result[0].Steps, 5, "should have 5 steps: Preparing, Downloading, Verifying, Staging, Applying")
 
-	// All steps should start in pending state.
 	for _, step := range result[0].Steps {
 		assert.Equal(t, screens.StepPending, step.Status, "step %s should start pending", step.Name)
 	}
 	assert.Equal(t, "Preparing", result[0].Steps[0].Name, "first step must be 'Preparing'")
+
+	// Last tool is always CodeGraph (synthetic, not user-selected).
+	assert.Equal(t, "codegraph", result[1].ToolID, "second tool should be CodeGraph")
+	assert.Equal(t, "CodeGraph", result[1].ToolName)
+	require.Len(t, result[1].Steps, 2, "CodeGraph has 2 steps")
+	assert.Equal(t, "Installing", result[1].Steps[0].Name)
+	assert.Equal(t, "Configuring", result[1].Steps[1].Name)
 }
 
 func TestBuildProgressTools_NoneSelected(t *testing.T) {
@@ -93,12 +99,14 @@ func TestBuildProgressTools_NoneSelected(t *testing.T) {
 	}
 
 	result := buildProgressTools(tools)
-	assert.Empty(t, result, "no selected tools should produce empty result")
+	require.Len(t, result, 1, "CodeGraph should always be appended")
+	assert.Equal(t, "codegraph", result[0].ToolID)
 }
 
 func TestBuildProgressTools_EmptyInput(t *testing.T) {
 	result := buildProgressTools(nil)
-	assert.Empty(t, result, "nil input should produce empty result")
+	require.Len(t, result, 1, "CodeGraph should always be appended even with empty input")
+	assert.Equal(t, "codegraph", result[0].ToolID)
 }
 
 func TestBuildUninstallProgressTools_OnlySelectedAndInstalled(t *testing.T) {
@@ -216,14 +224,19 @@ func TestBuildProgressTools_StepNamesMatchDesign(t *testing.T) {
 	}
 
 	result := buildProgressTools(tools)
-	require.Len(t, result, 1)
-	require.Len(t, result[0].Steps, 5)
+	require.Len(t, result, 2, "selected tools + CodeGraph")
 
-	// After Strategy refactor, there are 5 phases.
+	// First tool is the adapter tool.
+	require.Len(t, result[0].Steps, 5)
 	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
 	for i, phase := range expectedPhases {
 		assert.Equal(t, phase, result[0].Steps[i].Name, "step %d should be '%s'", i, phase)
 	}
+
+	// Last tool is CodeGraph with Installing/Configuring.
+	require.Len(t, result[1].Steps, 2, "CodeGraph has 2 steps")
+	assert.Equal(t, "Installing", result[1].Steps[0].Name)
+	assert.Equal(t, "Configuring", result[1].Steps[1].Name)
 }
 
 func TestWaitForProgress_EmptyChannelThenClose(t *testing.T) {
@@ -286,19 +299,25 @@ func TestStartPipeline_InstallMode(t *testing.T) {
 	// Verify OperationMode is set.
 	assert.Equal(t, "install", m.OperationMode, "OperationMode should be 'install'")
 
-	// Verify ProgressTools are built from selected tools (2 of 3).
-	require.Len(t, m.ProgressTools, 2, "ProgressTools should have exactly the selected tools")
+	// Verify ProgressTools are built from selected tools (2 of 3) + CodeGraph.
+	require.Len(t, m.ProgressTools, 3, "ProgressTools should have selected tools + CodeGraph")
 	assert.Equal(t, "tool-1", m.ProgressTools[0].ToolID)
 	assert.Equal(t, "Tool 1", m.ProgressTools[0].ToolName)
 	assert.Equal(t, "tool-3", m.ProgressTools[1].ToolID)
 	assert.Equal(t, "Tool 3", m.ProgressTools[1].ToolName)
+	assert.Equal(t, "codegraph", m.ProgressTools[2].ToolID, "last tool should be synthetic CodeGraph")
 
 	// Verify all steps start pending.
-	for _, pt := range m.ProgressTools {
-		require.Len(t, pt.Steps, 5, "each tool should have 5 Strategy phases")
+	for i, pt := range m.ProgressTools[:2] {
+		require.Len(t, pt.Steps, 5, "adapter tool %d should have 5 Strategy phases", i)
 		for _, step := range pt.Steps {
 			assert.Equal(t, screens.StepPending, step.Status)
 		}
+	}
+	// CodeGraph has 2 steps.
+	require.Len(t, m.ProgressTools[2].Steps, 2, "CodeGraph should have 2 steps")
+	for _, step := range m.ProgressTools[2].Steps {
+		assert.Equal(t, screens.StepPending, step.Status)
 	}
 
 	// Verify counters are reset to zero.

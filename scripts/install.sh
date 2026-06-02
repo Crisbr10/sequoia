@@ -567,8 +567,12 @@ install_codegraph() {
         log_info "Installing CodeGraph for enhanced code intelligence..."
         if curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh; then
             log_info "CodeGraph installed. Auto-configuring agents..."
-            codegraph install --target=auto --location=global --yes 2>/dev/null || true
-            log_info "CodeGraph integration ready."
+            if codegraph install --target=auto --location=global --yes 2>&1; then
+                log_info "CodeGraph integration ready."
+            else
+                log_warn "CodeGraph agent configuration failed (non-blocking)."
+                log_warn "Run manually: codegraph install --target=auto --location=global --yes"
+            fi
         else
             log_warn "CodeGraph installation skipped (network issue or unsupported platform)."
             log_warn "Sequoia works fine without it — /sequoia-dev will fall back to file-based exploration."

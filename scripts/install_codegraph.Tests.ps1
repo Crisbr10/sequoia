@@ -50,8 +50,13 @@ Describe 'CodeGraph auto-install in install.ps1' {
             try {
                 irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex
                 Write-Info "CodeGraph installed. Auto-configuring agents..."
-                & codegraph install --target=auto --location=global --yes 2>$null
-                Write-Info "CodeGraph integration ready."
+                & codegraph install --target=auto --location=global --yes 2>&1 | Out-Null
+                if ($global:LASTEXITCODE -ne 0) {
+                    Write-Warn "CodeGraph agent configuration failed (non-blocking)."
+                    Write-Warn "Run manually: codegraph install --target=auto --location=global --yes"
+                } else {
+                    Write-Info "CodeGraph integration ready."
+                }
             }
             catch {
                 Write-Warn "CodeGraph installation skipped (network issue or unsupported platform)."
@@ -155,14 +160,15 @@ Describe 'CodeGraph auto-install in install.ps1' {
     }
 
     # ==========================================================================
-    # T3.4 - codegraph install failure after download does not crash
+    # T3.4 - codegraph install failure after download warns and does not crash
     # ==========================================================================
-    It 'does not throw when codegraph config exits non-zero' {
+    It 'warns when codegraph config exits non-zero and does not throw' {
         Mock Get-Command { $null }
         Mock Invoke-RestMethod { 'downloaded' }
         Mock Invoke-Expression {}
         Mock Write-Info {}
         Mock Write-Warn {}
+        Mock Out-Default {}
 
         # codegraph exits non-zero - simulates config failure
         function script:codegraph { $global:LASTEXITCODE = 1 }
@@ -178,6 +184,8 @@ Describe 'CodeGraph auto-install in install.ps1' {
 
             # Must NOT throw - config failure is non-blocking
             $threw | Should Be $false
+            # Should emit warnings about the configuration failure
+            Assert-MockCalled Write-Warn -Times 2
         }
         finally {
             Remove-Item function:script:codegraph -ErrorAction SilentlyContinue

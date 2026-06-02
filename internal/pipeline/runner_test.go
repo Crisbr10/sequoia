@@ -167,6 +167,19 @@ func (a *testAdapter) uninstallCallCount() int {
 	return a.uninstallCalls
 }
 
+// filterCodegraphMessages removes CodeGraph progress messages from a slice.
+// CodeGraph runs as a non-blocking post-install step; most pipeline tests
+// verify adapter-specific behavior and don't need CodeGraph messages.
+func filterCodegraphMessages(msgs []model.ProgressMsg) []model.ProgressMsg {
+	var filtered []model.ProgressMsg
+	for _, m := range msgs {
+		if m.ToolID != "codegraph" {
+			filtered = append(filtered, m)
+		}
+	}
+	return filtered
+}
+
 // collectProgress reads all ProgressMsg from the channel until it is closed.
 func collectProgress(ch <-chan model.ProgressMsg) []model.ProgressMsg {
 	var msgs []model.ProgressMsg
@@ -215,8 +228,8 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 
 	msgs := collectProgress(ch)
 
-	// 5 phases × 2 messages each = 10 messages.
-	require.Len(t, msgs, 10, "Should receive exactly 10 progress messages (5 phases × 2)")
+	// 5 phases × 2 messages each = 10 messages, plus CodeGraph's 3 = 13.
+	require.Len(t, msgs, 13, "Should receive 13 messages (10 phase messages + 3 CodeGraph)")
 
 	// Verify phase names appear in order.
 	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
@@ -231,6 +244,12 @@ func TestRunInstall_HappyPath_SendsTwoMessages(t *testing.T) {
 		assert.True(t, msgs[i*2+1].Done, "Second message of %s should be 'done' (Done=true)", phase)
 		assert.Empty(t, msgs[i*2+1].Error)
 	}
+
+	// Last 3 messages are CodeGraph (Installing running + Installing done + Configuring done).
+	codegraphStart := len(msgs) - 3
+	assert.Equal(t, "codegraph", msgs[codegraphStart].ToolID)
+	assert.Equal(t, "Installing", msgs[codegraphStart].Step)
+	assert.False(t, msgs[codegraphStart].Done)
 
 	assert.Equal(t, 1, adapter.applyCalls, "Apply should be called once")
 }
@@ -253,16 +272,17 @@ func TestRunInstall_StepFailure_SendsErrorProgress(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// 4 phases succeed (8 msgs) + 1 failed phase (2 msgs: running + error) = 10.
-	// But on Apply error, rollback happens after the error is sent.
-	require.Len(t, msgs, 10, "Should receive 10 messages: 4 phases × 2 + applying running + applying error")
+	require.Len(t, adapterMsgs, 10, "Should receive 10 messages: 4 success phases (8) + 1 failed phase (2)")
 
-	// Verify the last message is the error on Applying.
-	last := msgs[len(msgs)-1]
-	assert.Equal(t, "Applying", last.Step)
-	assert.True(t, last.Done)
-	assert.Contains(t, last.Error, "disk full")
+	// Verify the last adapter message is the error on Applying.
+	applyErrIdx := len(adapterMsgs) - 1
+	assert.Equal(t, "fail-tool", adapterMsgs[applyErrIdx].ToolID)
+	assert.Equal(t, "Applying", adapterMsgs[applyErrIdx].Step)
+	assert.True(t, adapterMsgs[applyErrIdx].Done)
+	assert.Contains(t, adapterMsgs[applyErrIdx].Error, "disk full")
 
 	assert.Equal(t, 1, adapter.rollbackCalls, "Rollback should be called on failure")
 }
@@ -324,7 +344,10 @@ func TestRunInstall_SkipsUnselectedTools(t *testing.T) {
 	cmd()
 	msgs := collectProgress(ch)
 
-	assert.Empty(t, msgs, "Unselected tools should produce no progress messages")
+	// CodeGraph always produces 3 messages (Installing running/done + Configuring done),
+	// even when no adapters are selected.
+	require.Len(t, msgs, 3, "CodeGraph should produce 3 progress messages even when no tools selected")
+	assert.Equal(t, "codegraph", msgs[0].ToolID)
 	assert.Equal(t, 0, adapter.installCallCount(), "Unselected tool's Install should not be called")
 }
 
@@ -674,13 +697,14 @@ func TestRunInstall_MultiTool_SendsTenMessagesEach(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// 2 tools × 10 messages each = 20 total.
-	assert.Len(t, msgs, 20, "2 tools × 10 messages = 20 total")
+	assert.Len(t, adapterMsgs, 20, "2 tools × 10 messages = 20 total")
 
 	// Both tools should appear with the 5 phase names.
 	toolMsgs := map[string]int{}
-	for _, msg := range msgs {
+	for _, msg := range adapterMsgs {
 		toolMsgs[msg.ToolID]++
 	}
 	assert.Equal(t, 10, toolMsgs["tool-a"], "Tool A should have 10 messages")
@@ -726,18 +750,20 @@ func TestRunInstall_WarningEmitter(t *testing.T) {
 	cmd := pipeline.RunInstall(ctx, tools, ch)
 	require.NotNil(t, cmd)
 
-	cmd()
+cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
-	// After warning emission: 10 normal messages (5 phases × 2) + 1 warning = 11.
-	require.Len(t, msgs, 11, "Should receive 11 messages: 10 phase messages + 1 warning")
+	// After warning emission: 10 normal messages (5 phases × 2) + 1 warning + 3 CodeGraph = 14 total.
+	// adapterMsgs excludes CodeGraph messages (3), so it has 11.
+	require.Len(t, adapterMsgs, 11, "Should receive 11 messages for adapter: 10 phase + 1 warning (CodeGraph filtered)")
 
 	// First: preparing running.
-	assert.Equal(t, "warn-tool", msgs[0].ToolID)
-	assert.False(t, msgs[0].Done)
+	assert.Equal(t, "warn-tool", adapterMsgs[0].ToolID)
+	assert.False(t, adapterMsgs[0].Done)
 
 	// Last: the warning message.
-	last := msgs[len(msgs)-1]
+	last := adapterMsgs[len(adapterMsgs)-1]
 	assert.Equal(t, "warn-tool", last.ToolID)
 	assert.True(t, last.Done)
 	assert.True(t, last.Warning, "warning message should have Warning=true")
@@ -767,12 +793,13 @@ func TestRunInstall_WarningEmitter_EmptyWarnings(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
-	// No warnings — standard 10 messages (5 phases × 2).
-	require.Len(t, msgs, 10, "Should receive 10 messages: 5 phases × 2")
-	// Last message should not have Warning=true.
-	last := msgs[len(msgs)-1]
-	assert.False(t, last.Warning, "last message should not have Warning=true")
+	// No warnings — 10 messages (5 phases × 2).
+	require.Len(t, adapterMsgs, 10, "Should receive 10 messages when adapter has no warnings")
+	// Last adapter message should not have Warning=true.
+	last := adapterMsgs[len(adapterMsgs)-1]
+	assert.False(t, last.Warning, "last adapter message should not have Warning=true")
 }
 
 // TestStartPipeline_ChannelRecreated verifies that calling RunInstall twice
@@ -835,10 +862,11 @@ func TestRunInstall_WarningEmitter_NoInterface(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// Standard 10 messages.
-	require.Len(t, msgs, 10, "Should receive 10 messages for normal adapter")
-	assert.False(t, msgs[len(msgs)-1].Warning, "last message should not have Warning=true")
+	require.Len(t, adapterMsgs, 10, "Should receive 10 messages for normal adapter")
+	assert.False(t, adapterMsgs[len(adapterMsgs)-1].Warning, "last message should not have Warning=true")
 }
 
 // =========================================================================
@@ -879,16 +907,17 @@ func TestRunInstall_BackupDirGetter(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// After backup info emission: 10 phase messages + 1 backup info = 11.
-	require.Len(t, msgs, 11, "Should receive 11 messages: 10 phase messages + 1 backup info")
+	require.Len(t, adapterMsgs, 11, "Should receive 11 messages: 10 phase messages + 1 backup info")
 
 	// First: preparing running.
-	assert.Equal(t, "backup-tool", msgs[0].ToolID)
-	assert.False(t, msgs[0].Done)
+	assert.Equal(t, "backup-tool", adapterMsgs[0].ToolID)
+	assert.False(t, adapterMsgs[0].Done)
 
 	// Last: backup info.
-	last := msgs[len(msgs)-1]
+	last := adapterMsgs[len(adapterMsgs)-1]
 	assert.Equal(t, "backup-tool", last.ToolID)
 	assert.True(t, last.Done)
 	assert.NotEmpty(t, last.Info, "backup info message should have Info set")
@@ -920,10 +949,11 @@ func TestRunInstall_BackupDirGetter_EmptyDir(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
-	// Standard 10 messages — no backup info when dir is empty.
-	require.Len(t, msgs, 10, "Should receive 10 messages when backup dir is empty")
-	assert.Empty(t, msgs[len(msgs)-1].Info, "last message should not have Info when backup dir is empty")
+	// Standard 10 messages, no backup info when dir is empty.
+	require.Len(t, adapterMsgs, 10, "Should receive 10 messages when backup dir is empty")
+	assert.Empty(t, adapterMsgs[len(adapterMsgs)-1].Info, "last message should not have Info when backup dir is empty")
 }
 
 // TestRunInstall_BackupDirGetter_NoInterface verifies that when an adapter
@@ -945,10 +975,11 @@ func TestRunInstall_BackupDirGetter_NoInterface(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// Standard 10 messages.
-	require.Len(t, msgs, 10, "Should receive 10 messages for adapter without BackupDirGetter")
-	assert.Empty(t, msgs[len(msgs)-1].Info, "last message should not have Info when no BackupDirGetter")
+	require.Len(t, adapterMsgs, 10, "Should receive 10 messages for adapter without BackupDirGetter")
+	assert.Empty(t, adapterMsgs[len(adapterMsgs)-1].Info, "last message should not have Info when no BackupDirGetter")
 }
 
 // =========================================================================
@@ -975,23 +1006,24 @@ func TestRunInstall_StrategyPhases(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
-	// 5 phases × 2 messages each = 10 messages.
-	require.Len(t, msgs, 10, "5 Strategy phases should produce 10 messages (5 running + 5 done)")
+	// 5 phases × 2 messages each = 10.
+	require.Len(t, adapterMsgs, 10, "5 Strategy phases should produce 10 messages (5 running + 5 done)")
 
 	expectedPhases := []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
 	for i, phase := range expectedPhases {
 		// Running message (Done=false).
 		runningIdx := i * 2
-		assert.Equal(t, phase, msgs[runningIdx].Step, "running message step %d should be %s", i, phase)
-		assert.False(t, msgs[runningIdx].Done, "running message for %s should have Done=false", phase)
-		assert.Empty(t, msgs[runningIdx].Error)
+		assert.Equal(t, phase, adapterMsgs[runningIdx].Step, "running message step %d should be %s", i, phase)
+		assert.False(t, adapterMsgs[runningIdx].Done, "running message for %s should have Done=false", phase)
+		assert.Empty(t, adapterMsgs[runningIdx].Error)
 
 		// Done message (Done=true).
 		doneIdx := runningIdx + 1
-		assert.Equal(t, phase, msgs[doneIdx].Step, "done message step %d should be %s", i, phase)
-		assert.True(t, msgs[doneIdx].Done, "done message for %s should have Done=true", phase)
-		assert.Empty(t, msgs[doneIdx].Error)
+		assert.Equal(t, phase, adapterMsgs[doneIdx].Step, "done message step %d should be %s", i, phase)
+		assert.True(t, adapterMsgs[doneIdx].Done, "done message for %s should have Done=true", phase)
+		assert.Empty(t, adapterMsgs[doneIdx].Error)
 	}
 
 	// Verify phase methods were called.
@@ -1022,14 +1054,15 @@ func TestRunInstall_StrategyPhaseFailure(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
 	// Phases: Preparing (running + done), Downloading (running + done),
 	// Verifying (running + done), Staging (running + error). No Applying.
 	// That's 3×2 + 2 = 8 messages.
-	require.Len(t, msgs, 8, "3 successful phases (6 msgs) + 1 failed phase (2 msgs) = 8")
+	require.Len(t, adapterMsgs, 8, "3 successful phases (6 msgs) + 1 failed phase (2 msgs) = 8")
 
 	// Last message should be the error on Staging.
-	lastMsg := msgs[len(msgs)-1]
+	lastMsg := adapterMsgs[len(adapterMsgs)-1]
 	assert.Equal(t, "Staging", lastMsg.Step)
 	assert.True(t, lastMsg.Done)
 	assert.Contains(t, lastMsg.Error, "stage failed")
@@ -1064,13 +1097,14 @@ func TestRunInstall_StrategyNonStrategyAdapter(t *testing.T) {
 	}, "non-Strategy adapter must not cause a panic")
 
 	msgs := collectProgress(ch)
-	require.NotEmpty(t, msgs, "Should receive an error message for non-Strategy adapter")
+	adapterMsgs := filterCodegraphMessages(msgs)
+	require.NotEmpty(t, adapterMsgs, "Should receive an error message for non-Strategy adapter")
 
-	// The error message should mention the adapter doesn't implement Strategy.
-	lastMsg := msgs[len(msgs)-1]
-	assert.True(t, lastMsg.Done)
-	assert.NotEmpty(t, lastMsg.Error)
-	assert.Contains(t, lastMsg.Error, "does not implement Strategy",
+	// The first adapter message should be the non-Strategy adapter error.
+	nonStrategyErrMsg := adapterMsgs[0]
+	assert.True(t, nonStrategyErrMsg.Done)
+	assert.NotEmpty(t, nonStrategyErrMsg.Error)
+	assert.Contains(t, nonStrategyErrMsg.Error, "does not implement Strategy",
 		"error should mention missing Strategy interface")
 }
 
@@ -1210,12 +1244,13 @@ func TestRunInstall_ToolInfoAdapterWrapper(t *testing.T) {
 
 	cmd()
 	msgs := collectProgress(ch)
+	adapterMsgs := filterCodegraphMessages(msgs)
 
-	// 5 phases × 2 messages each = 10 messages.
-	require.Len(t, msgs, 10, "Should receive exactly 10 progress messages (5 phases × 2)")
+	// 5 phases × 2 messages each = 10.
+	require.Len(t, adapterMsgs, 10, "Should receive 10 progress messages (5 phases × 2)")
 
 	// Verify no message contains "does not implement Strategy" error.
-	for i, msg := range msgs {
+	for i, msg := range adapterMsgs {
 		assert.NotContains(t, msg.Error, "does not implement Strategy",
 			"message %d should not have Strategy error — wrapper must forward interfaces", i)
 	}

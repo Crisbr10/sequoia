@@ -62,6 +62,7 @@ adapters/*/.opencode/
 .atl/
 .gga
 .pi/
+.codegraph/
 
 # Duplicate docs artifacts
 docs/.atl/

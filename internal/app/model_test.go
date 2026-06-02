@@ -489,10 +489,11 @@ func TestStatus_RKeyReinstallsOnlyCursorTool(t *testing.T) {
 	assert.True(t, m2.Tools[0].Selected, "cursor tool should be selected")
 	assert.False(t, m2.Tools[1].Selected, "non-cursor tool should NOT be selected")
 
-	// ProgressTools should contain only the cursor tool.
+	// ProgressTools should contain cursor tool + CodeGraph.
 	require.NotEmpty(t, m2.ProgressTools, "ProgressTools should be populated")
-	assert.Len(t, m2.ProgressTools, 1, "only cursor tool should be in ProgressTools")
+	assert.Len(t, m2.ProgressTools, 2, "cursor tool + CodeGraph should be in ProgressTools")
 	assert.Equal(t, "claude-code", m2.ProgressTools[0].ToolID)
+	assert.Equal(t, "codegraph", m2.ProgressTools[1].ToolID, "CodeGraph is always appended")
 }
 
 func TestStatus_RKeyOnNotInstalledNoOp(t *testing.T) {
@@ -537,7 +538,7 @@ func TestStatus_RKeyClearsStaleSelections(t *testing.T) {
 	assert.False(t, m2.Tools[1].Selected, "non-cursor tool's stale selection should be cleared")
 
 	require.NotEmpty(t, m2.ProgressTools, "ProgressTools should be populated")
-	assert.Len(t, m2.ProgressTools, 1, "only cursor tool should be in ProgressTools")
+	assert.Len(t, m2.ProgressTools, 2, "cursor tool + CodeGraph should be in ProgressTools")
 }
 
 func TestUninstallView_RendersCheckboxList(t *testing.T) {

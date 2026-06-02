@@ -306,6 +306,16 @@ func buildProgressTools(tools []model.ToolState) []screens.ProgressTool {
 			Steps:    steps,
 		})
 	}
+
+	result = append(result, screens.ProgressTool{
+		ToolID:   "codegraph",
+		ToolName: "CodeGraph",
+		Steps: []screens.ProgressStep{
+			{Name: "Installing", Status: screens.StepPending},
+			{Name: "Configuring", Status: screens.StepPending},
+		},
+	})
+
 	return result
 }
 

@@ -524,8 +524,13 @@ try {
         try {
             irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex
             Write-Info "CodeGraph installed. Auto-configuring agents..."
-            & codegraph install --target=auto --location=global --yes 2>$null
-            Write-Info "CodeGraph integration ready."
+            & codegraph install --target=auto --location=global --yes 2>&1 | Out-Null
+            if ($global:LASTEXITCODE -ne 0) {
+                Write-Warn "CodeGraph agent configuration failed (non-blocking)."
+                Write-Warn "Run manually: codegraph install --target=auto --location=global --yes"
+            } else {
+                Write-Info "CodeGraph integration ready."
+            }
         } catch {
             Write-Warn "CodeGraph installation skipped (network issue or unsupported platform)."
             Write-Warn "Sequoia works fine without it — /sequoia-dev will fall back to file-based exploration."

@@ -18,6 +18,7 @@ import (
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
 	"github.com/Crisbr10/sequoia/internal/app"
+	"github.com/Crisbr10/sequoia/internal/codegraph"
 
 	// Register all adapters via named imports for explicit DI.
 	adaptersClaude "github.com/Crisbr10/sequoia/adapters/claude"
@@ -304,6 +305,10 @@ func runInstall(ctx context.Context, toolID string, out io.Writer, reg *adapters
 		_, _ = fmt.Fprintln(out, "Currently supported: Claude Code, OpenCode, Cursor IDE, Gemini CLI, OpenAI Codex")
 	}
 
+	// -- Install CodeGraph (non-blocking convenience) --
+	// Install() writes progress to out directly; result is used for logging only.
+	codegraph.Install(ctx, out)
+
 	return nil
 }
 
@@ -335,6 +340,19 @@ func runStatus(out io.Writer, reg *adapters.Registry) error {
 		}
 		_, _ = fmt.Fprintf(out, "%-14s %-14s %-9s %-10s %-10s %-55s\n",
 			a.ID(), a.Name(), detected, installed, s.Version, s.Path)
+	}
+
+	// CodeGraph status (complementary tool, not an adapter).
+	_, _ = fmt.Fprintln(out)
+	cgStatus := codegraph.Status()
+	cgDetected := "no"
+	if cgStatus.Detected {
+		cgDetected = "yes"
+	}
+	_, _ = fmt.Fprintf(out, "%-14s %-14s %-9s\n", "codegraph", "CodeGraph", cgDetected)
+	if cgStatus.Detected {
+		_, _ = fmt.Fprintf(out, "  Version: %s\n", cgStatus.Version)
+		_, _ = fmt.Fprintf(out, "  Path:    %s\n", cgStatus.Path)
 	}
 
 	// Symlink detection: if the home directory is a symlink, note the real path.

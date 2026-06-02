@@ -13,6 +13,7 @@ import (
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/common"
+	"github.com/Crisbr10/sequoia/internal/codegraph"
 	"github.com/Crisbr10/sequoia/internal/model"
 )
 
@@ -83,6 +84,9 @@ func RunInstall(ctx context.Context, tools []model.ToolState, ch chan<- model.Pr
 		// Wait for all goroutines to complete, then signal completion
 		// by closing the channel.
 		wg.Wait()
+
+		codegraphInstallProgress(ctx, ch)
+
 		safeClose(ch)
 		return nil
 	}
@@ -352,6 +356,56 @@ func RunStatus(ctx context.Context, tools []model.ToolState, ch chan<- model.Pro
 
 		safeClose(ch)
 		return nil
+	}
+}
+
+func codegraphInstallProgress(ctx context.Context, ch chan<- model.ProgressMsg) {
+	sendProgress(ctx, ch, model.ProgressMsg{
+		ToolID: "codegraph",
+		Step:   "Installing",
+	})
+
+	result := codegraph.Install(ctx, nil)
+
+	if result.AlreadyInstalled {
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Installing",
+			Done:   true,
+			Info:   "already installed",
+		})
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Configuring",
+			Done:   true,
+			Info:   "already configured",
+		})
+	} else if result.Installed {
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Installing",
+			Done:   true,
+		})
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Configuring",
+			Done:   true,
+		})
+	} else {
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Installing",
+			Done:   true,
+			Warning: true,
+			Error:  result.Message,
+		})
+		sendProgress(ctx, ch, model.ProgressMsg{
+			ToolID: "codegraph",
+			Step:   "Configuring",
+			Done:   true,
+			Warning: true,
+			Error:  "skipped",
+		})
 	}
 }
 
