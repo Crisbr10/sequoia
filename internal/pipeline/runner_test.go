@@ -42,7 +42,7 @@ func init() {
 	// regardless of whether the test runs locally or in GitHub Actions CI.
 	// This makes test expectations consistent: always 2 CodeGraph messages in CI mode,
 	// not 3 (which only happens when the mock's full sequence is used in non-CI).
-	os.Setenv("CI", "true")         //nolint:errcheck // intentional, test setup only
+	os.Setenv("CI", "true")           //nolint:errcheck // intentional, test setup only
 	os.Setenv("GITHUB_ACTIONS", "true") //nolint:errcheck // intentional, test setup only
 	codegraph.InstallFunc = mockCodegraphInstallFunc
 }
