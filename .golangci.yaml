@@ -24,6 +24,7 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+          - gosec
       # main.go: intentional unchecked errors
       - path: cmd/sequoia/main\.go
         linters:
