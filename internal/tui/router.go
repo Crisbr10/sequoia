@@ -173,6 +173,8 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return r.handleComplete(h, msg)
 	case model.ScreenError:
 		return r.handleError(h, msg)
+	case model.ScreenStatus:
+		return r.handleStatus(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -363,9 +365,48 @@ func (r *Router) handleError(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return h, nil
 }
 
-// handleStatus is the per-screen dispatch for ScreenStatus. Populated
-// in commit 8.
+// handleStatus is the per-screen dispatch for ScreenStatus. Extracted
+// from the ScreenStatus case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - StatusUpdate produces (newCursor, action).
+//   - "uninstall" navigates to ScreenUninstall.
+//   - "reinstall" clears all stale selections, then selects only
+//     the cursor tool (if installed) and starts the install
+//     pipeline. If the cursor tool is not installed, sets
+//     ErrorMsg and returns nil.
+//   - "back" navigates to ScreenWelcome.
+//   - All other actions return nil.
 func (r *Router) handleStatus(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	newCursor, action := h.StatusUpdate(msg)
+	h.SetCursor(newCursor)
+
+	switch action {
+	case "uninstall":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenUninstall}
+		}
+	case "reinstall":
+		// Clear all stale selections, then select only the cursor tool.
+		tools := h.GetTools()
+		for i := range tools {
+			tools[i].Selected = false
+		}
+		if h.GetCursor() >= 0 && h.GetCursor() < len(tools) && tools[h.GetCursor()].Adapter.IsInstalled() {
+			tools[h.GetCursor()].Selected = true
+			h.SetTools(tools)
+			return h, h.StartPipeline("install")
+		}
+		h.SetTools(tools)
+		h.SetErrorMsg("Select an installed tool to reinstall")
+		return h, nil
+	case "back":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenWelcome}
+		}
+	}
 	return h, nil
 }
 

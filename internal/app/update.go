@@ -75,44 +75,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateScreenKey delegates key messages to the active screen's handler.
 //
-// PR7 commits 3-6 (migrated Welcome, ToolSelection, InstallProgress,
-// Complete): the corresponding cases have been extracted to per-screen
-// handleX methods on the Router. PR7 commit 7 (this commit) extracts
-// the ScreenError case to Router.handleError. The Router's DispatchKey
-// routes these screens through their respective handleX methods. This
-// function still serves as the dispatch surface for the remaining
-// screens (Status, Uninstall); commits 8-9 will migrate those one at
-// a time, and commit 10 will delete this function entirely.
+// PR7 commits 3-7 (migrated Welcome, ToolSelection, InstallProgress,
+// Complete, Error): the corresponding cases have been extracted to
+// per-screen handleX methods on the Router. PR7 commit 8 (this commit)
+// extracts the ScreenStatus case to Router.handleStatus. The Router's
+// DispatchKey routes these screens through their respective handleX
+// methods. This function still serves as the dispatch surface for the
+// remaining Uninstall screen; commit 9 will migrate that one, and
+// commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenStatus:
-		m.LoadTools("")
-		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
-		m.Cursor = newCursor
-
-		switch action {
-		case "uninstall":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenUninstall}
-			}
-		case "reinstall":
-			// Clear all stale selections, then select only the cursor tool.
-			for i := range m.Tools {
-				m.Tools[i].Selected = false
-			}
-			if m.Cursor >= 0 && m.Cursor < len(m.Tools) && m.Tools[m.Cursor].Adapter.IsInstalled() {
-				m.Tools[m.Cursor].Selected = true
-				return m, m.startPipeline("install")
-			}
-			m.ErrorMsg = "Select an installed tool to reinstall"
-			return m, nil
-		case "back":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
-			}
-		}
-		return m, nil
-
 	case model.ScreenUninstall:
 		m.LoadTools("")
 		// Confirmation mode: only y, n, and Esc matter.
