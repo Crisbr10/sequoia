@@ -76,44 +76,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateScreenKey delegates key messages to the active screen's handler.
 //
 // PR7 commit 3 (migrated ScreenWelcome): the ScreenWelcome case has been
-// extracted to Router.handleWelcome in internal/tui/router.go. The
-// Router's DispatchKey routes ScreenWelcome keys through handleWelcome
-// directly. This function still serves as the dispatch surface for
-// the other screens (ToolSelection, InstallProgress, Complete, Error,
-// Status, Uninstall); commits 4-9 will migrate those one at a time,
-// and commit 10 will delete this function entirely.
+// extracted to Router.handleWelcome in internal/tui/router.go.
+// PR7 commit 4 (migrated ScreenToolSelection): the ScreenToolSelection
+// case has been extracted to Router.handleToolSelection. The Router's
+// DispatchKey routes ScreenWelcome and ScreenToolSelection keys through
+// their respective handleX methods directly. This function still serves
+// as the dispatch surface for the remaining screens (InstallProgress,
+// Complete, Error, Status, Uninstall); commits 5-9 will migrate those
+// one at a time, and commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenToolSelection:
-		m.LoadTools("")
-		newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))
-		m.Cursor = newCursor
-		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
-			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
-		}
-
-		switch action {
-		case "confirm":
-			// Validate at least one tool selected.
-			selected := countSelected(m.Tools)
-			if selected == 0 {
-				m.ErrorMsg = "Select at least one tool to continue"
-				return m, nil
-			}
-			m.ErrorMsg = ""
-			return m, m.startPipeline("install")
-		case "back":
-			m.ErrorMsg = ""
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
-			}
-		case "quit":
-			m.Quitting = true
-			m.cancel()
-			return m, tea.Quit
-		}
-		return m, nil
-
 	case model.ScreenInstallProgress:
 		action := screens.InstallProgressUpdate(msg, m.InstallCompleted, m.InstallFailed, len(m.ProgressTools))
 		switch action {

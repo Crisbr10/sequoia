@@ -161,8 +161,11 @@ func NewRouter() *Router {
 // single dispatch surface; the legacy updateScreenKey and h.UpdateScreenKey
 // are removed.
 func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if h.GetScreen() == model.ScreenWelcome {
+	switch h.GetScreen() {
+	case model.ScreenWelcome:
 		return r.handleWelcome(h, msg)
+	case model.ScreenToolSelection:
+		return r.handleToolSelection(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -207,8 +210,52 @@ func (r *Router) handleWelcome(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd
 }
 
 // handleToolSelection is the per-screen dispatch for ScreenToolSelection.
-// Populated in commit 4.
+// Extracted from the ScreenToolSelection case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - ToolSelectionUpdate produces (newCursor, shouldToggle, action).
+//   - On toggle, flips the Selected flag of the cursor tool.
+//   - "confirm" validates that at least one tool is selected, then
+//     starts the install pipeline. On empty selection, sets
+//     ErrorMsg and returns nil.
+//   - "back" navigates to ScreenWelcome.
+//   - "quit" inlines the Quitting/Cancel/tea.Quit sequence (matches
+//     the original updateScreenKey which does NOT use the quitCmd
+//     helper here — preserved for byte-equivalence).
+//   - All other actions return nil.
 func (r *Router) handleToolSelection(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	newCursor, shouldToggle, action := h.ToolSelectionUpdate(msg)
+	h.SetCursor(newCursor)
+	if h.GetCursor() >= 0 && h.GetCursor() < len(h.GetTools()) && shouldToggle {
+		tools := h.GetTools()
+		tools[h.GetCursor()].Selected = !tools[h.GetCursor()].Selected
+		h.SetTools(tools)
+	}
+
+	switch action {
+	case "confirm":
+		// Validate at least one tool selected.
+		if h.CountSelectedTools() == 0 {
+			h.SetErrorMsg("Select at least one tool to continue")
+			return h, nil
+		}
+		h.SetErrorMsg("")
+		return h, h.StartPipeline("install")
+	case "back":
+		h.SetErrorMsg("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenWelcome}
+		}
+	case "quit":
+		// Inline the quit sequence (do not use a helper) to match
+		// the original updateScreenKey which did not call quitCmd
+		// here. Behavior-equivalent.
+		h.SetQuitting(true)
+		h.Cancel()
+		return h, tea.Quit
+	}
 	return h, nil
 }
 
