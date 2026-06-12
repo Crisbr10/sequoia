@@ -275,22 +275,6 @@ func (m *Model) StartPipeline(mode string) tea.Cmd {
 	return m.startPipeline(mode)
 }
 
-// UpdateScreenKey is the temporary bridge that satisfies
-// tui.KeyHandler. It delegates to the unexported updateScreenKey
-// function in internal/app/update.go. The Router's DispatchKey stub
-// (PR7 commit 2) calls this for behavior preservation during the
-// PR7 migration. After all screens are migrated to per-screen
-// handleX methods (commits 3-9), this method is removed (commit 10)
-// along with the legacy updateScreenKey function.
-//
-// The method takes a value-typed *Model receiver so it can satisfy
-// the KeyHandler interface (which is defined on *Model), and the
-// returned tea.Model is the modified Model value (preserving the
-// existing type contract used by Bubbletea).
-func (m *Model) UpdateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m.updateScreenKey(msg)
-}
-
 // Per-screen dispatch helpers. These wrap the screens.UpdateXxx
 // functions in internal/tui/screens so the Router in
 // internal/tui/router.go does not need to import internal/tui/screens

@@ -122,7 +122,9 @@ func TestRouter_DispatchKey_InstallProgressQ_Quits(t *testing.T) {
 // TestRouter_DispatchKey_CompleteLeft_NavigatesToPreviousScreen — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenComplete
-//       AND m.PreviousScreen == ScreenUninstall
+//
+//	AND m.PreviousScreen == ScreenUninstall
+//
 // WHEN  the user presses ← (tea.KeyLeft)
 // THEN  Router.DispatchKey returns a cmd that produces
 //
@@ -200,7 +202,9 @@ func TestRouter_DispatchKey_StatusBack_NavigatesToWelcome(t *testing.T) {
 // TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenUninstall
-//       AND m.UninstallConfirming == true
+//
+//	AND m.UninstallConfirming == true
+//
 // WHEN  the user presses Esc
 // THEN  Router.DispatchKey returns nil (cancels the confirmation prompt)
 //

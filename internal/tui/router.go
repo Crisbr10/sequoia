@@ -111,13 +111,9 @@ type KeyHandler interface {
 	CountSelectedTools() int
 	HasSelectedInstalled() bool
 
-	// UpdateScreenKey is the temporary bridge to the legacy dispatch
-	// surface. It delegates to the unexported updateScreenKey function
-	// in internal/app/update.go. The Router's DispatchKey stub calls
-	// this for behavior preservation during the PR7 migration. After
-	// all screens are migrated to per-screen handleX methods (commits
-	// 3-9), this method is removed (commit 10).
-	UpdateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
+	// UpdateScreenKey (the temporary bridge to the legacy dispatch
+	// surface) was removed in PR7 commit 10. The Router's DispatchKey
+	// is now the single dispatch surface for key messages.
 
 	// Action methods.
 	LoadTools(toolID string)
@@ -145,22 +141,16 @@ func NewRouter() *Router {
 }
 
 // DispatchKey routes msg to the handler for the screen reported by
-// h.GetScreen(). The model state on h is mutated in place; the returned
-// (tea.Model, tea.Cmd) tuple carries the updated model (for framework
-// compatibility) and the command to execute.
+// h.GetScreen(). The model state on h is mutated in place via the
+// KeyHandler interface; the returned (tea.Model, tea.Cmd) tuple carries
+// the updated model (for Bubbletea framework compatibility, though
+// callers typically ignore the first return and use the local m)
+// and the command to execute.
 //
-// PR7 commit 2 (GREEN shell): this method is a stub that delegates to
-// h.UpdateScreenKey(msg) — the legacy dispatch surface. The Router
-// exists, the KeyHandler interface is satisfied by *app.Model, and
-// the full test suite still passes through the public m.Update API.
-//
-// PR7 commits 3-9 (per-screen migration): each commit replaces the
-// corresponding case in updateScreenKey with a call to r.handleX(h, msg)
-// here. The per-screen handleX methods are populated incrementally.
-//
-// PR7 commit 10 (final cleanup): the per-screen switch below is the
-// single dispatch surface; the legacy updateScreenKey and h.UpdateScreenKey
-// are removed.
+// This method is the single dispatch surface for key messages (REQ-TUI-07).
+// The legacy updateScreenKey function in internal/app/update.go was
+// removed in commit 10; the temporary UpdateScreenKey bridge method
+// on KeyHandler was also removed in commit 10.
 func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch h.GetScreen() {
 	case model.ScreenWelcome:
@@ -178,7 +168,7 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	case model.ScreenUninstall:
 		return r.handleUninstall(h, msg)
 	}
-	return h.UpdateScreenKey(msg)
+	return h, nil
 }
 
 // handleWelcome is the per-screen dispatch for ScreenWelcome. It is

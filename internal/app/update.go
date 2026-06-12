@@ -27,11 +27,9 @@ func (m *Model) quitCmd() tea.Cmd {
 // REQ-TUI-07: key dispatch is delegated to the Router in
 // internal/tui/router.go. The Router operates on a KeyHandler interface
 // (satisfied by *Model) and routes the message to the per-screen handler
-// for the active Screen. The current PR7 commit 2 (GREEN shell) keeps
-// the legacy updateScreenKey function as the dispatch surface via the
-// temporary UpdateScreenKey bridge method on KeyHandler; commits 3-9
-// migrate each screen to a per-screen handleX method on the Router;
-// commit 10 removes the legacy function.
+// for the active Screen. The Router mutates Model state in place via
+// the pointer; the returned cmd is bubbled up alongside the local m
+// (which already reflects the mutations).
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -52,41 +50,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.quitCmd()
 		}
 
-		// Delegate key dispatch to the Router. After commits 3-9, the
-		// Router's per-screen handleX methods will mutate m in place via
-		// the pointer; in commit 2 (GREEN shell), the Router delegates
-		// back to the legacy updateScreenKey which returns a modified
-		// copy. The type assertion below handles both cases: when the
-		// Router returns *app.Model (pointer, future commits), the
-		// assertion fails and we keep the in-place mutation; when it
-		// returns app.Model (value, commit 2 shell), the assertion
-		// succeeds and we update m to the modified copy.
+		// Delegate key dispatch to the Router. The Router's
+		// per-screen handleX methods mutate m in place via the pointer;
+		// the first return value (the modified *app.Model cast to
+		// tea.Model) is ignored — the local m is the source of truth.
 		var router tui.Router
-		m2, cmd := router.DispatchKey(&m, msg)
-		if modelVal, ok := m2.(Model); ok {
-			m = modelVal
-		}
+		_, cmd := router.DispatchKey(&m, msg)
 		return m, cmd
 	}
 
 	// Delegate non-key messages to screen-specific handler.
 	return m.updateScreenMsg(msg)
-}
-
-// updateScreenKey delegates key messages to the active screen's handler.
-//
-// PR7 commits 3-8 (migrated Welcome, ToolSelection, InstallProgress,
-// Complete, Error, Status): the corresponding cases have been extracted
-// to per-screen handleX methods on the Router. PR7 commit 9 (this
-// commit) extracts the ScreenUninstall case to Router.handleUninstall.
-// The Router's DispatchKey now routes ALL seven screens through their
-// respective handleX methods. This function is now a thin shell that
-// only contains the default case (for any future screen not yet
-// handled by the Router); PR7 commit 10 will delete it entirely along
-// with the temporary UpdateScreenKey bridge.
-func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	_ = msg
-	return m, nil
 }
 
 // updateScreenMsg delegates non-key messages to the active screen's handler.
