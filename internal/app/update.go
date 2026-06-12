@@ -74,32 +74,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateScreenKey delegates key messages to the active screen's handler.
+//
+// PR7 commit 3 (migrated ScreenWelcome): the ScreenWelcome case has been
+// extracted to Router.handleWelcome in internal/tui/router.go. The
+// Router's DispatchKey routes ScreenWelcome keys through handleWelcome
+// directly. This function still serves as the dispatch surface for
+// the other screens (ToolSelection, InstallProgress, Complete, Error,
+// Status, Uninstall); commits 4-9 will migrate those one at a time,
+// and commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenWelcome:
-		newCursor, action := screens.WelcomeUpdate(msg, m.Cursor)
-		m.Cursor = newCursor
-		switch action {
-		case "install":
-			m.LoadTools("") // Lazy construction: defer past first frame render.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenToolSelection}
-			}
-		case "status":
-			m.LoadTools("")
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenStatus}
-			}
-		case "uninstall":
-			m.LoadTools("")
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenUninstall}
-			}
-		case "quit":
-			return m, m.quitCmd()
-		}
-		return m, nil
-
 	case model.ScreenToolSelection:
 		m.LoadTools("")
 		newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))

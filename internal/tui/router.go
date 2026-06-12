@@ -96,6 +96,21 @@ type KeyHandler interface {
 	// []screens.ProgressTool slice.
 	InstallProgressCount() int
 
+	// Per-screen dispatch helpers. These wrap the screen Update
+	// functions in internal/tui/screens so the Router does not need
+	// to import internal/tui/screens (which would create an import
+	// cycle: internal/tui -> internal/tui/screens -> internal/tui
+	// for NavigateMsg). *app.Model implements each helper by
+	// calling the corresponding screens function with the current
+	// Model state as arguments.
+	WelcomeUpdate(msg tea.KeyMsg) (int, string)
+	ToolSelectionUpdate(msg tea.KeyMsg) (int, bool, string)
+	InstallProgressUpdate(msg tea.KeyMsg) string
+	StatusUpdate(msg tea.KeyMsg) (int, string)
+	UninstallUpdate(msg tea.KeyMsg) (int, bool, string)
+	CountSelectedTools() int
+	HasSelectedInstalled() bool
+
 	// UpdateScreenKey is the temporary bridge to the legacy dispatch
 	// surface. It delegates to the unexported updateScreenKey function
 	// in internal/app/update.go. The Router's DispatchKey stub calls
@@ -146,14 +161,48 @@ func NewRouter() *Router {
 // single dispatch surface; the legacy updateScreenKey and h.UpdateScreenKey
 // are removed.
 func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if h.GetScreen() == model.ScreenWelcome {
+		return r.handleWelcome(h, msg)
+	}
 	return h.UpdateScreenKey(msg)
 }
 
 // handleWelcome is the per-screen dispatch for ScreenWelcome. It is
-// populated in commit 3 by extracting the Welcome case from
-// updateScreenKey. Until then, the Router's DispatchKey routes through
-// the legacy UpdateScreenKey bridge.
+// extracted from the ScreenWelcome case of the legacy updateScreenKey
+// function in internal/app/update.go. The behavior is byte-equivalent
+// to the pre-refactor switch case.
+//
+// Per-screen logic:
+//   - WelcomeUpdate produces a (newCursor, action) tuple.
+//   - The "install" / "status" / "uninstall" actions navigate to
+//     the corresponding screen after loading tools.
+//   - The "quit" action invokes the quit pipeline (sets Quitting,
+//     calls Cancel, returns tea.Quit).
+//   - All other actions return nil (no-op).
 func (r *Router) handleWelcome(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	newCursor, action := h.WelcomeUpdate(msg)
+	h.SetCursor(newCursor)
+	switch action {
+	case "install":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenToolSelection}
+		}
+	case "status":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenStatus}
+		}
+	case "uninstall":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenUninstall}
+		}
+	case "quit":
+		h.SetQuitting(true)
+		h.Cancel()
+		return h, tea.Quit
+	}
 	return h, nil
 }
 
