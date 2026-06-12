@@ -78,30 +78,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // PR7 commit 3 (migrated ScreenWelcome): the ScreenWelcome case has been
 // extracted to Router.handleWelcome in internal/tui/router.go.
 // PR7 commit 4 (migrated ScreenToolSelection): the ScreenToolSelection
-// case has been extracted to Router.handleToolSelection. The Router's
-// DispatchKey routes ScreenWelcome and ScreenToolSelection keys through
-// their respective handleX methods directly. This function still serves
-// as the dispatch surface for the remaining screens (InstallProgress,
-// Complete, Error, Status, Uninstall); commits 5-9 will migrate those
+// case has been extracted to Router.handleToolSelection.
+// PR7 commit 5 (migrated ScreenInstallProgress): the ScreenInstallProgress
+// case has been extracted to Router.handleInstallProgress. The Router's
+// DispatchKey routes Welcome, ToolSelection, and InstallProgress keys
+// through their respective handleX methods directly. This function
+// still serves as the dispatch surface for the remaining screens
+// (Complete, Error, Status, Uninstall); commits 6-9 will migrate those
 // one at a time, and commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenInstallProgress:
-		action := screens.InstallProgressUpdate(msg, m.InstallCompleted, m.InstallFailed, len(m.ProgressTools))
-		switch action {
-		case "quit":
-			return m, m.quitCmd()
-		case "success":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenComplete}
-			}
-		case "fail":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenError}
-			}
-		}
-		return m, nil
-
 	case model.ScreenComplete:
 		// Inline handler: must access m.cancel for the screen-level quit
 		// branches (REQ-TUI-01) and m.PreviousScreen for source-aware back

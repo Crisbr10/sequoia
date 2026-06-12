@@ -55,15 +55,19 @@ func withCancelableModel(t *testing.T, screen model.Screen) (Model, context.Cont
 // TestInstallProgress_Q_CancelsContext — REQ-TUI-01
 //
 // When q is pressed on the InstallProgress screen, the screen-level quit
-// branch (update.go:106-108) must invoke m.cancel() before returning
-// tea.Quit, so the pipeline goroutines observe ctx.Done().
+// branch (update.go:106-108 / Router.handleInstallProgress) must invoke
+// m.cancel() before returning tea.Quit, so the pipeline goroutines
+// observe ctx.Done().
 //
-// RED on current code: line 108 returns tea.Quit without calling m.cancel().
+// PR7 commit 5 migrated the InstallProgress case to the Router. The
+// test now exercises the public m.Update API which routes through
+// Router.DispatchKey internally, preserving the REQ-TUI-01 contract
+// assertion.
 func TestInstallProgress_Q_CancelsContext(t *testing.T) {
 	m, ctx := withCancelableModel(t, model.ScreenInstallProgress)
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
-	_, _ = m.updateScreenKey(msg)
+	_, _ = m.Update(msg)
 
 	assertCancelledWithin(t, ctx, 100*time.Millisecond,
 		"q on InstallProgress did not invoke m.cancel() before returning tea.Quit")

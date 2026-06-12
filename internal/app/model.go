@@ -261,6 +261,13 @@ func (m *Model) Cancel() {
 	}
 }
 
+// QuitCmd is the exported wrapper that satisfies tui.KeyHandler. It
+// delegates to the unexported quitCmd method which marks the model as
+// quitting, cancels the pipeline context, and returns tea.Quit.
+func (m *Model) QuitCmd() tea.Cmd {
+	return m.quitCmd()
+}
+
 // StartPipeline is the exported wrapper that satisfies tui.KeyHandler.
 // It delegates to the unexported startPipeline method which is the
 // existing implementation.

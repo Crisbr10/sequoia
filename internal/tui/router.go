@@ -122,6 +122,7 @@ type KeyHandler interface {
 	// Action methods.
 	LoadTools(toolID string)
 	Cancel()
+	QuitCmd() tea.Cmd
 	StartPipeline(mode string) tea.Cmd
 }
 
@@ -166,6 +167,8 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return r.handleWelcome(h, msg)
 	case model.ScreenToolSelection:
 		return r.handleToolSelection(h, msg)
+	case model.ScreenInstallProgress:
+		return r.handleInstallProgress(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -260,8 +263,29 @@ func (r *Router) handleToolSelection(h KeyHandler, msg tea.KeyMsg) (tea.Model, t
 }
 
 // handleInstallProgress is the per-screen dispatch for
-// ScreenInstallProgress. Populated in commit 5.
+// ScreenInstallProgress. Extracted from the ScreenInstallProgress
+// case of updateScreenKey.
+//
+// Per-screen logic:
+//   - InstallProgressUpdate produces an action string.
+//   - "quit" returns the quit pipeline (QuitCmd()).
+//   - "success" navigates to ScreenComplete.
+//   - "fail" navigates to ScreenError.
+//   - All other actions return nil.
 func (r *Router) handleInstallProgress(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	action := h.InstallProgressUpdate(msg)
+	switch action {
+	case "quit":
+		return h, h.QuitCmd()
+	case "success":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenComplete}
+		}
+	case "fail":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenError}
+		}
+	}
 	return h, nil
 }
 
