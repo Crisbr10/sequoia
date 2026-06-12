@@ -124,8 +124,13 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Inline handler: rebuild pipeline on retry, not bare navigation.
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyLeft:
+			// REQ-TUI-04: route Esc/Left to the source screen recorded in
+			// m.PreviousScreen (mirrors Uninstall's back nav at line 217).
+			// PreviousScreen defaults to ScreenWelcome (zero value) when
+			// the user landed on Error via the global quit path, which is
+			// the correct fallback for that case.
 			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenToolSelection}
+				return tui.NavigateMsg{Target: m.PreviousScreen}
 			}
 		case tea.KeyCtrlC:
 			return m, tea.Quit
