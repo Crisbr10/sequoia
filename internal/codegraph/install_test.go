@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 // resetDefaults restores the package-level function variables to their defaults.
@@ -196,6 +197,42 @@ func TestInstall_ContextCancellation(t *testing.T) {
 	}
 	if !strings.Contains(result.Message, "cancelled") {
 		t.Errorf("expected message to mention cancellation, got: %s", result.Message)
+	}
+}
+
+// TestInstall_DownloadTimeoutFires verifies REQ-TUI-03: when the network call
+// in InstallFunc exceeds installTimeout, the result reports a timeout failure
+// (Failed=true, Message contains "timed out") rather than hanging or reporting
+// a generic download error.
+func TestInstall_DownloadTimeoutFires(t *testing.T) {
+	// Override the package-level installTimeout so the test completes quickly.
+	// The 50ms budget is well below the 200ms sleep the stub uses to trigger
+	// the timeout path. t.Cleanup restores the production default after the
+	// test, even on failure.
+	origTimeout := installTimeout
+	installTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { installTimeout = origTimeout })
+
+	// Force the download path: codegraph binary is not on PATH.
+	lookPath = func(string) (string, error) { return "", errors.New("not found") }
+
+	// runCommand blocks until the (now 50ms) ctx fires, then returns ctx.Err()
+	// to mimic what exec.CommandContext does when its process is killed by
+	// the deadline — the installErr path is what the InstallFunc checks.
+	runCommand = func(ctx context.Context, _ string, _ ...string) error {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	defer resetDefaults()
+
+	var buf bytes.Buffer
+	result := Install(context.Background(), &buf)
+
+	if !result.Failed {
+		t.Errorf("expected Failed=true on download timeout, got Failed=false (msg=%q)", result.Message)
+	}
+	if !strings.Contains(result.Message, "timed out") {
+		t.Errorf("expected result.Message to contain %q, got %q", "timed out", result.Message)
 	}
 }
 
