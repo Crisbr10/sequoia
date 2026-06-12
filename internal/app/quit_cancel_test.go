@@ -108,17 +108,18 @@ func TestErrorScreen_CtrlC_CancelsContext(t *testing.T) {
 // TestComplete_Q_CancelsContext — REQ-TUI-01
 //
 // When q is pressed on the Complete screen, the inlined Complete handler
-// (added by this PR — replaces the delegation to screens.CompleteUpdate)
-// must invoke m.cancel() before returning tea.Quit.
+// (added by PR1 — replaces the delegation to screens.CompleteUpdate,
+// and now extracted to Router.handleComplete by PR7 commit 6) must
+// invoke m.cancel() before returning tea.Quit.
 //
-// RED on current code: update.go:120-121 delegates to screens.CompleteUpdate
-// which returns tea.Quit for q but has no access to m.cancel, so the
-// pipeline ctx is never cancelled.
+// PR7 commit 6 migrated the Complete case to the Router. The test now
+// uses m.Update() (the public API) which routes through
+// Router.DispatchKey → Router.handleComplete.
 func TestComplete_Q_CancelsContext(t *testing.T) {
 	m, ctx := withCancelableModel(t, model.ScreenComplete)
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
-	_, _ = m.updateScreenKey(msg)
+	_, _ = m.Update(msg)
 
 	assertCancelledWithin(t, ctx, 100*time.Millisecond,
 		"q on Complete screen did not invoke m.cancel() before returning tea.Quit")
@@ -127,16 +128,16 @@ func TestComplete_Q_CancelsContext(t *testing.T) {
 // TestComplete_CtrlC_CancelsContext — REQ-TUI-01
 //
 // When ctrl+c is pressed on the Complete screen, the inlined Complete
-// handler (added by this PR) must invoke m.cancel() before returning
-// tea.Quit.
+// handler (added by PR1, extracted to Router.handleComplete by PR7
+// commit 6) must invoke m.cancel() before returning tea.Quit.
 //
-// RED on current code: update.go:120-121 delegates to screens.CompleteUpdate
-// which returns tea.Quit for ctrl+c but has no access to m.cancel.
+// PR7 commit 6: test uses m.Update() to exercise the new dispatch
+// surface; the REQ-TUI-01 contract is preserved end-to-end.
 func TestComplete_CtrlC_CancelsContext(t *testing.T) {
 	m, ctx := withCancelableModel(t, model.ScreenComplete)
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
-	_, _ = m.updateScreenKey(msg)
+	_, _ = m.Update(msg)
 
 	assertCancelledWithin(t, ctx, 100*time.Millisecond,
 		"ctrl+c on Complete screen did not invoke m.cancel() before returning tea.Quit")

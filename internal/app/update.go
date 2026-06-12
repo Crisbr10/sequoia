@@ -80,43 +80,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // PR7 commit 4 (migrated ScreenToolSelection): the ScreenToolSelection
 // case has been extracted to Router.handleToolSelection.
 // PR7 commit 5 (migrated ScreenInstallProgress): the ScreenInstallProgress
-// case has been extracted to Router.handleInstallProgress. The Router's
-// DispatchKey routes Welcome, ToolSelection, and InstallProgress keys
+// case has been extracted to Router.handleInstallProgress.
+// PR7 commit 6 (migrated ScreenComplete): the ScreenComplete case has
+// been extracted to Router.handleComplete. The Router's DispatchKey
+// routes Welcome, ToolSelection, InstallProgress, and Complete keys
 // through their respective handleX methods directly. This function
 // still serves as the dispatch surface for the remaining screens
-// (Complete, Error, Status, Uninstall); commits 6-9 will migrate those
-// one at a time, and commit 10 will delete this function entirely.
+// (Error, Status, Uninstall); commits 7-9 will migrate those one at
+// a time, and commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenComplete:
-		// Inline handler: must access m.cancel for the screen-level quit
-		// branches (REQ-TUI-01) and m.PreviousScreen for source-aware back
-		// navigation (REQ-TUI-06). The standalone screens.CompleteUpdate is
-		// retained as a no-op stub for direct unit tests.
-		switch msg.Type {
-		case tea.KeyEsc, tea.KeyLeft:
-			// Back navigation: route to the screen the user came from.
-			// When PreviousScreen is the zero value (ScreenWelcome), the
-			// user goes back to the menu — the same fallback the
-			// Uninstall screen uses for its `back` action at update.go:217.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: m.PreviousScreen}
-			}
-		case tea.KeyCtrlC:
-			return m, m.quitCmd()
-		}
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			switch msg.Runes[0] {
-			case 'r':
-				return m, func() tea.Msg {
-					return tui.NavigateMsg{Target: model.ScreenStatus}
-				}
-			case 'q':
-				return m, m.quitCmd()
-			}
-		}
-		return m, nil
-
 	case model.ScreenError:
 		// Inline handler: rebuild pipeline on retry, not bare navigation.
 		switch msg.Type {

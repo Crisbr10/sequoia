@@ -169,6 +169,8 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return r.handleToolSelection(h, msg)
 	case model.ScreenInstallProgress:
 		return r.handleInstallProgress(h, msg)
+	case model.ScreenComplete:
+		return r.handleComplete(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -290,8 +292,39 @@ func (r *Router) handleInstallProgress(h KeyHandler, msg tea.KeyMsg) (tea.Model,
 }
 
 // handleComplete is the per-screen dispatch for ScreenComplete.
-// Populated in commit 6.
+// Extracted from the ScreenComplete case of updateScreenKey.
+//
+// Per-screen logic:
+//   - KeyEsc/KeyLeft navigates to PreviousScreen (REQ-TUI-06
+//     source-aware back navigation). When PreviousScreen is the
+//     zero value (ScreenWelcome), the user goes back to the menu.
+//   - KeyCtrlC returns the quit pipeline.
+//   - KeyRunes 'r' navigates to ScreenStatus.
+//   - KeyRunes 'q' returns the quit pipeline.
+//   - All other keys return nil.
 func (r *Router) handleComplete(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyLeft:
+		// Back navigation: route to the screen the user came from.
+		// When PreviousScreen is the zero value (ScreenWelcome), the
+		// user goes back to the menu — the same fallback the
+		// Uninstall screen uses for its `back` action.
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: h.GetPreviousScreen()}
+		}
+	case tea.KeyCtrlC:
+		return h, h.QuitCmd()
+	}
+	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+		switch msg.Runes[0] {
+		case 'r':
+			return h, func() tea.Msg {
+				return NavigateMsg{Target: model.ScreenStatus}
+			}
+		case 'q':
+			return h, h.QuitCmd()
+		}
+	}
 	return h, nil
 }
 
