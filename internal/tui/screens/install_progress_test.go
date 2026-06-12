@@ -418,6 +418,35 @@ func TestApplyProgressMsg_BackupInfo(t *testing.T) {
 		"step status should remain StepDone")
 }
 
+// TestInstallProgressView_FooterExplainsCannotBeInterrupted verifies that the
+// footer explicitly states installs cannot be interrupted and that the user
+// must press q to cancel. REQ-TUI-02.
+func TestInstallProgressView_FooterExplainsCannotBeInterrupted(t *testing.T) {
+	t.Parallel()
+
+	tools := []screens.ProgressTool{
+		{
+			ToolID:   "claude-code",
+			ToolName: "Claude Code",
+			Steps: []screens.ProgressStep{
+				{Name: "Skills", Status: screens.StepRunning},
+			},
+		},
+	}
+
+	view := screens.InstallProgressView(tools, 0, 1, "")
+
+	// Footer must explain installs cannot be interrupted.
+	lower := strings.ToLower(view)
+	assert.Contains(t, lower, "cannot be interrupted",
+		"footer must explain installs cannot be interrupted, got: %s", view)
+	// Footer must direct the user to press q to cancel.
+	assert.Contains(t, lower, "q",
+		"footer must include the q key hint, got: %s", view)
+	assert.Contains(t, lower, "cancel",
+		"footer must mention cancel for the q key, got: %s", view)
+}
+
 // TestInstallProgressView_BackupInfoRendered verifies that the backup info
 // is rendered in the view output. REQ-BUG-004.
 func TestInstallProgressView_BackupInfoRendered(t *testing.T) {
