@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Crisbr10/sequoia/internal/model"
-	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -101,24 +99,11 @@ func hasWarningSteps(steps []ProgressStep) bool {
 	return false
 }
 
-// CompleteUpdate processes key events for the Complete screen.
-// r navigates to the Status screen; q quits.
+// CompleteUpdate is retained as a no-op stub. The Complete screen's key
+// handling is inlined in internal/app/update.go's updateScreenKey to allow
+// access to m.cancel and m.PreviousScreen (REQ-TUI-01). Direct callers of
+// this function will receive nil and must dispatch through the app layer.
 func CompleteUpdate(msg tea.KeyMsg) tea.Cmd {
-	switch msg.Type {
-	case tea.KeyCtrlC:
-		return tea.Quit
-	}
-
-	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-		switch msg.Runes[0] {
-		case 'r':
-			return func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenStatus}
-			}
-		case 'q':
-			return tea.Quit
-		}
-	}
-
+	_ = msg
 	return nil
 }

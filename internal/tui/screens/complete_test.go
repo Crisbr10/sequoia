@@ -11,8 +11,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Crisbr10/sequoia/internal/model"
-	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
@@ -205,39 +203,37 @@ func TestCompleteView_EmptyModeDefaultsToInstallationComplete(t *testing.T) {
 func TestCompleteUpdate_RReturnsNavigateToStatus(t *testing.T) {
 	t.Parallel()
 
+	// CompleteUpdate is a no-op stub (REQ-TUI-01). The Complete screen's
+	// key handling is inlined in internal/app/update.go's updateScreenKey.
+	// The behavior is exercised end-to-end via the app layer in
+	// internal/app/model_test.go (TestComplete_RKeyNavigatesToStatus).
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
 	cmd := screens.CompleteUpdate(msg)
-
-	require.NotNil(t, cmd, "r key should produce a command on Complete screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "r should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenStatus, nav.Target,
-		"r on Complete should navigate to Status")
+	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for r; dispatch is in app layer")
 }
 
 func TestCompleteUpdate_QReturnsQuit(t *testing.T) {
 	t.Parallel()
 
+	// CompleteUpdate is a no-op stub. The screen-level quit branch is
+	// inlined in internal/app/update.go (REQ-TUI-01). End-to-end
+	// behavior is verified by TestComplete_QKeyQuits in model_test.go
+	// and TestComplete_Q_CancelsContext in quit_cancel_test.go.
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 	cmd := screens.CompleteUpdate(msg)
-
-	require.NotNil(t, cmd, "q key should produce a command on Complete screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "q key should produce tea.QuitMsg, got %T", result)
+	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for q; dispatch is in app layer")
 }
 
 func TestCompleteUpdate_CtrlCReturnsQuit(t *testing.T) {
 	t.Parallel()
 
+	// CompleteUpdate is a no-op stub. The screen-level quit branch is
+	// inlined in internal/app/update.go (REQ-TUI-01). End-to-end
+	// behavior is verified by TestComplete_CtrlC_CancelsContext in
+	// internal/app/quit_cancel_test.go.
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 	cmd := screens.CompleteUpdate(msg)
-
-	require.NotNil(t, cmd, "ctrl+c should produce a command on Complete screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "ctrl+c should produce tea.QuitMsg, got %T", result)
+	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for ctrl+c; dispatch is in app layer")
 }
 
 func TestCompleteUpdate_UnknownKeyReturnsNil(t *testing.T) {
