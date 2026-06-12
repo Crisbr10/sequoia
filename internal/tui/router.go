@@ -175,6 +175,8 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return r.handleError(h, msg)
 	case model.ScreenStatus:
 		return r.handleStatus(h, msg)
+	case model.ScreenUninstall:
+		return r.handleUninstall(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -411,7 +413,70 @@ func (r *Router) handleStatus(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd)
 }
 
 // handleUninstall is the per-screen dispatch for ScreenUninstall.
-// Populated in commit 9.
+// Extracted from the ScreenUninstall case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - Confirmation mode (UninstallConfirming=true): Esc cancels
+//     confirmation; 'y' starts the uninstall pipeline; 'n' cancels.
+//   - Normal mode: UninstallUpdate produces (newCursor, shouldToggle,
+//     action). On toggle (only for installed tools), flips the
+//     Selected flag of the cursor tool.
+//   - "confirm" checks that at least one tool is selected and
+//     installed; if so, sets UninstallConfirming=true; otherwise
+//     sets ErrorMsg.
+//   - "back" navigates to PreviousScreen (REQ-TUI-06 source-aware
+//     back navigation; defaults to ScreenWelcome zero value).
+//   - All other actions return nil.
 func (r *Router) handleUninstall(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	// Confirmation mode: only y, n, and Esc matter.
+	if h.GetUninstallConfirming() {
+		if msg.Type == tea.KeyEsc {
+			h.SetUninstallConfirming(false)
+			return h, nil
+		}
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			switch msg.Runes[0] {
+			case 'y':
+				h.SetUninstallConfirming(false)
+				h.SetErrorMsg("")
+				return h, h.StartPipeline("uninstall")
+			case 'n':
+				h.SetUninstallConfirming(false)
+				return h, nil
+			}
+		}
+		return h, nil
+	}
+
+	newCursor, shouldToggle, action := h.UninstallUpdate(msg)
+	h.SetCursor(newCursor)
+	if h.GetCursor() >= 0 && h.GetCursor() < len(h.GetTools()) && shouldToggle && h.GetTools()[h.GetCursor()].Adapter.IsInstalled() {
+		tools := h.GetTools()
+		tools[h.GetCursor()].Selected = !tools[h.GetCursor()].Selected
+		h.SetTools(tools)
+		h.SetErrorMsg("")
+	}
+
+	switch action {
+	case "confirm":
+		// Check at least one tool is selected and installed.
+		if h.HasSelectedInstalled() {
+			h.SetErrorMsg("")
+			h.SetUninstallConfirming(true)
+		} else {
+			h.SetErrorMsg("Select at least one installed tool to continue")
+		}
+		return h, nil
+	case "back":
+		h.SetUninstallConfirming(false)
+		// Navigate back to the source screen (Welcome or Status).
+		// PreviousScreen defaults to ScreenWelcome (zero value), which is
+		// correct when the user arrived from the Welcome screen directly.
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: h.GetPreviousScreen()}
+		}
+	}
 	return h, nil
 }

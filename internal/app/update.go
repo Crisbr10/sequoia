@@ -75,69 +75,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateScreenKey delegates key messages to the active screen's handler.
 //
-// PR7 commits 3-7 (migrated Welcome, ToolSelection, InstallProgress,
-// Complete, Error): the corresponding cases have been extracted to
-// per-screen handleX methods on the Router. PR7 commit 8 (this commit)
-// extracts the ScreenStatus case to Router.handleStatus. The Router's
-// DispatchKey routes these screens through their respective handleX
-// methods. This function still serves as the dispatch surface for the
-// remaining Uninstall screen; commit 9 will migrate that one, and
-// commit 10 will delete this function entirely.
+// PR7 commits 3-8 (migrated Welcome, ToolSelection, InstallProgress,
+// Complete, Error, Status): the corresponding cases have been extracted
+// to per-screen handleX methods on the Router. PR7 commit 9 (this
+// commit) extracts the ScreenUninstall case to Router.handleUninstall.
+// The Router's DispatchKey now routes ALL seven screens through their
+// respective handleX methods. This function is now a thin shell that
+// only contains the default case (for any future screen not yet
+// handled by the Router); PR7 commit 10 will delete it entirely along
+// with the temporary UpdateScreenKey bridge.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.Screen {
-	case model.ScreenUninstall:
-		m.LoadTools("")
-		// Confirmation mode: only y, n, and Esc matter.
-		if m.UninstallConfirming {
-			if msg.Type == tea.KeyEsc {
-				m.UninstallConfirming = false
-				return m, nil
-			}
-			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-				switch msg.Runes[0] {
-				case 'y':
-					m.UninstallConfirming = false
-					m.ErrorMsg = ""
-					return m, m.startPipeline("uninstall")
-				case 'n':
-					m.UninstallConfirming = false
-					return m, nil
-				}
-			}
-			return m, nil
-		}
-
-		newCursor, shouldToggle, action := screens.UninstallUpdate(msg, m.Cursor, m.Tools)
-		m.Cursor = newCursor
-		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle && m.Tools[m.Cursor].Adapter.IsInstalled() {
-			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
-			m.ErrorMsg = ""
-		}
-
-		switch action {
-		case "confirm":
-			// Check at least one tool is selected and installed.
-			if hasSelectedInstalled(m.Tools) {
-				m.ErrorMsg = ""
-				m.UninstallConfirming = true
-			} else {
-				m.ErrorMsg = "Select at least one installed tool to continue"
-			}
-			return m, nil
-		case "back":
-			m.UninstallConfirming = false
-			// Navigate back to the source screen (Welcome or Status).
-			// PreviousScreen defaults to ScreenWelcome (zero value), which is
-			// correct when the user arrived from the Welcome screen directly.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: m.PreviousScreen}
-			}
-		}
-		return m, nil
-
-	default:
-		return m, nil
-	}
+	_ = msg
+	return m, nil
 }
 
 // updateScreenMsg delegates non-key messages to the active screen's handler.

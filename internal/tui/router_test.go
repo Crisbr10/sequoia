@@ -204,17 +204,15 @@ func TestRouter_DispatchKey_StatusBack_NavigatesToWelcome(t *testing.T) {
 // WHEN  the user presses Esc
 // THEN  Router.DispatchKey returns nil (cancels the confirmation prompt)
 //
-// The Esc handler in confirmation mode returns (m, nil) — no navigation,
+// The Esc handler in confirmation mode returns (h, nil) — no navigation,
 // just clears the confirmation state. The full state transition is
 // verified by the existing model_test.go tests; this Router test
 // confirms the dispatch surfaces the right contract.
 //
-// Note: the state is checked on the RETURNED model (m2), not the input
-// m. This is because the legacy updateScreenKey has a value receiver
-// and returns a modified copy. After commits 3-9, the per-screen
-// handler will mutate via the pointer so the local m will also reflect
-// the change; the assertion is written to be correct in both regimes
-// by checking the returned model.
+// PR7 commit 9 note: the per-screen handleUninstall mutates state via
+// the KeyHandler interface pointer, so the LOCAL m reflects the state
+// change. The returned model is *app.Model (pointer), not app.Model
+// (value) — the per-screen handlers return h directly.
 func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
@@ -222,13 +220,10 @@ func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 
 	router := tui.NewRouter()
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	m2, cmd := router.DispatchKey(&m, msg)
+	_, cmd := router.DispatchKey(&m, msg)
 
 	assert.Nil(t, cmd, "Esc on Uninstall confirmation should produce nil cmd")
-	// Verify the state was cleared on the returned model.
-	require.NotNil(t, m2, "DispatchKey should return a non-nil model")
-	modelVal, ok := m2.(app.Model)
-	require.True(t, ok, "DispatchKey should return app.Model, got %T", m2)
-	assert.False(t, modelVal.UninstallConfirming,
+	// Verify the state was cleared on the local m (mutated via pointer).
+	assert.False(t, m.UninstallConfirming,
 		"Esc on Uninstall confirmation should clear UninstallConfirming")
 }
