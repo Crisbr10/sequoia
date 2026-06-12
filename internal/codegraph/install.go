@@ -5,11 +5,13 @@ package codegraph
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // errCancelled is returned when the context is cancelled before an operation completes.
@@ -63,6 +65,11 @@ var runCommand = func(ctx context.Context, name string, args ...string) error {
 	return cmd.Run()
 }
 
+// installTimeout caps the duration of the network download in InstallFunc.
+// Tests override it via t.Cleanup; the production default of 5 minutes mirrors
+// the design D2 timeout budget for the CodeGraph install shellout.
+var installTimeout = 5 * time.Minute
+
 // runCommandWithOutput runs a command and captures its combined stdout+stderr output.
 // Returns the error (if any) and the captured output as a string.
 var runCommandWithOutput = func(ctx context.Context, name string, args ...string) (string, error) {
@@ -106,6 +113,12 @@ var InstallFunc = func(ctx context.Context, out io.Writer) InstallResult {
 		_, _ = fmt.Fprintln(out, "Installing CodeGraph for enhanced code intelligence...")
 	}
 
+	// REQ-TUI-03: cap the network download at installTimeout. A hung HTTPS
+	// connection would otherwise block the pipeline indefinitely; the deadline
+	// is enforced by exec.CommandContext inside runCommand.
+	ctx, cancel := context.WithTimeout(ctx, installTimeout)
+	defer cancel()
+
 	var installErr error
 	switch runtime.GOOS {
 	case "windows":
@@ -116,6 +129,11 @@ var InstallFunc = func(ctx context.Context, out io.Writer) InstallResult {
 	}
 
 	if installErr != nil {
+		// Distinguish the deadline-exceeded case from a parent-ctx cancel so
+		// the caller can render an accurate warning ("timed out" vs "cancelled").
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return InstallResult{Failed: true, Message: "CodeGraph download timed out"}
+		}
 		if ctx.Err() != nil {
 			return InstallResult{Failed: true, Message: "CodeGraph install skipped: " + errCancelled.Error()}
 		}
