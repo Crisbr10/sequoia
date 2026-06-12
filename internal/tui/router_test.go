@@ -111,10 +111,12 @@ func TestRouter_DispatchKey_InstallProgressQ_Quits(t *testing.T) {
 	// does not panic when invoked. The original updateScreenKey returns
 	// the package-level tea.Quit; the Router must preserve that.
 	require.NotNil(t, cmd, "q on InstallProgress should produce tea.Quit")
-	// tea.Quit when called returns nil; the test verifies the function
-	// value is the same sentinel (no panic on invocation).
+	// tea.Quit when called returns tea.QuitMsg{} (not nil) — that is the
+	// Bubbletea signal to exit. The test asserts the function produces
+	// a QuitMsg.
 	result := cmd()
-	assert.Nil(t, result, "tea.Quit should produce nil when invoked")
+	_, isQuit := result.(tea.QuitMsg)
+	assert.True(t, isQuit, "tea.Quit should produce tea.QuitMsg, got %T", result)
 }
 
 // TestRouter_DispatchKey_CompleteLeft_NavigatesToPreviousScreen — REQ-TUI-07
@@ -206,6 +208,13 @@ func TestRouter_DispatchKey_StatusBack_NavigatesToWelcome(t *testing.T) {
 // just clears the confirmation state. The full state transition is
 // verified by the existing model_test.go tests; this Router test
 // confirms the dispatch surfaces the right contract.
+//
+// Note: the state is checked on the RETURNED model (m2), not the input
+// m. This is because the legacy updateScreenKey has a value receiver
+// and returns a modified copy. After commits 3-9, the per-screen
+// handler will mutate via the pointer so the local m will also reflect
+// the change; the assertion is written to be correct in both regimes
+// by checking the returned model.
 func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
@@ -213,10 +222,13 @@ func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 
 	router := tui.NewRouter()
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	_, cmd := router.DispatchKey(&m, msg)
+	m2, cmd := router.DispatchKey(&m, msg)
 
 	assert.Nil(t, cmd, "Esc on Uninstall confirmation should produce nil cmd")
-	// Verify the state was cleared.
-	assert.False(t, m.UninstallConfirming,
+	// Verify the state was cleared on the returned model.
+	require.NotNil(t, m2, "DispatchKey should return a non-nil model")
+	modelVal, ok := m2.(app.Model)
+	require.True(t, ok, "DispatchKey should return app.Model, got %T", m2)
+	assert.False(t, modelVal.UninstallConfirming,
 		"Esc on Uninstall confirmation should clear UninstallConfirming")
 }
