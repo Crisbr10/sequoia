@@ -79,10 +79,12 @@ func InstallProgressView(tools []ProgressTool, completedCount, totalCount int, m
 		b.WriteString("\n")
 	}
 
-	// Footer hints.
+	// Footer hints. REQ-TUI-02: explicitly state that installs cannot be
+	// interrupted; press q to cancel. The q key is the only way out of the
+	// progress screen once installation has started.
 	b.WriteString(styles.Muted().Render("  "))
 	b.WriteString(styles.Accent().Render("q"))
-	b.WriteString(styles.Muted().Render(" quit"))
+	b.WriteString(styles.Muted().Render(" quit (cannot be interrupted — press q to cancel)"))
 
 	return b.String()
 }
