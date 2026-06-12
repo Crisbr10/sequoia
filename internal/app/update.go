@@ -75,42 +75,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateScreenKey delegates key messages to the active screen's handler.
 //
-// PR7 commit 3 (migrated ScreenWelcome): the ScreenWelcome case has been
-// extracted to Router.handleWelcome in internal/tui/router.go.
-// PR7 commit 4 (migrated ScreenToolSelection): the ScreenToolSelection
-// case has been extracted to Router.handleToolSelection.
-// PR7 commit 5 (migrated ScreenInstallProgress): the ScreenInstallProgress
-// case has been extracted to Router.handleInstallProgress.
-// PR7 commit 6 (migrated ScreenComplete): the ScreenComplete case has
-// been extracted to Router.handleComplete. The Router's DispatchKey
-// routes Welcome, ToolSelection, InstallProgress, and Complete keys
-// through their respective handleX methods directly. This function
-// still serves as the dispatch surface for the remaining screens
-// (Error, Status, Uninstall); commits 7-9 will migrate those one at
+// PR7 commits 3-6 (migrated Welcome, ToolSelection, InstallProgress,
+// Complete): the corresponding cases have been extracted to per-screen
+// handleX methods on the Router. PR7 commit 7 (this commit) extracts
+// the ScreenError case to Router.handleError. The Router's DispatchKey
+// routes these screens through their respective handleX methods. This
+// function still serves as the dispatch surface for the remaining
+// screens (Status, Uninstall); commits 8-9 will migrate those one at
 // a time, and commit 10 will delete this function entirely.
 func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.Screen {
-	case model.ScreenError:
-		// Inline handler: rebuild pipeline on retry, not bare navigation.
-		switch msg.Type {
-		case tea.KeyEsc, tea.KeyLeft:
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenToolSelection}
-			}
-		case tea.KeyCtrlC:
-			return m, m.quitCmd()
-		}
-
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			switch msg.Runes[0] {
-			case 'r':
-				return m, m.startPipeline(m.OperationMode)
-			case 'q':
-				return m, m.quitCmd()
-			}
-		}
-		return m, nil
-
 	case model.ScreenStatus:
 		m.LoadTools("")
 		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))

@@ -171,6 +171,8 @@ func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return r.handleInstallProgress(h, msg)
 	case model.ScreenComplete:
 		return r.handleComplete(h, msg)
+	case model.ScreenError:
+		return r.handleError(h, msg)
 	}
 	return h.UpdateScreenKey(msg)
 }
@@ -328,9 +330,36 @@ func (r *Router) handleComplete(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cm
 	return h, nil
 }
 
-// handleError is the per-screen dispatch for ScreenError. Populated in
-// commit 7.
+// handleError is the per-screen dispatch for ScreenError. Extracted
+// from the ScreenError case of updateScreenKey.
+//
+// Per-screen logic:
+//   - KeyEsc/KeyLeft navigates to ScreenToolSelection (NOT
+//     PreviousScreen — the source-aware variant is PR4's
+//     responsibility and lives on a separate branch not yet
+//     merged into PR7's base; preserved for byte-equivalence).
+//   - KeyCtrlC returns the quit pipeline.
+//   - KeyRunes 'r' restarts the pipeline using the current
+//     OperationMode (install or uninstall).
+//   - KeyRunes 'q' returns the quit pipeline.
+//   - All other keys return nil.
 func (r *Router) handleError(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyLeft:
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenToolSelection}
+		}
+	case tea.KeyCtrlC:
+		return h, h.QuitCmd()
+	}
+	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+		switch msg.Runes[0] {
+		case 'r':
+			return h, h.StartPipeline(h.GetOperationMode())
+		case 'q':
+			return h, h.QuitCmd()
+		}
+	}
 	return h, nil
 }
 

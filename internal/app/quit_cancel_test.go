@@ -76,14 +76,17 @@ func TestInstallProgress_Q_CancelsContext(t *testing.T) {
 // TestErrorScreen_Q_CancelsContext — REQ-TUI-01
 //
 // When q is pressed on the Error screen, the inlined Error handler
-// (update.go:138-140) must invoke m.cancel() before returning tea.Quit.
+// (update.go:138-140 / Router.handleError) must invoke m.cancel()
+// before returning tea.Quit.
 //
-// RED on current code: line 139 returns tea.Quit without calling m.cancel().
+// PR7 commit 7: test uses m.Update() to exercise the new dispatch
+// surface (Router.DispatchKey → Router.handleError). The REQ-TUI-01
+// contract is preserved end-to-end.
 func TestErrorScreen_Q_CancelsContext(t *testing.T) {
 	m, ctx := withCancelableModel(t, model.ScreenError)
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
-	_, _ = m.updateScreenKey(msg)
+	_, _ = m.Update(msg)
 
 	assertCancelledWithin(t, ctx, 100*time.Millisecond,
 		"q on Error screen did not invoke m.cancel() before returning tea.Quit")
@@ -92,14 +95,16 @@ func TestErrorScreen_Q_CancelsContext(t *testing.T) {
 // TestErrorScreen_CtrlC_CancelsContext — REQ-TUI-01
 //
 // When ctrl+c is pressed on the Error screen, the inlined Error handler
-// (update.go:130-131) must invoke m.cancel() before returning tea.Quit.
+// (update.go:130-131 / Router.handleError) must invoke m.cancel()
+// before returning tea.Quit.
 //
-// RED on current code: line 131 returns tea.Quit without calling m.cancel().
+// PR7 commit 7: test uses m.Update() to exercise the new dispatch
+// surface. The REQ-TUI-01 contract is preserved end-to-end.
 func TestErrorScreen_CtrlC_CancelsContext(t *testing.T) {
 	m, ctx := withCancelableModel(t, model.ScreenError)
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
-	_, _ = m.updateScreenKey(msg)
+	_, _ = m.Update(msg)
 
 	assertCancelledWithin(t, ctx, 100*time.Millisecond,
 		"ctrl+c on Error screen did not invoke m.cancel() before returning tea.Quit")
