@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -32,6 +33,10 @@ type WarningEmitter interface {
 // This variable is exported so that callers (e.g., update.go's
 // buildProgressTools) reference a single source of truth for step names.
 var InstallSteps = []string{"Preparing", "Downloading", "Verifying", "Staging", "Applying"}
+
+// codegraphProgressTimeout caps the duration of codegraphInstallProgress
+// (REQ-TUI-05). Tests override via t.Cleanup. Precedent: codegraph.installTimeout.
+var codegraphProgressTimeout = 5 * time.Minute
 
 // RunInstall returns a tea.Cmd that installs Sequoia into every selected tool.
 // Each tool runs in its own goroutine dispatching through the Strategy interface.
@@ -383,12 +388,34 @@ func codegraphInstallProgress(ctx context.Context, ch chan<- model.ProgressMsg) 
 		return
 	}
 
+	// REQ-TUI-05: cap the install step so a hung HTTPS connection cannot
+	// block the pipeline indefinitely. parentCtx is used for the warning
+	// emit below — sendProgress's ctx.Done() select would drop the
+	// message on the now-expired ctx.
+	parentCtx := ctx
+	ctx, cancel := context.WithTimeout(ctx, codegraphProgressTimeout)
+	defer cancel()
+
 	sendProgress(ctx, ch, model.ProgressMsg{
 		ToolID: "codegraph",
 		Step:   "Installing",
 	})
 
 	result := codegraph.Install(ctx, nil)
+
+	// If the wrapped context's deadline fired, surface a Warning and
+	// return BEFORE the result branch so the user sees the timeout, not
+	// a generic failed message. Per REQ-TUI-05.
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		sendProgress(parentCtx, ch, model.ProgressMsg{
+			ToolID:  "codegraph",
+			Step:    "Installing",
+			Done:    true,
+			Warning: true,
+			Error:   "download timed out",
+		})
+		return
+	}
 
 	if result.AlreadyInstalled {
 		sendProgress(ctx, ch, model.ProgressMsg{
