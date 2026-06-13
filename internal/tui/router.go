@@ -328,10 +328,10 @@ func (r *Router) handleComplete(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cm
 // from the ScreenError case of updateScreenKey.
 //
 // Per-screen logic:
-//   - KeyEsc/KeyLeft navigates to ScreenToolSelection (NOT
-//     PreviousScreen — the source-aware variant is PR4's
-//     responsibility and lives on a separate branch not yet
-//     merged into PR7's base; preserved for byte-equivalence).
+//   - KeyEsc/KeyLeft navigates to PreviousScreen (REQ-TUI-06
+//     source-aware back navigation). When PreviousScreen is the
+//     zero value (ScreenWelcome), the user goes back to the menu —
+//     the same fallback the Complete and Uninstall screens use.
 //   - KeyCtrlC returns the quit pipeline.
 //   - KeyRunes 'r' restarts the pipeline using the current
 //     OperationMode (install or uninstall).
@@ -340,8 +340,9 @@ func (r *Router) handleComplete(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cm
 func (r *Router) handleError(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc, tea.KeyLeft:
+		// Back navigation: route to the screen the user came from.
 		return h, func() tea.Msg {
-			return NavigateMsg{Target: model.ScreenToolSelection}
+			return NavigateMsg{Target: h.GetPreviousScreen()}
 		}
 	case tea.KeyCtrlC:
 		return h, h.QuitCmd()

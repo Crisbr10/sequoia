@@ -176,6 +176,74 @@ func TestRouter_DispatchKey_ErrorLeft_NavigatesToToolSelection(t *testing.T) {
 		"← on Error should navigate to the expected screen")
 }
 
+// TestRouter_DispatchKey_ErrorLeft_NavigatesToPreviousScreen_SourceAware —
+// REQ-TUI-07 source-aware back nav for the Error screen.
+//
+// GIVEN m.Screen == ScreenError
+//
+//	AND m.PreviousScreen == ScreenUninstall
+//
+// WHEN  the user presses ← (tea.KeyLeft)
+// THEN  Router.DispatchKey returns a cmd that produces
+//
+//	NavigateMsg{Target: ScreenUninstall}
+//
+// This test pins the source-aware behavior that
+// TestRouter_DispatchKey_ErrorLeft_NavigatesToToolSelection cannot: that
+// test sets m.PreviousScreen = ScreenToolSelection, which coincides with
+// the previously hardcoded target, so it passes on the buggy code by
+// accident. This test sets m.PreviousScreen = ScreenUninstall to prove
+// the Router actually consults the source screen and is not hardcoded.
+func TestRouter_DispatchKey_ErrorLeft_NavigatesToPreviousScreen_SourceAware(t *testing.T) {
+	m := app.NewModel("", "test", adapters.NewRegistry())
+	m.Screen = model.ScreenError
+	m.PreviousScreen = model.ScreenUninstall
+
+	router := tui.NewRouter()
+	msg := tea.KeyMsg{Type: tea.KeyLeft}
+	_, cmd := router.DispatchKey(&m, msg)
+
+	require.NotNil(t, cmd, "← on Error should produce a command")
+	result := cmd()
+	nav, ok := result.(tui.NavigateMsg)
+	require.True(t, ok, "← on Error should produce NavigateMsg, got %T", result)
+	assert.Equal(t, model.ScreenUninstall, nav.Target,
+		"← on Error should navigate to PreviousScreen (source-aware)")
+}
+
+// TestRouter_DispatchKey_ErrorEsc_NavigatesToPreviousScreen_SourceAware —
+// companion for tea.KeyEsc on the Error screen.
+//
+// GIVEN m.Screen == ScreenError
+//
+//	AND m.PreviousScreen == ScreenStatus
+//
+// WHEN  the user presses Esc (tea.KeyEsc)
+// THEN  Router.DispatchKey returns a cmd that produces
+//
+//	NavigateMsg{Target: ScreenStatus}
+//
+// The handleError switch case groups tea.KeyEsc and tea.KeyLeft into a
+// single branch, so this test exercises the second key of that branch
+// with a different PreviousScreen value to triangulate the source-aware
+// behavior (Uninstall vs Status).
+func TestRouter_DispatchKey_ErrorEsc_NavigatesToPreviousScreen_SourceAware(t *testing.T) {
+	m := app.NewModel("", "test", adapters.NewRegistry())
+	m.Screen = model.ScreenError
+	m.PreviousScreen = model.ScreenStatus
+
+	router := tui.NewRouter()
+	msg := tea.KeyMsg{Type: tea.KeyEsc}
+	_, cmd := router.DispatchKey(&m, msg)
+
+	require.NotNil(t, cmd, "Esc on Error should produce a command")
+	result := cmd()
+	nav, ok := result.(tui.NavigateMsg)
+	require.True(t, ok, "Esc on Error should produce NavigateMsg, got %T", result)
+	assert.Equal(t, model.ScreenStatus, nav.Target,
+		"Esc on Error should navigate to PreviousScreen (source-aware)")
+}
+
 // TestRouter_DispatchKey_StatusBack_NavigatesToWelcome — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenStatus
