@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/Crisbr10/sequoia/internal/tui/styles"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // CompleteView renders the post-installation success summary screen.
@@ -103,13 +101,4 @@ func hasWarningSteps(steps []ProgressStep) bool {
 		}
 	}
 	return false
-}
-
-// CompleteUpdate is retained as a no-op stub. The Complete screen's key
-// handling is inlined in internal/app/update.go's updateScreenKey to allow
-// access to m.cancel and m.PreviousScreen (REQ-TUI-01). Direct callers of
-// this function will receive nil and must dispatch through the app layer.
-func CompleteUpdate(msg tea.KeyMsg) tea.Cmd {
-	_ = msg
-	return nil
 }
