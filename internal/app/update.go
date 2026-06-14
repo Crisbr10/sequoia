@@ -9,6 +9,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// quitCmd returns the tea.Quit command for screen-level quit branches
+// after marking the model as quitting and cancelling the pipeline context.
+// REQ-TUI-01 requires every screen-level quit branch to invoke m.cancel();
+// centralizing the pattern here guarantees it is never accidentally
+// dropped during future refactors of updateScreenKey.
+func (m *Model) quitCmd() tea.Cmd {
+	m.Quitting = true
+	m.cancel()
+	return tea.Quit
+}
+
 // Update dispatches incoming messages to the appropriate handler based on
 // the current Screen. Global keybindings (q, ctrl+c, WindowSizeMsg) are
 // handled at the top before screen-specific delegation.
@@ -29,9 +40,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Global quit keybindings.
 		if msg.String() == "q" || msg.Type == tea.KeyCtrlC {
-			m.Quitting = true
-			m.cancel()
-			return m, tea.Quit
+			return m, m.quitCmd()
 		}
 
 		// Delegate to screen-specific key handler.
@@ -65,9 +74,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return tui.NavigateMsg{Target: model.ScreenUninstall}
 			}
 		case "quit":
-			m.Quitting = true
-			m.cancel()
-			return m, tea.Quit
+			return m, m.quitCmd()
 		}
 		return m, nil
 
@@ -96,6 +103,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case "quit":
 			m.Quitting = true
+			m.cancel()
 			return m, tea.Quit
 		}
 		return m, nil
@@ -104,8 +112,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		action := screens.InstallProgressUpdate(msg, m.InstallCompleted, m.InstallFailed, len(m.ProgressTools))
 		switch action {
 		case "quit":
-			m.Quitting = true
-			return m, tea.Quit
+			return m, m.quitCmd()
 		case "success":
 			return m, func() tea.Msg {
 				return tui.NavigateMsg{Target: model.ScreenComplete}
@@ -118,7 +125,24 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ScreenComplete:
-		return m, screens.CompleteUpdate(msg)
+		// Inline handler: must access m.cancel for the screen-level quit
+		// branches (REQ-TUI-01). The standalone screens.CompleteUpdate is
+		// retained as a no-op stub for direct unit tests.
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			return m, m.quitCmd()
+		}
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			switch msg.Runes[0] {
+			case 'r':
+				return m, func() tea.Msg {
+					return tui.NavigateMsg{Target: model.ScreenStatus}
+				}
+			case 'q':
+				return m, m.quitCmd()
+			}
+		}
+		return m, nil
 
 	case model.ScreenError:
 		// Inline handler: rebuild pipeline on retry, not bare navigation.
@@ -128,7 +152,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return tui.NavigateMsg{Target: model.ScreenToolSelection}
 			}
 		case tea.KeyCtrlC:
-			return m, tea.Quit
+			return m, m.quitCmd()
 		}
 
 		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
@@ -136,7 +160,7 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			case 'r':
 				return m, m.startPipeline(m.OperationMode)
 			case 'q':
-				return m, tea.Quit
+				return m, m.quitCmd()
 			}
 		}
 		return m, nil
