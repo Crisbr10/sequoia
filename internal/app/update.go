@@ -23,6 +23,15 @@ func (m *Model) quitCmd() tea.Cmd {
 // Update dispatches incoming messages to the appropriate handler based on
 // the current Screen. Global keybindings (q, ctrl+c, WindowSizeMsg) are
 // handled at the top before screen-specific delegation.
+//
+// REQ-TUI-07: key dispatch is delegated to the Router in
+// internal/tui/router.go. The Router operates on a KeyHandler interface
+// (satisfied by *Model) and routes the message to the per-screen handler
+// for the active Screen. The current PR7 commit 2 (GREEN shell) keeps
+// the legacy updateScreenKey function as the dispatch surface via the
+// temporary UpdateScreenKey bridge method on KeyHandler; commits 3-9
+// migrate each screen to a per-screen handleX method on the Router;
+// commit 10 removes the legacy function.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -43,8 +52,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.quitCmd()
 		}
 
-		// Delegate to screen-specific key handler.
-		return m.updateScreenKey(msg)
+		// Delegate key dispatch to the Router. After commits 3-9, the
+		// Router's per-screen handleX methods will mutate m in place via
+		// the pointer; in commit 2 (GREEN shell), the Router delegates
+		// back to the legacy updateScreenKey which returns a modified
+		// copy. The type assertion below handles both cases: when the
+		// Router returns *app.Model (pointer, future commits), the
+		// assertion fails and we keep the in-place mutation; when it
+		// returns app.Model (value, commit 2 shell), the assertion
+		// succeeds and we update m to the modified copy.
+		var router tui.Router
+		m2, cmd := router.DispatchKey(&m, msg)
+		if modelVal, ok := m2.(Model); ok {
+			m = modelVal
+		}
+		return m, cmd
 	}
 
 	// Delegate non-key messages to screen-specific handler.

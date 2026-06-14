@@ -159,3 +159,127 @@ func (m *Model) LoadTools(toolID string) {
 func (m Model) Init() tea.Cmd {
 	return nil
 }
+
+// KeyHandler interface methods on *Model.
+//
+// These wrapper methods satisfy the tui.KeyHandler interface introduced
+// in PR7 (REQ-TUI-07). The Router in internal/tui/router.go operates
+// exclusively through this interface so that it does not need to
+// import internal/app (which would create an import cycle).
+//
+// Each method is a 1-2 line accessor/mutator; the interface contract
+// is documented on tui.KeyHandler. The methods are added here rather
+// than on Model (value) so that the Router can mutate state in place
+// when it receives a *Model via the interface.
+//
+// Getter methods use Get* prefix to avoid Go's "field and method with
+// the same name" restriction — the Model struct has fields named
+// Screen, Tools, Cursor, etc. (the same identifiers the interface
+// would have used for the getters). The Set* setters do not conflict
+// and are named per Go convention.
+
+// GetScreen returns the current screen.
+func (m *Model) GetScreen() model.Screen { return m.Screen }
+
+// SetScreen sets the current screen.
+func (m *Model) SetScreen(s model.Screen) { m.Screen = s }
+
+// GetPreviousScreen returns the previous screen for source-aware back nav.
+func (m *Model) GetPreviousScreen() model.Screen { return m.PreviousScreen }
+
+// SetPreviousScreen sets the previous screen.
+func (m *Model) SetPreviousScreen(s model.Screen) { m.PreviousScreen = s }
+
+// GetCursor returns the current cursor position.
+func (m *Model) GetCursor() int { return m.Cursor }
+
+// SetCursor sets the cursor position.
+func (m *Model) SetCursor(c int) { m.Cursor = c }
+
+// GetTools returns the current tools slice.
+func (m *Model) GetTools() []model.ToolState { return m.Tools }
+
+// SetTools replaces the tools slice.
+func (m *Model) SetTools(t []model.ToolState) { m.Tools = t }
+
+// GetErrorMsg returns the current error message.
+func (m *Model) GetErrorMsg() string { return m.ErrorMsg }
+
+// SetErrorMsg sets the current error message.
+func (m *Model) SetErrorMsg(s string) { m.ErrorMsg = s }
+
+// GetOperationMode returns the current operation mode.
+func (m *Model) GetOperationMode() string { return m.OperationMode }
+
+// SetOperationMode sets the current operation mode.
+func (m *Model) SetOperationMode(mode string) { m.OperationMode = mode }
+
+// GetUninstallConfirming returns whether the uninstall confirmation prompt is active.
+func (m *Model) GetUninstallConfirming() bool { return m.UninstallConfirming }
+
+// SetUninstallConfirming sets whether the uninstall confirmation prompt is active.
+func (m *Model) SetUninstallConfirming(b bool) { m.UninstallConfirming = b }
+
+// GetQuitting returns whether the model has initiated exit.
+func (m *Model) GetQuitting() bool { return m.Quitting }
+
+// SetQuitting sets whether the model has initiated exit.
+func (m *Model) SetQuitting(q bool) { m.Quitting = q }
+
+// GetInstallCompleted returns the count of completed tool installs.
+func (m *Model) GetInstallCompleted() int { return m.InstallCompleted }
+
+// SetInstallCompleted sets the count of completed tool installs.
+func (m *Model) SetInstallCompleted(n int) { m.InstallCompleted = n }
+
+// GetInstallFailed returns the count of failed tool installs.
+func (m *Model) GetInstallFailed() int { return m.InstallFailed }
+
+// SetInstallFailed sets the count of failed tool installs.
+func (m *Model) SetInstallFailed(n int) { m.InstallFailed = n }
+
+// GetInstallWarned returns the count of warned tool installs.
+func (m *Model) GetInstallWarned() int { return m.InstallWarned }
+
+// SetInstallWarned sets the count of warned tool installs.
+func (m *Model) SetInstallWarned(n int) { m.InstallWarned = n }
+
+// InstallProgressCount returns the number of tools currently tracked
+// in the per-tool install progress list. The Router uses this to
+// compute the auto-transition threshold for the InstallProgress screen
+// without needing direct access to the []screens.ProgressTool slice
+// (which would create an import cycle: internal/tui -> internal/tui/screens
+// -> internal/tui for NavigateMsg).
+func (m *Model) InstallProgressCount() int { return len(m.ProgressTools) }
+
+// Cancel invokes the pipeline context cancel function. No-op if the
+// cancel function has not been initialized (e.g., in unit tests that
+// build a Model manually).
+func (m *Model) Cancel() {
+	if m.cancel != nil {
+		m.cancel()
+	}
+}
+
+// StartPipeline is the exported wrapper that satisfies tui.KeyHandler.
+// It delegates to the unexported startPipeline method which is the
+// existing implementation.
+func (m *Model) StartPipeline(mode string) tea.Cmd {
+	return m.startPipeline(mode)
+}
+
+// UpdateScreenKey is the temporary bridge that satisfies
+// tui.KeyHandler. It delegates to the unexported updateScreenKey
+// function in internal/app/update.go. The Router's DispatchKey stub
+// (PR7 commit 2) calls this for behavior preservation during the
+// PR7 migration. After all screens are migrated to per-screen
+// handleX methods (commits 3-9), this method is removed (commit 10)
+// along with the legacy updateScreenKey function.
+//
+// The method takes a value-typed *Model receiver so it can satisfy
+// the KeyHandler interface (which is defined on *Model), and the
+// returned tea.Model is the modified Model value (preserving the
+// existing type contract used by Bubbletea).
+func (m *Model) UpdateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return m.updateScreenKey(msg)
+}
