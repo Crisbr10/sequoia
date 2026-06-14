@@ -122,7 +122,9 @@ func TestRouter_DispatchKey_InstallProgressQ_Quits(t *testing.T) {
 // TestRouter_DispatchKey_CompleteLeft_NavigatesToPreviousScreen — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenComplete
-//       AND m.PreviousScreen == ScreenUninstall
+//
+//	AND m.PreviousScreen == ScreenUninstall
+//
 // WHEN  the user presses ← (tea.KeyLeft)
 // THEN  Router.DispatchKey returns a cmd that produces
 //
@@ -174,6 +176,74 @@ func TestRouter_DispatchKey_ErrorLeft_NavigatesToToolSelection(t *testing.T) {
 		"← on Error should navigate to the expected screen")
 }
 
+// TestRouter_DispatchKey_ErrorLeft_NavigatesToPreviousScreen_SourceAware —
+// REQ-TUI-07 source-aware back nav for the Error screen.
+//
+// GIVEN m.Screen == ScreenError
+//
+//	AND m.PreviousScreen == ScreenUninstall
+//
+// WHEN  the user presses ← (tea.KeyLeft)
+// THEN  Router.DispatchKey returns a cmd that produces
+//
+//	NavigateMsg{Target: ScreenUninstall}
+//
+// This test pins the source-aware behavior that
+// TestRouter_DispatchKey_ErrorLeft_NavigatesToToolSelection cannot: that
+// test sets m.PreviousScreen = ScreenToolSelection, which coincides with
+// the previously hardcoded target, so it passes on the buggy code by
+// accident. This test sets m.PreviousScreen = ScreenUninstall to prove
+// the Router actually consults the source screen and is not hardcoded.
+func TestRouter_DispatchKey_ErrorLeft_NavigatesToPreviousScreen_SourceAware(t *testing.T) {
+	m := app.NewModel("", "test", adapters.NewRegistry())
+	m.Screen = model.ScreenError
+	m.PreviousScreen = model.ScreenUninstall
+
+	router := tui.NewRouter()
+	msg := tea.KeyMsg{Type: tea.KeyLeft}
+	_, cmd := router.DispatchKey(&m, msg)
+
+	require.NotNil(t, cmd, "← on Error should produce a command")
+	result := cmd()
+	nav, ok := result.(tui.NavigateMsg)
+	require.True(t, ok, "← on Error should produce NavigateMsg, got %T", result)
+	assert.Equal(t, model.ScreenUninstall, nav.Target,
+		"← on Error should navigate to PreviousScreen (source-aware)")
+}
+
+// TestRouter_DispatchKey_ErrorEsc_NavigatesToPreviousScreen_SourceAware —
+// companion for tea.KeyEsc on the Error screen.
+//
+// GIVEN m.Screen == ScreenError
+//
+//	AND m.PreviousScreen == ScreenStatus
+//
+// WHEN  the user presses Esc (tea.KeyEsc)
+// THEN  Router.DispatchKey returns a cmd that produces
+//
+//	NavigateMsg{Target: ScreenStatus}
+//
+// The handleError switch case groups tea.KeyEsc and tea.KeyLeft into a
+// single branch, so this test exercises the second key of that branch
+// with a different PreviousScreen value to triangulate the source-aware
+// behavior (Uninstall vs Status).
+func TestRouter_DispatchKey_ErrorEsc_NavigatesToPreviousScreen_SourceAware(t *testing.T) {
+	m := app.NewModel("", "test", adapters.NewRegistry())
+	m.Screen = model.ScreenError
+	m.PreviousScreen = model.ScreenStatus
+
+	router := tui.NewRouter()
+	msg := tea.KeyMsg{Type: tea.KeyEsc}
+	_, cmd := router.DispatchKey(&m, msg)
+
+	require.NotNil(t, cmd, "Esc on Error should produce a command")
+	result := cmd()
+	nav, ok := result.(tui.NavigateMsg)
+	require.True(t, ok, "Esc on Error should produce NavigateMsg, got %T", result)
+	assert.Equal(t, model.ScreenStatus, nav.Target,
+		"Esc on Error should navigate to PreviousScreen (source-aware)")
+}
+
 // TestRouter_DispatchKey_StatusBack_NavigatesToWelcome — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenStatus
@@ -200,21 +270,21 @@ func TestRouter_DispatchKey_StatusBack_NavigatesToWelcome(t *testing.T) {
 // TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation — REQ-TUI-07
 //
 // GIVEN m.Screen == ScreenUninstall
-//       AND m.UninstallConfirming == true
+//
+//	AND m.UninstallConfirming == true
+//
 // WHEN  the user presses Esc
 // THEN  Router.DispatchKey returns nil (cancels the confirmation prompt)
 //
-// The Esc handler in confirmation mode returns (m, nil) — no navigation,
+// The Esc handler in confirmation mode returns (h, nil) — no navigation,
 // just clears the confirmation state. The full state transition is
 // verified by the existing model_test.go tests; this Router test
 // confirms the dispatch surfaces the right contract.
 //
-// Note: the state is checked on the RETURNED model (m2), not the input
-// m. This is because the legacy updateScreenKey has a value receiver
-// and returns a modified copy. After commits 3-9, the per-screen
-// handler will mutate via the pointer so the local m will also reflect
-// the change; the assertion is written to be correct in both regimes
-// by checking the returned model.
+// PR7 commit 9 note: the per-screen handleUninstall mutates state via
+// the KeyHandler interface pointer, so the LOCAL m reflects the state
+// change. The returned model is *app.Model (pointer), not app.Model
+// (value) — the per-screen handlers return h directly.
 func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
@@ -222,13 +292,10 @@ func TestRouter_DispatchKey_UninstallEsc_CancelsConfirmation(t *testing.T) {
 
 	router := tui.NewRouter()
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	m2, cmd := router.DispatchKey(&m, msg)
+	_, cmd := router.DispatchKey(&m, msg)
 
 	assert.Nil(t, cmd, "Esc on Uninstall confirmation should produce nil cmd")
-	// Verify the state was cleared on the returned model.
-	require.NotNil(t, m2, "DispatchKey should return a non-nil model")
-	modelVal, ok := m2.(app.Model)
-	require.True(t, ok, "DispatchKey should return app.Model, got %T", m2)
-	assert.False(t, modelVal.UninstallConfirming,
+	// Verify the state was cleared on the local m (mutated via pointer).
+	assert.False(t, m.UninstallConfirming,
 		"Esc on Uninstall confirmation should clear UninstallConfirming")
 }

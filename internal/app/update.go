@@ -27,11 +27,9 @@ func (m *Model) quitCmd() tea.Cmd {
 // REQ-TUI-07: key dispatch is delegated to the Router in
 // internal/tui/router.go. The Router operates on a KeyHandler interface
 // (satisfied by *Model) and routes the message to the per-screen handler
-// for the active Screen. The current PR7 commit 2 (GREEN shell) keeps
-// the legacy updateScreenKey function as the dispatch surface via the
-// temporary UpdateScreenKey bridge method on KeyHandler; commits 3-9
-// migrate each screen to a per-screen handleX method on the Router;
-// commit 10 removes the legacy function.
+// for the active Screen. The Router mutates Model state in place via
+// the pointer; the returned cmd is bubbled up alongside the local m
+// (which already reflects the mutations).
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -52,236 +50,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.quitCmd()
 		}
 
-		// Delegate key dispatch to the Router. After commits 3-9, the
-		// Router's per-screen handleX methods will mutate m in place via
-		// the pointer; in commit 2 (GREEN shell), the Router delegates
-		// back to the legacy updateScreenKey which returns a modified
-		// copy. The type assertion below handles both cases: when the
-		// Router returns *app.Model (pointer, future commits), the
-		// assertion fails and we keep the in-place mutation; when it
-		// returns app.Model (value, commit 2 shell), the assertion
-		// succeeds and we update m to the modified copy.
+		// Delegate key dispatch to the Router. The Router's
+		// per-screen handleX methods mutate m in place via the pointer;
+		// the first return value (the modified *app.Model cast to
+		// tea.Model) is ignored — the local m is the source of truth.
 		var router tui.Router
-		m2, cmd := router.DispatchKey(&m, msg)
-		if modelVal, ok := m2.(Model); ok {
-			m = modelVal
-		}
+		_, cmd := router.DispatchKey(&m, msg)
 		return m, cmd
 	}
 
 	// Delegate non-key messages to screen-specific handler.
 	return m.updateScreenMsg(msg)
-}
-
-// updateScreenKey delegates key messages to the active screen's handler.
-func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.Screen {
-	case model.ScreenWelcome:
-		newCursor, action := screens.WelcomeUpdate(msg, m.Cursor)
-		m.Cursor = newCursor
-		switch action {
-		case "install":
-			m.LoadTools("") // Lazy construction: defer past first frame render.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenToolSelection}
-			}
-		case "status":
-			m.LoadTools("")
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenStatus}
-			}
-		case "uninstall":
-			m.LoadTools("")
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenUninstall}
-			}
-		case "quit":
-			return m, m.quitCmd()
-		}
-		return m, nil
-
-	case model.ScreenToolSelection:
-		m.LoadTools("")
-		newCursor, shouldToggle, action := screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))
-		m.Cursor = newCursor
-		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle {
-			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
-		}
-
-		switch action {
-		case "confirm":
-			// Validate at least one tool selected.
-			selected := countSelected(m.Tools)
-			if selected == 0 {
-				m.ErrorMsg = "Select at least one tool to continue"
-				return m, nil
-			}
-			m.ErrorMsg = ""
-			return m, m.startPipeline("install")
-		case "back":
-			m.ErrorMsg = ""
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
-			}
-		case "quit":
-			m.Quitting = true
-			m.cancel()
-			return m, tea.Quit
-		}
-		return m, nil
-
-	case model.ScreenInstallProgress:
-		action := screens.InstallProgressUpdate(msg, m.InstallCompleted, m.InstallFailed, len(m.ProgressTools))
-		switch action {
-		case "quit":
-			return m, m.quitCmd()
-		case "success":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenComplete}
-			}
-		case "fail":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenError}
-			}
-		}
-		return m, nil
-
-	case model.ScreenComplete:
-		// Inline handler: must access m.cancel for the screen-level quit
-		// branches (REQ-TUI-01) and m.PreviousScreen for source-aware back
-		// navigation (REQ-TUI-06). The standalone screens.CompleteUpdate is
-		// retained as a no-op stub for direct unit tests.
-		switch msg.Type {
-		case tea.KeyEsc, tea.KeyLeft:
-			// Back navigation: route to the screen the user came from.
-			// When PreviousScreen is the zero value (ScreenWelcome), the
-			// user goes back to the menu — the same fallback the
-			// Uninstall screen uses for its `back` action at update.go:217.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: m.PreviousScreen}
-			}
-		case tea.KeyCtrlC:
-			return m, m.quitCmd()
-		}
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			switch msg.Runes[0] {
-			case 'r':
-				return m, func() tea.Msg {
-					return tui.NavigateMsg{Target: model.ScreenStatus}
-				}
-			case 'q':
-				return m, m.quitCmd()
-			}
-		}
-		return m, nil
-
-	case model.ScreenError:
-		// Inline handler: rebuild pipeline on retry, not bare navigation.
-		switch msg.Type {
-		case tea.KeyEsc, tea.KeyLeft:
-			// REQ-TUI-04: route Esc/Left to the source screen recorded in
-			// m.PreviousScreen (mirrors Uninstall's back nav at line 217).
-			// PreviousScreen defaults to ScreenWelcome (zero value) when
-			// the user landed on Error via the global quit path, which is
-			// the correct fallback for that case.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: m.PreviousScreen}
-			}
-		case tea.KeyCtrlC:
-			return m, m.quitCmd()
-		}
-
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			switch msg.Runes[0] {
-			case 'r':
-				return m, m.startPipeline(m.OperationMode)
-			case 'q':
-				return m, m.quitCmd()
-			}
-		}
-		return m, nil
-
-	case model.ScreenStatus:
-		m.LoadTools("")
-		newCursor, action := screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
-		m.Cursor = newCursor
-
-		switch action {
-		case "uninstall":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenUninstall}
-			}
-		case "reinstall":
-			// Clear all stale selections, then select only the cursor tool.
-			for i := range m.Tools {
-				m.Tools[i].Selected = false
-			}
-			if m.Cursor >= 0 && m.Cursor < len(m.Tools) && m.Tools[m.Cursor].Adapter.IsInstalled() {
-				m.Tools[m.Cursor].Selected = true
-				return m, m.startPipeline("install")
-			}
-			m.ErrorMsg = "Select an installed tool to reinstall"
-			return m, nil
-		case "back":
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: model.ScreenWelcome}
-			}
-		}
-		return m, nil
-
-	case model.ScreenUninstall:
-		m.LoadTools("")
-		// Confirmation mode: only y, n, and Esc matter.
-		if m.UninstallConfirming {
-			if msg.Type == tea.KeyEsc {
-				m.UninstallConfirming = false
-				return m, nil
-			}
-			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-				switch msg.Runes[0] {
-				case 'y':
-					m.UninstallConfirming = false
-					m.ErrorMsg = ""
-					return m, m.startPipeline("uninstall")
-				case 'n':
-					m.UninstallConfirming = false
-					return m, nil
-				}
-			}
-			return m, nil
-		}
-
-		newCursor, shouldToggle, action := screens.UninstallUpdate(msg, m.Cursor, m.Tools)
-		m.Cursor = newCursor
-		if m.Cursor >= 0 && m.Cursor < len(m.Tools) && shouldToggle && m.Tools[m.Cursor].Adapter.IsInstalled() {
-			m.Tools[m.Cursor].Selected = !m.Tools[m.Cursor].Selected
-			m.ErrorMsg = ""
-		}
-
-		switch action {
-		case "confirm":
-			// Check at least one tool is selected and installed.
-			if hasSelectedInstalled(m.Tools) {
-				m.ErrorMsg = ""
-				m.UninstallConfirming = true
-			} else {
-				m.ErrorMsg = "Select at least one installed tool to continue"
-			}
-			return m, nil
-		case "back":
-			m.UninstallConfirming = false
-			// Navigate back to the source screen (Welcome or Status).
-			// PreviousScreen defaults to ScreenWelcome (zero value), which is
-			// correct when the user arrived from the Welcome screen directly.
-			return m, func() tea.Msg {
-				return tui.NavigateMsg{Target: m.PreviousScreen}
-			}
-		}
-		return m, nil
-
-	default:
-		return m, nil
-	}
 }
 
 // updateScreenMsg delegates non-key messages to the active screen's handler.

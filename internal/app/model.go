@@ -261,6 +261,13 @@ func (m *Model) Cancel() {
 	}
 }
 
+// QuitCmd is the exported wrapper that satisfies tui.KeyHandler. It
+// delegates to the unexported quitCmd method which marks the model as
+// quitting, cancels the pipeline context, and returns tea.Quit.
+func (m *Model) QuitCmd() tea.Cmd {
+	return m.quitCmd()
+}
+
 // StartPipeline is the exported wrapper that satisfies tui.KeyHandler.
 // It delegates to the unexported startPipeline method which is the
 // existing implementation.
@@ -268,18 +275,51 @@ func (m *Model) StartPipeline(mode string) tea.Cmd {
 	return m.startPipeline(mode)
 }
 
-// UpdateScreenKey is the temporary bridge that satisfies
-// tui.KeyHandler. It delegates to the unexported updateScreenKey
-// function in internal/app/update.go. The Router's DispatchKey stub
-// (PR7 commit 2) calls this for behavior preservation during the
-// PR7 migration. After all screens are migrated to per-screen
-// handleX methods (commits 3-9), this method is removed (commit 10)
-// along with the legacy updateScreenKey function.
-//
-// The method takes a value-typed *Model receiver so it can satisfy
-// the KeyHandler interface (which is defined on *Model), and the
-// returned tea.Model is the modified Model value (preserving the
-// existing type contract used by Bubbletea).
-func (m *Model) UpdateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m.updateScreenKey(msg)
+// Per-screen dispatch helpers. These wrap the screens.UpdateXxx
+// functions in internal/tui/screens so the Router in
+// internal/tui/router.go does not need to import internal/tui/screens
+// (which would create an import cycle: internal/tui -> internal/tui/screens
+// -> internal/tui for NavigateMsg). The Router calls these via the
+// tui.KeyHandler interface; the implementations here pass the current
+// Model state to the corresponding screens function.
+
+// WelcomeUpdate wraps screens.WelcomeUpdate for KeyHandler.
+func (m *Model) WelcomeUpdate(msg tea.KeyMsg) (int, string) {
+	return screens.WelcomeUpdate(msg, m.Cursor)
+}
+
+// ToolSelectionUpdate wraps screens.ToolSelectionUpdate for KeyHandler.
+func (m *Model) ToolSelectionUpdate(msg tea.KeyMsg) (int, bool, string) {
+	return screens.ToolSelectionUpdate(msg, m.Cursor, len(m.Tools))
+}
+
+// InstallProgressUpdate wraps screens.InstallProgressUpdate for
+// KeyHandler. The msg argument may be nil for the auto-transition
+// check in updateScreenKey.
+func (m *Model) InstallProgressUpdate(msg tea.KeyMsg) string {
+	return screens.InstallProgressUpdate(msg, m.InstallCompleted, m.InstallFailed, len(m.ProgressTools))
+}
+
+// StatusUpdate wraps screens.StatusUpdate for KeyHandler.
+func (m *Model) StatusUpdate(msg tea.KeyMsg) (int, string) {
+	return screens.StatusUpdate(msg, m.Cursor, len(m.Tools))
+}
+
+// UninstallUpdate wraps screens.UninstallUpdate for KeyHandler.
+func (m *Model) UninstallUpdate(msg tea.KeyMsg) (int, bool, string) {
+	return screens.UninstallUpdate(msg, m.Cursor, m.Tools)
+}
+
+// CountSelectedTools returns the number of currently selected tools.
+// This wraps the package-level countSelected function in update.go
+// so the Router can call it via the KeyHandler interface.
+func (m *Model) CountSelectedTools() int {
+	return countSelected(m.Tools)
+}
+
+// HasSelectedInstalled returns true if at least one tool that is
+// both selected and installed exists. Wraps the package-level
+// hasSelectedInstalled function in update.go.
+func (m *Model) HasSelectedInstalled() bool {
+	return hasSelectedInstalled(m.Tools)
 }

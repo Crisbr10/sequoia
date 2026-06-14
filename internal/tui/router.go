@@ -96,17 +96,29 @@ type KeyHandler interface {
 	// []screens.ProgressTool slice.
 	InstallProgressCount() int
 
-	// UpdateScreenKey is the temporary bridge to the legacy dispatch
-	// surface. It delegates to the unexported updateScreenKey function
-	// in internal/app/update.go. The Router's DispatchKey stub calls
-	// this for behavior preservation during the PR7 migration. After
-	// all screens are migrated to per-screen handleX methods (commits
-	// 3-9), this method is removed (commit 10).
-	UpdateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
+	// Per-screen dispatch helpers. These wrap the screen Update
+	// functions in internal/tui/screens so the Router does not need
+	// to import internal/tui/screens (which would create an import
+	// cycle: internal/tui -> internal/tui/screens -> internal/tui
+	// for NavigateMsg). *app.Model implements each helper by
+	// calling the corresponding screens function with the current
+	// Model state as arguments.
+	WelcomeUpdate(msg tea.KeyMsg) (int, string)
+	ToolSelectionUpdate(msg tea.KeyMsg) (int, bool, string)
+	InstallProgressUpdate(msg tea.KeyMsg) string
+	StatusUpdate(msg tea.KeyMsg) (int, string)
+	UninstallUpdate(msg tea.KeyMsg) (int, bool, string)
+	CountSelectedTools() int
+	HasSelectedInstalled() bool
+
+	// UpdateScreenKey (the temporary bridge to the legacy dispatch
+	// surface) was removed in PR7 commit 10. The Router's DispatchKey
+	// is now the single dispatch surface for key messages.
 
 	// Action methods.
 	LoadTools(toolID string)
 	Cancel()
+	QuitCmd() tea.Cmd
 	StartPipeline(mode string) tea.Cmd
 }
 
@@ -129,66 +141,333 @@ func NewRouter() *Router {
 }
 
 // DispatchKey routes msg to the handler for the screen reported by
-// h.GetScreen(). The model state on h is mutated in place; the returned
-// (tea.Model, tea.Cmd) tuple carries the updated model (for framework
-// compatibility) and the command to execute.
+// h.GetScreen(). The model state on h is mutated in place via the
+// KeyHandler interface; the returned (tea.Model, tea.Cmd) tuple carries
+// the updated model (for Bubbletea framework compatibility, though
+// callers typically ignore the first return and use the local m)
+// and the command to execute.
 //
-// PR7 commit 2 (GREEN shell): this method is a stub that delegates to
-// h.UpdateScreenKey(msg) — the legacy dispatch surface. The Router
-// exists, the KeyHandler interface is satisfied by *app.Model, and
-// the full test suite still passes through the public m.Update API.
-//
-// PR7 commits 3-9 (per-screen migration): each commit replaces the
-// corresponding case in updateScreenKey with a call to r.handleX(h, msg)
-// here. The per-screen handleX methods are populated incrementally.
-//
-// PR7 commit 10 (final cleanup): the per-screen switch below is the
-// single dispatch surface; the legacy updateScreenKey and h.UpdateScreenKey
-// are removed.
+// This method is the single dispatch surface for key messages (REQ-TUI-07).
+// The legacy updateScreenKey function in internal/app/update.go was
+// removed in commit 10; the temporary UpdateScreenKey bridge method
+// on KeyHandler was also removed in commit 10.
 func (r *Router) DispatchKey(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return h.UpdateScreenKey(msg)
+	switch h.GetScreen() {
+	case model.ScreenWelcome:
+		return r.handleWelcome(h, msg)
+	case model.ScreenToolSelection:
+		return r.handleToolSelection(h, msg)
+	case model.ScreenInstallProgress:
+		return r.handleInstallProgress(h, msg)
+	case model.ScreenComplete:
+		return r.handleComplete(h, msg)
+	case model.ScreenError:
+		return r.handleError(h, msg)
+	case model.ScreenStatus:
+		return r.handleStatus(h, msg)
+	case model.ScreenUninstall:
+		return r.handleUninstall(h, msg)
+	}
+	return h, nil
 }
 
 // handleWelcome is the per-screen dispatch for ScreenWelcome. It is
-// populated in commit 3 by extracting the Welcome case from
-// updateScreenKey. Until then, the Router's DispatchKey routes through
-// the legacy UpdateScreenKey bridge.
+// extracted from the ScreenWelcome case of the legacy updateScreenKey
+// function in internal/app/update.go. The behavior is byte-equivalent
+// to the pre-refactor switch case.
+//
+// Per-screen logic:
+//   - WelcomeUpdate produces a (newCursor, action) tuple.
+//   - The "install" / "status" / "uninstall" actions navigate to
+//     the corresponding screen after loading tools.
+//   - The "quit" action invokes the quit pipeline (sets Quitting,
+//     calls Cancel, returns tea.Quit).
+//   - All other actions return nil (no-op).
 func (r *Router) handleWelcome(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	newCursor, action := h.WelcomeUpdate(msg)
+	h.SetCursor(newCursor)
+	switch action {
+	case "install":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenToolSelection}
+		}
+	case "status":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenStatus}
+		}
+	case "uninstall":
+		h.LoadTools("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenUninstall}
+		}
+	case "quit":
+		h.SetQuitting(true)
+		h.Cancel()
+		return h, tea.Quit
+	}
 	return h, nil
 }
 
 // handleToolSelection is the per-screen dispatch for ScreenToolSelection.
-// Populated in commit 4.
+// Extracted from the ScreenToolSelection case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - ToolSelectionUpdate produces (newCursor, shouldToggle, action).
+//   - On toggle, flips the Selected flag of the cursor tool.
+//   - "confirm" validates that at least one tool is selected, then
+//     starts the install pipeline. On empty selection, sets
+//     ErrorMsg and returns nil.
+//   - "back" navigates to ScreenWelcome.
+//   - "quit" inlines the Quitting/Cancel/tea.Quit sequence (matches
+//     the original updateScreenKey which does NOT use the quitCmd
+//     helper here — preserved for byte-equivalence).
+//   - All other actions return nil.
 func (r *Router) handleToolSelection(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	newCursor, shouldToggle, action := h.ToolSelectionUpdate(msg)
+	h.SetCursor(newCursor)
+	if h.GetCursor() >= 0 && h.GetCursor() < len(h.GetTools()) && shouldToggle {
+		tools := h.GetTools()
+		tools[h.GetCursor()].Selected = !tools[h.GetCursor()].Selected
+		h.SetTools(tools)
+	}
+
+	switch action {
+	case "confirm":
+		// Validate at least one tool selected.
+		if h.CountSelectedTools() == 0 {
+			h.SetErrorMsg("Select at least one tool to continue")
+			return h, nil
+		}
+		h.SetErrorMsg("")
+		return h, h.StartPipeline("install")
+	case "back":
+		h.SetErrorMsg("")
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenWelcome}
+		}
+	case "quit":
+		// Inline the quit sequence (do not use a helper) to match
+		// the original updateScreenKey which did not call quitCmd
+		// here. Behavior-equivalent.
+		h.SetQuitting(true)
+		h.Cancel()
+		return h, tea.Quit
+	}
 	return h, nil
 }
 
 // handleInstallProgress is the per-screen dispatch for
-// ScreenInstallProgress. Populated in commit 5.
+// ScreenInstallProgress. Extracted from the ScreenInstallProgress
+// case of updateScreenKey.
+//
+// Per-screen logic:
+//   - InstallProgressUpdate produces an action string.
+//   - "quit" returns the quit pipeline (QuitCmd()).
+//   - "success" navigates to ScreenComplete.
+//   - "fail" navigates to ScreenError.
+//   - All other actions return nil.
 func (r *Router) handleInstallProgress(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	action := h.InstallProgressUpdate(msg)
+	switch action {
+	case "quit":
+		return h, h.QuitCmd()
+	case "success":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenComplete}
+		}
+	case "fail":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenError}
+		}
+	}
 	return h, nil
 }
 
 // handleComplete is the per-screen dispatch for ScreenComplete.
-// Populated in commit 6.
+// Extracted from the ScreenComplete case of updateScreenKey.
+//
+// Per-screen logic:
+//   - KeyEsc/KeyLeft navigates to PreviousScreen (REQ-TUI-06
+//     source-aware back navigation). When PreviousScreen is the
+//     zero value (ScreenWelcome), the user goes back to the menu.
+//   - KeyCtrlC returns the quit pipeline.
+//   - KeyRunes 'r' navigates to ScreenStatus.
+//   - KeyRunes 'q' returns the quit pipeline.
+//   - All other keys return nil.
 func (r *Router) handleComplete(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyLeft:
+		// Back navigation: route to the screen the user came from.
+		// When PreviousScreen is the zero value (ScreenWelcome), the
+		// user goes back to the menu — the same fallback the
+		// Uninstall screen uses for its `back` action.
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: h.GetPreviousScreen()}
+		}
+	case tea.KeyCtrlC:
+		return h, h.QuitCmd()
+	}
+	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+		switch msg.Runes[0] {
+		case 'r':
+			return h, func() tea.Msg {
+				return NavigateMsg{Target: model.ScreenStatus}
+			}
+		case 'q':
+			return h, h.QuitCmd()
+		}
+	}
 	return h, nil
 }
 
-// handleError is the per-screen dispatch for ScreenError. Populated in
-// commit 7.
+// handleError is the per-screen dispatch for ScreenError. Extracted
+// from the ScreenError case of updateScreenKey.
+//
+// Per-screen logic:
+//   - KeyEsc/KeyLeft navigates to PreviousScreen (REQ-TUI-06
+//     source-aware back navigation). When PreviousScreen is the
+//     zero value (ScreenWelcome), the user goes back to the menu —
+//     the same fallback the Complete and Uninstall screens use.
+//   - KeyCtrlC returns the quit pipeline.
+//   - KeyRunes 'r' restarts the pipeline using the current
+//     OperationMode (install or uninstall).
+//   - KeyRunes 'q' returns the quit pipeline.
+//   - All other keys return nil.
 func (r *Router) handleError(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyLeft:
+		// Back navigation: route to the screen the user came from.
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: h.GetPreviousScreen()}
+		}
+	case tea.KeyCtrlC:
+		return h, h.QuitCmd()
+	}
+	if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+		switch msg.Runes[0] {
+		case 'r':
+			return h, h.StartPipeline(h.GetOperationMode())
+		case 'q':
+			return h, h.QuitCmd()
+		}
+	}
 	return h, nil
 }
 
-// handleStatus is the per-screen dispatch for ScreenStatus. Populated
-// in commit 8.
+// handleStatus is the per-screen dispatch for ScreenStatus. Extracted
+// from the ScreenStatus case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - StatusUpdate produces (newCursor, action).
+//   - "uninstall" navigates to ScreenUninstall.
+//   - "reinstall" clears all stale selections, then selects only
+//     the cursor tool (if installed) and starts the install
+//     pipeline. If the cursor tool is not installed, sets
+//     ErrorMsg and returns nil.
+//   - "back" navigates to ScreenWelcome.
+//   - All other actions return nil.
 func (r *Router) handleStatus(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	newCursor, action := h.StatusUpdate(msg)
+	h.SetCursor(newCursor)
+
+	switch action {
+	case "uninstall":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenUninstall}
+		}
+	case "reinstall":
+		// Clear all stale selections, then select only the cursor tool.
+		tools := h.GetTools()
+		for i := range tools {
+			tools[i].Selected = false
+		}
+		if h.GetCursor() >= 0 && h.GetCursor() < len(tools) && tools[h.GetCursor()].Adapter.IsInstalled() {
+			tools[h.GetCursor()].Selected = true
+			h.SetTools(tools)
+			return h, h.StartPipeline("install")
+		}
+		h.SetTools(tools)
+		h.SetErrorMsg("Select an installed tool to reinstall")
+		return h, nil
+	case "back":
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: model.ScreenWelcome}
+		}
+	}
 	return h, nil
 }
 
 // handleUninstall is the per-screen dispatch for ScreenUninstall.
-// Populated in commit 9.
+// Extracted from the ScreenUninstall case of updateScreenKey.
+//
+// Per-screen logic:
+//   - Loads tools (lazy init).
+//   - Confirmation mode (UninstallConfirming=true): Esc cancels
+//     confirmation; 'y' starts the uninstall pipeline; 'n' cancels.
+//   - Normal mode: UninstallUpdate produces (newCursor, shouldToggle,
+//     action). On toggle (only for installed tools), flips the
+//     Selected flag of the cursor tool.
+//   - "confirm" checks that at least one tool is selected and
+//     installed; if so, sets UninstallConfirming=true; otherwise
+//     sets ErrorMsg.
+//   - "back" navigates to PreviousScreen (REQ-TUI-06 source-aware
+//     back navigation; defaults to ScreenWelcome zero value).
+//   - All other actions return nil.
 func (r *Router) handleUninstall(h KeyHandler, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.LoadTools("")
+	// Confirmation mode: only y, n, and Esc matter.
+	if h.GetUninstallConfirming() {
+		if msg.Type == tea.KeyEsc {
+			h.SetUninstallConfirming(false)
+			return h, nil
+		}
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			switch msg.Runes[0] {
+			case 'y':
+				h.SetUninstallConfirming(false)
+				h.SetErrorMsg("")
+				return h, h.StartPipeline("uninstall")
+			case 'n':
+				h.SetUninstallConfirming(false)
+				return h, nil
+			}
+		}
+		return h, nil
+	}
+
+	newCursor, shouldToggle, action := h.UninstallUpdate(msg)
+	h.SetCursor(newCursor)
+	if h.GetCursor() >= 0 && h.GetCursor() < len(h.GetTools()) && shouldToggle && h.GetTools()[h.GetCursor()].Adapter.IsInstalled() {
+		tools := h.GetTools()
+		tools[h.GetCursor()].Selected = !tools[h.GetCursor()].Selected
+		h.SetTools(tools)
+		h.SetErrorMsg("")
+	}
+
+	switch action {
+	case "confirm":
+		// Check at least one tool is selected and installed.
+		if h.HasSelectedInstalled() {
+			h.SetErrorMsg("")
+			h.SetUninstallConfirming(true)
+		} else {
+			h.SetErrorMsg("Select at least one installed tool to continue")
+		}
+		return h, nil
+	case "back":
+		h.SetUninstallConfirming(false)
+		// Navigate back to the source screen (Welcome or Status).
+		// PreviousScreen defaults to ScreenWelcome (zero value), which is
+		// correct when the user arrived from the Welcome screen directly.
+		return h, func() tea.Msg {
+			return NavigateMsg{Target: h.GetPreviousScreen()}
+		}
+	}
 	return h, nil
 }
