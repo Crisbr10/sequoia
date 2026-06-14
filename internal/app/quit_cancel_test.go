@@ -1,10 +1,12 @@
 // Package app contains internal (white-box) tests for screen-level quit
-// handlers in updateScreenKey. These tests bypass the global quit handler
-// in Update (which already calls m.cancel at update.go:33) by calling
-// m.updateScreenKey directly. They verify the REQ-TUI-01 defense-in-depth
-// requirement: every screen-level quit branch that returns tea.Quit must
-// also invoke m.cancel() so the pipeline context is released even if the
-// global handler is refactored away in the future.
+// handlers. These tests bypass the global quit handler in Update (which
+// already calls m.cancel at update.go:33) by driving m.Update() directly
+// with a non-q, non-ctrl+c key path that would have hit the screen-level
+// quit branches under the legacy updateScreenKey dispatch. They verify
+// the REQ-TUI-01 defense-in-depth requirement: every screen-level quit
+// branch that returns tea.Quit must also invoke m.cancel() so the
+// pipeline context is released even if the global handler is refactored
+// away in the future.
 //
 // Note: the ToolSelection "quit" case at update.go:97-99 is unreachable
 // from any real input today (ToolSelectionUpdate never returns "quit" —
