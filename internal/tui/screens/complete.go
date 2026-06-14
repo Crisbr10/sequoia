@@ -79,9 +79,15 @@ func CompleteView(progressTools []ProgressTool, mode string, warnedCount int) st
 	b.WriteString("\n\n")
 
 	// Key hints.
+	// REQ-TUI-06: the ← / Esc keys navigate back to the screen the user
+	// came from. The hint is placed between the existing `r` and `q`
+	// hints so the back-nav option is visually grouped with the other
+	// navigation shortcuts.
 	b.WriteString(styles.Muted().Render("  "))
 	b.WriteString(styles.Accent().Render("r"))
 	b.WriteString(styles.Muted().Render(" — Status screen  "))
+	b.WriteString(styles.Accent().Render("←"))
+	b.WriteString(styles.Muted().Render(" — back  "))
 	b.WriteString(styles.Accent().Render("q"))
 	b.WriteString(styles.Muted().Render(" — Quit"))
 

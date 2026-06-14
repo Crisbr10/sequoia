@@ -126,9 +126,18 @@ func (m Model) updateScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case model.ScreenComplete:
 		// Inline handler: must access m.cancel for the screen-level quit
-		// branches (REQ-TUI-01). The standalone screens.CompleteUpdate is
+		// branches (REQ-TUI-01) and m.PreviousScreen for source-aware back
+		// navigation (REQ-TUI-06). The standalone screens.CompleteUpdate is
 		// retained as a no-op stub for direct unit tests.
 		switch msg.Type {
+		case tea.KeyEsc, tea.KeyLeft:
+			// Back navigation: route to the screen the user came from.
+			// When PreviousScreen is the zero value (ScreenWelcome), the
+			// user goes back to the menu — the same fallback the
+			// Uninstall screen uses for its `back` action at update.go:217.
+			return m, func() tea.Msg {
+				return tui.NavigateMsg{Target: m.PreviousScreen}
+			}
 		case tea.KeyCtrlC:
 			return m, m.quitCmd()
 		}

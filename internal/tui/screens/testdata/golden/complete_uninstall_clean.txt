@@ -6,4 +6,4 @@
 
   Try running: sequoia status
 
-  r — Status screen  q — Quit
+  r — Status screen  ← — back  q — Quit
