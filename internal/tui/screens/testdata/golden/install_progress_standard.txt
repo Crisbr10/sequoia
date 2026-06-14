@@ -12,4 +12,4 @@
     [✓] Commands
     [✓] System Prompt
 
-  q quit
+  q quit (cannot be interrupted — press q to cancel)

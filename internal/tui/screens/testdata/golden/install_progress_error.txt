@@ -8,4 +8,4 @@
           mkdir /home/user/.claude: permission denied
     [ ] System Prompt
 
-  q quit
+  q quit (cannot be interrupted — press q to cancel)
