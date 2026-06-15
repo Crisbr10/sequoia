@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
@@ -198,51 +196,6 @@ func TestCompleteView_EmptyModeDefaultsToInstallationComplete(t *testing.T) {
 
 	view := screens.CompleteView(tools, "", 0)
 	assert.Contains(t, view, "Installation Complete", "empty mode should default to 'Installation Complete'")
-}
-
-func TestCompleteUpdate_RReturnsNavigateToStatus(t *testing.T) {
-	t.Parallel()
-
-	// CompleteUpdate is a no-op stub (REQ-TUI-01). The Complete screen's
-	// key handling is inlined in internal/app/update.go's updateScreenKey.
-	// The behavior is exercised end-to-end via the app layer in
-	// internal/app/model_test.go (TestComplete_RKeyNavigatesToStatus).
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
-	cmd := screens.CompleteUpdate(msg)
-	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for r; dispatch is in app layer")
-}
-
-func TestCompleteUpdate_QReturnsQuit(t *testing.T) {
-	t.Parallel()
-
-	// CompleteUpdate is a no-op stub. The screen-level quit branch is
-	// inlined in internal/app/update.go (REQ-TUI-01). End-to-end
-	// behavior is verified by TestComplete_QKeyQuits in model_test.go
-	// and TestComplete_Q_CancelsContext in quit_cancel_test.go.
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
-	cmd := screens.CompleteUpdate(msg)
-	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for q; dispatch is in app layer")
-}
-
-func TestCompleteUpdate_CtrlCReturnsQuit(t *testing.T) {
-	t.Parallel()
-
-	// CompleteUpdate is a no-op stub. The screen-level quit branch is
-	// inlined in internal/app/update.go (REQ-TUI-01). End-to-end
-	// behavior is verified by TestComplete_CtrlC_CancelsContext in
-	// internal/app/quit_cancel_test.go.
-	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
-	cmd := screens.CompleteUpdate(msg)
-	assert.Nil(t, cmd, "CompleteUpdate stub should return nil for ctrl+c; dispatch is in app layer")
-}
-
-func TestCompleteUpdate_UnknownKeyReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
-	cmd := screens.CompleteUpdate(msg)
-
-	assert.Nil(t, cmd, "Unknown key should produce no command on Complete screen")
 }
 
 //nolint:gosec // golden test: all os operations on testdata/golden paths, not user input

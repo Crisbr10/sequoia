@@ -806,7 +806,7 @@ func TestModel_UninstallConfirmView_ShowsPrompt(t *testing.T) {
 	assert.Contains(t, view, "Remove Sequoia", "Uninstall confirmation should mention Remove Sequoia")
 }
 
-func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
+func TestUpdate_DispatchKey_StatusQ_Quits(t *testing.T) {
 
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenStatus
@@ -820,7 +820,7 @@ func TestUpdateScreenKey_StatusQQuits(t *testing.T) {
 	assert.True(t, ok, "q on Status should produce tea.QuitMsg")
 }
 
-func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
+func TestUpdate_DispatchKey_UninstallQ_Quits(t *testing.T) {
 
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenUninstall
@@ -834,7 +834,7 @@ func TestUpdateScreenKey_UninstallQQuits(t *testing.T) {
 	assert.True(t, ok, "q on Uninstall should produce tea.QuitMsg")
 }
 
-func TestUpdateScreenKey_CompleteQQuits(t *testing.T) {
+func TestUpdate_DispatchKey_CompleteQ_Quits(t *testing.T) {
 
 	m := app.NewModel("", "test", adapters.NewRegistry())
 	m.Screen = model.ScreenComplete

@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/Crisbr10/sequoia/internal/model"
-	"github.com/Crisbr10/sequoia/internal/tui"
 	"github.com/Crisbr10/sequoia/internal/tui/screens"
 )
 
@@ -156,81 +152,6 @@ func TestErrorView_EmptyModeDefaultsToInstallationFailed(t *testing.T) {
 
 	view := screens.ErrorView(tools, "")
 	assert.Contains(t, view, "Installation Failed", "empty mode should default to 'Installation Failed'")
-}
-
-func TestErrorUpdate_RReturnsNavigateToInstallProgress(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
-	cmd := screens.ErrorUpdate(msg)
-
-	require.NotNil(t, cmd, "r key should produce a command on Error screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "r should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenInstallProgress, nav.Target,
-		"r on Error should navigate to InstallProgress for retry")
-}
-
-func TestErrorUpdate_EscReturnsBackToToolSelection(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	cmd := screens.ErrorUpdate(msg)
-
-	require.NotNil(t, cmd, "Esc should produce a command on Error screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Esc should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenToolSelection, nav.Target,
-		"Esc on Error should navigate back to ToolSelection")
-}
-
-func TestErrorUpdate_LeftArrowReturnsBackToToolSelection(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyLeft}
-	cmd := screens.ErrorUpdate(msg)
-
-	require.NotNil(t, cmd, "Left arrow should produce a command on Error screen")
-	result := cmd()
-	nav, ok := result.(tui.NavigateMsg)
-	require.True(t, ok, "Left arrow should produce NavigateMsg, got %T", result)
-	assert.Equal(t, model.ScreenToolSelection, nav.Target,
-		"Left arrow on Error should navigate back to ToolSelection")
-}
-
-func TestErrorUpdate_QReturnsQuit(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
-	cmd := screens.ErrorUpdate(msg)
-
-	require.NotNil(t, cmd, "q key should produce a command on Error screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "q key should produce tea.QuitMsg, got %T", result)
-}
-
-func TestErrorUpdate_CtrlCReturnsQuit(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
-	cmd := screens.ErrorUpdate(msg)
-
-	require.NotNil(t, cmd, "ctrl+c should produce a command on Error screen")
-	result := cmd()
-	_, ok := result.(tea.QuitMsg)
-	assert.True(t, ok, "ctrl+c should produce tea.QuitMsg, got %T", result)
-}
-
-func TestErrorUpdate_UnknownKeyReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
-	cmd := screens.ErrorUpdate(msg)
-
-	assert.Nil(t, cmd, "Unknown key should produce no command on Error screen")
 }
 
 //nolint:gosec // golden test: all os operations on testdata/golden paths, not user input
