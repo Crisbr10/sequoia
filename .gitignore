@@ -72,3 +72,8 @@ sdd/
 
 # Misc
 *.orig
+
+# Coverage tool output (residue from local coverage iterations)
+cmd-*
+testutil-*
+verify-*

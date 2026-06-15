@@ -1,7 +1,10 @@
-// Package sequoia validates CI pipeline artifacts (T-033 sub-tasks).
+// Package scripts contains tests that validate the Sequoia repo's build
+// configuration and installer scripts. This file (release_workflow_test.go)
+// validates the CI pipeline release workflow at ../.github/workflows/release.yml
+// (T-033 sub-tasks).
 //
 // Strict TDD: tests written BEFORE the release.yml and script updates.
-package sequoia
+package scripts
 
 import (
 	"os"
@@ -47,7 +50,7 @@ type releaseJobStep struct {
 // TestReleaseWorkflow validates .github/workflows/release.yml
 // triggers on v* tags and runs GoReleaser.
 func TestReleaseWorkflow(t *testing.T) {
-	content, err := os.ReadFile(".github/workflows/release.yml")
+	content, err := os.ReadFile("../.github/workflows/release.yml")
 	require.NoError(t, err, "release.yml must exist")
 
 	var wf releaseWorkflowSchema

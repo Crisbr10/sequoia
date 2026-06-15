@@ -1,13 +1,19 @@
-// Package sequoia validates the GoReleaser configuration (T-033).
+// Package scripts contains tests that validate the Sequoia repo's build
+// configuration and installer scripts. These tests live in the scripts/
+// package only because Go requires test files to belong to a package; the
+// validation targets are files in the parent repo (../.goreleaser.yaml,
+// ../.github/workflows/release.yml, install.sh, install.ps1), not the
+// scripts Go code (which is empty — these are shell/PowerShell scripts).
 //
-// This file follows the Strict TDD cycle:
+// The goreleaser_config_test.go file validates the GoReleaser configuration
+// (T-033). It follows the Strict TDD cycle:
 //
 //	RED → test written first (goreleaser.yaml does not exist yet → will fail)
 //	GREEN → goreleaser.yaml created to pass all assertions
 //
-// Because .goreleaser.yaml is purely structural (YAML config, no branching logic),
-// triangulation is skipped per strict-tdd.md rules.
-package sequoia
+// Because .goreleaser.yaml is purely structural (YAML config, no branching
+// logic), triangulation is skipped per strict-tdd.md rules.
+package scripts
 
 import (
 	"os"
@@ -134,7 +140,7 @@ var requiredBuildTargets = []struct{ goos, goarch string }{
 
 // TestGoReleaserConfig validates .goreleaser.yaml against T-033 requirements.
 func TestGoReleaserConfig(t *testing.T) {
-	content, err := os.ReadFile(".goreleaser.yaml")
+	content, err := os.ReadFile("../.goreleaser.yaml")
 	require.NoError(t, err, ".goreleaser.yaml must exist")
 
 	var cfg goreleaserSchema
@@ -255,7 +261,7 @@ func TestGoReleaserConfig(t *testing.T) {
 // TestGoreleaserConfig_HasSignsSection validates that .goreleaser.yaml
 // includes cosign keyless signing so users can verify binary authenticity.
 func TestGoreleaserConfig_HasSignsSection(t *testing.T) {
-	content, err := os.ReadFile(".goreleaser.yaml")
+	content, err := os.ReadFile("../.goreleaser.yaml")
 	require.NoError(t, err, ".goreleaser.yaml must exist")
 
 	var cfg goreleaserSchema
@@ -340,7 +346,7 @@ func indexInString(s, substr string) int {
 // TestGoreleaserConfig_ScriptChecksums validates SI-001: install scripts
 // must be included in GoReleaser checksums via checksum.extra_files.
 func TestGoreleaserConfig_ScriptChecksums(t *testing.T) {
-	content, err := os.ReadFile(".goreleaser.yaml")
+	content, err := os.ReadFile("../.goreleaser.yaml")
 	require.NoError(t, err, ".goreleaser.yaml must exist")
 
 	var cfg goreleaserSchema
@@ -387,7 +393,7 @@ func TestGoreleaserConfig_ScriptChecksums(t *testing.T) {
 // footer must include a verification command so users can verify installer
 // integrity before piping scripts to a shell.
 func TestGoreleaserConfig_ReleaseFooter(t *testing.T) {
-	content, err := os.ReadFile(".goreleaser.yaml")
+	content, err := os.ReadFile("../.goreleaser.yaml")
 	require.NoError(t, err, ".goreleaser.yaml must exist")
 
 	var cfg goreleaserSchema

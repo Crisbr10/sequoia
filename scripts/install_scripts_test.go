@@ -1,8 +1,10 @@
-// Package sequoia validates install scripts (T-033 sub-tasks).
+// Package scripts contains tests that validate the Sequoia repo's build
+// configuration and installer scripts. This file (install_scripts_test.go)
+// validates the install.sh and install.ps1 shell scripts (T-033 sub-tasks).
 //
 // Strict TDD: tests written BEFORE script updates.
 // Verifies scripts reference correct GitHub repo and goreleaser artifact URLs.
-package sequoia
+package scripts
 
 import (
 	"os"
@@ -18,7 +20,7 @@ import (
 // 2. Download URLs matching goreleaser artifact naming (sequoia_{OS}_{ARCH}.tar.gz)
 // 3. Checksums URL pointing to checksums.txt
 func TestInstallShRepoRefs(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.sh")
+	content, err := os.ReadFile("install.sh")
 	require.NoError(t, err, "scripts/install.sh must exist")
 
 	script := string(content)
@@ -65,7 +67,7 @@ func TestInstallShRepoRefs(t *testing.T) {
 // mandatory in install.sh. When checksums.txt download fails, the script MUST
 // abort with exit code 2. The --skip-checksums flag is opt-in to bypass.
 func TestInstallShChecksumMandatory(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.sh")
+	content, err := os.ReadFile("install.sh")
 	require.NoError(t, err, "scripts/install.sh must exist")
 
 	script := string(content)
@@ -147,7 +149,7 @@ func TestInstallShChecksumMandatory(t *testing.T) {
 // mandatory in install.ps1. When checksums.txt download fails, the script MUST
 // abort with exit code 2 unless -SkipChecksum is explicitly set.
 func TestInstallPs1ChecksumMandatory(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.ps1")
+	content, err := os.ReadFile("install.ps1")
 	require.NoError(t, err, "scripts/install.ps1 must exist")
 
 	script := string(content)
@@ -232,7 +234,7 @@ func TestInstallPs1ChecksumMandatory(t *testing.T) {
 // TestInstallShPathValidation validates install.sh path security (IS-SEC-001).
 // The script must reject dangerous input before any filesystem operation.
 func TestInstallShPathValidation(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.sh")
+	content, err := os.ReadFile("install.sh")
 	require.NoError(t, err, "scripts/install.sh must exist")
 
 	script := string(content)
@@ -319,7 +321,7 @@ func TestInstallShPathValidation(t *testing.T) {
 // (IS-SEC-001, IS-SEC-002). PowerShell must reject dangerous input
 // before any filesystem/PATH operation.
 func TestInstallPs1PathValidation(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.ps1")
+	content, err := os.ReadFile("install.ps1")
 	require.NoError(t, err, "scripts/install.ps1 must exist")
 
 	script := string(content)
@@ -433,7 +435,7 @@ func TestInstallPs1PathValidation(t *testing.T) {
 // Before writing to the Windows user PATH registry, the script must
 // re-validate InstallDir with a semicolon guard.
 func TestInstallPs1PathGuard(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.ps1")
+	content, err := os.ReadFile("install.ps1")
 	require.NoError(t, err, "scripts/install.ps1 must exist")
 
 	script := string(content)
@@ -473,7 +475,7 @@ func TestInstallPs1PathGuard(t *testing.T) {
 // 2. Download URLs matching goreleaser zip artifact naming
 // 3. Checksums URL pointing to checksums.txt
 func TestInstallPs1RepoRefs(t *testing.T) {
-	content, err := os.ReadFile("scripts/install.ps1")
+	content, err := os.ReadFile("install.ps1")
 	require.NoError(t, err, "scripts/install.ps1 must exist")
 
 	script := string(content)
