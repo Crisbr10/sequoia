@@ -77,3 +77,6 @@ sdd/
 cmd-*
 testutil-*
 verify-*
+
+# Engram MCP server session logs (stdout/stderr from server startup)
+.sequoia/engram-*.txt
