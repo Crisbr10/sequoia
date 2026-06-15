@@ -1,6 +1,7 @@
 package testutil_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -152,4 +153,110 @@ func TestMockAdapterPaths_Functions(t *testing.T) {
 	assert.Equal(t, "/c", m.CommandsPath())
 	assert.Equal(t, "/p", m.SystemPromptPath())
 	assert.Equal(t, adapters.StrategyFileReplace, m.PromptStrategy())
+}
+
+// -- close-coverage-gaps REQ-COV-02 -------------------------------------------
+//
+// TestMockAdapter_StrategyMethods closes the 1pp coverage gap in
+// adapters/testutil by exercising both branches of each common.Strategy
+// method on MockAdapter: the nil-Func default (returns nil) and the
+// Func-override path (propagates the function's error).
+//
+// 6 subtests cover: Prepare, Download, Verify, Stage, Apply, Rollback.
+// 4 take adapters.InstallOpts: Prepare, Download, Stage, Apply.
+// 2 take no args: Verify, Rollback.
+
+// TestMockAdapter_StrategyMethods verifies the dual-branch (nil-Func /
+// Func-override) pattern of each common.Strategy method on MockAdapter.
+// Closes REQ-COV-02: brings adapters/testutil from 69.0% to >= 70.0%.
+func TestMockAdapter_StrategyMethods(t *testing.T) {
+	t.Run("Prepare", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:206-211).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Prepare(adapters.InstallOpts{}),
+			"nil PrepareFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("prepare boom")
+		m = &testutil.MockAdapter{
+			PrepareFunc: func(_ adapters.InstallOpts) error { return expected },
+		}
+		assert.ErrorIs(t, m.Prepare(adapters.InstallOpts{}), expected,
+			"PrepareFunc override should propagate its error")
+	})
+
+	t.Run("Download", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:212-217).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Download(adapters.InstallOpts{}),
+			"nil DownloadFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("download boom")
+		m = &testutil.MockAdapter{
+			DownloadFunc: func(_ adapters.InstallOpts) error { return expected },
+		}
+		assert.ErrorIs(t, m.Download(adapters.InstallOpts{}), expected,
+			"DownloadFunc override should propagate its error")
+	})
+
+	t.Run("Verify", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:218-223).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Verify(),
+			"nil VerifyFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("verify boom")
+		m = &testutil.MockAdapter{
+			VerifyFunc: func() error { return expected },
+		}
+		assert.ErrorIs(t, m.Verify(), expected,
+			"VerifyFunc override should propagate its error")
+	})
+
+	t.Run("Stage", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:224-229).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Stage(adapters.InstallOpts{}),
+			"nil StageFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("stage boom")
+		m = &testutil.MockAdapter{
+			StageFunc: func(_ adapters.InstallOpts) error { return expected },
+		}
+		assert.ErrorIs(t, m.Stage(adapters.InstallOpts{}), expected,
+			"StageFunc override should propagate its error")
+	})
+
+	t.Run("Apply", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:230-235).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Apply(adapters.InstallOpts{}),
+			"nil ApplyFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("apply boom")
+		m = &testutil.MockAdapter{
+			ApplyFunc: func(_ adapters.InstallOpts) error { return expected },
+		}
+		assert.ErrorIs(t, m.Apply(adapters.InstallOpts{}), expected,
+			"ApplyFunc override should propagate its error")
+	})
+
+	t.Run("Rollback", func(t *testing.T) {
+		// nil Func: returns nil (mock_adapter.go:236-241).
+		m := &testutil.MockAdapter{}
+		assert.NoError(t, m.Rollback(),
+			"nil RollbackFunc should return nil")
+
+		// Func override: propagates the function's error.
+		expected := errors.New("rollback boom")
+		m = &testutil.MockAdapter{
+			RollbackFunc: func() error { return expected },
+		}
+		assert.ErrorIs(t, m.Rollback(), expected,
+			"RollbackFunc override should propagate its error")
+	})
 }
