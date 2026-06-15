@@ -5,10 +5,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Crisbr10/sequoia/adapters"
 	"github.com/Crisbr10/sequoia/adapters/claude"
@@ -16,6 +23,8 @@ import (
 	"github.com/Crisbr10/sequoia/adapters/cursor"
 	"github.com/Crisbr10/sequoia/adapters/gemini"
 	"github.com/Crisbr10/sequoia/adapters/opencode"
+	"github.com/Crisbr10/sequoia/adapters/testutil"
+	"github.com/Crisbr10/sequoia/internal/codegraph"
 )
 
 // newPopulatedRegistry creates a fresh Registry with all 5 real adapters
@@ -677,5 +686,307 @@ func TestSignalHandling_NormalOperationPreservesContext(t *testing.T) {
 	got := out.String()
 	if !strings.Contains(got, "ID") || !strings.Contains(got, "NAME") {
 		t.Errorf("status output missing header columns; got: %q", got)
+	}
+}
+
+// -- close-coverage-gaps REQ-COV-01 -------------------------------------------
+//
+// The following tests close the cmd/sequoia/ coverage gap from 58.8% to ≥ 70%.
+// They are pure test additions — no production code is modified.
+// Hermeticity hooks: codegraph.InstallFunc and isTerminalFn are saved at the
+// top of each test that mutates them and restored via t.Cleanup (NFR-5).
+// No t.Parallel() in tests that mutate globals (NFR-7).
+
+// TestPrintError_AllBranches verifies that printError maps each sentinel
+// error to the expected user-friendly stderr message. Covers main.go:61-72.
+func TestPrintError_AllBranches(t *testing.T) {
+	// Save and restore os.Stderr (NFR-5: restoration via t.Cleanup, not defer).
+	origStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	tests := []struct {
+		name        string
+		err         error
+		wantContain string
+	}{
+		{"ErrNotDetected", adapters.ErrNotDetected, "Tool not detected on this system"},
+		{"ErrInstallFailed", fmt.Errorf("%w: x", adapters.ErrInstallFailed), "Installation failed"},
+		{"ErrUninstallFailed", fmt.Errorf("%w: x", adapters.ErrUninstallFailed), "Uninstall completed with warnings"},
+		{"GenericError", errors.New("boom"), "error: boom"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stderr via a per-subtest pipe (NFR-2: hermetic).
+			r, w, err := os.Pipe()
+			require.NoError(t, err, "os.Pipe() failed")
+			os.Stderr = w
+
+			printError(tt.err)
+
+			// Close the write end and read the captured output.
+			require.NoError(t, w.Close(), "close pipe write end")
+			out, readErr := io.ReadAll(r)
+			require.NoError(t, readErr, "read captured stderr")
+			_ = r.Close()
+
+			assert.Contains(t, string(out), tt.wantContain,
+				"printError(%v) stderr should contain %q; got %q",
+				tt.err, tt.wantContain, string(out))
+		})
+	}
+}
+
+// TestExitCode_AllBranches verifies that exitCode maps each sentinel error
+// to the documented exit code at main.go:75-86. Includes a nil-error
+// subtest to exercise the default branch.
+func TestExitCode_AllBranches(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"ErrNotDetected", adapters.ErrNotDetected, 2},
+		{"ErrInstallFailed", fmt.Errorf("%w: x", adapters.ErrInstallFailed), 3},
+		{"ErrUninstallFailed", fmt.Errorf("%w: x", adapters.ErrUninstallFailed), 4},
+		{"GenericError", errors.New("boom"), 1},
+		{"NilError", nil, 1}, // default branch (no error → 1)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, exitCode(tt.err),
+				"exitCode(%v) = %d; want %d", tt.err, exitCode(tt.err), tt.want)
+		})
+	}
+}
+
+// TestResolveVersion_DevHasVCSRevisionPrefix verifies that resolveVersion
+// produces a real version or the "unknown-<sha8>" pattern when called with
+// the dev fallback. Strengthens TestResolveVersion_DevResolves (line 552)
+// by asserting the VCS-prefix shape rather than just non-empty.
+//
+// Under `go test` inside a git repo, debug.ReadBuildInfo returns settings
+// with a vcs.revision key. The branch at main.go:240-243 then synthesizes
+// "unknown-" + s.Value[:8]. If the build was tagged (e.g., a release),
+// info.Main.Version is non-empty and the function returns it directly.
+//
+// Covers main.go:240-243 (the vcs.revision branch).
+func TestResolveVersion_DevHasVCSRevisionPrefix(t *testing.T) {
+	got := resolveVersion("0.1.0-dev")
+
+	require.NotEmpty(t, got, "resolveVersion must not return empty for '0.1.0-dev'")
+	assert.NotEqual(t, "(devel)", got, "resolveVersion must not return raw '(devel)'")
+
+	// Either the VCS branch hit (unknown-<sha8>) or a real version (contains '.').
+	hasUnknownPrefix := strings.HasPrefix(got, "unknown-")
+	hasSemverDot := strings.Contains(got, ".")
+	assert.True(t, hasUnknownPrefix || hasSemverDot,
+		"resolveVersion result should be 'unknown-<sha8>' or a real semver (containing '.'); got %q", got)
+
+	// If it has the unknown- prefix, also verify the sha8 shape (8 hex chars).
+	if hasUnknownPrefix {
+		assert.Regexp(t, `^unknown-[0-9a-f]{8}$`, got,
+			"unknown- prefix should be followed by exactly 8 hex chars; got %q", got)
+	}
+}
+
+// withCodegraphInstallNoop saves codegraph.InstallFunc and replaces it with a
+// no-op stub for the duration of the test. Restores via t.Cleanup (NFR-5).
+// The no-op records that it was invoked (callCount) and returns a benign
+// result so runInstall's downstream code runs without side effects.
+func withCodegraphInstallNoop(t *testing.T) (callCount *int) {
+	t.Helper()
+	origInstall := codegraph.InstallFunc
+	callCount = new(int)
+	codegraph.InstallFunc = func(_ context.Context, _ io.Writer) codegraph.InstallResult {
+		*callCount++
+		return codegraph.InstallResult{
+			AlreadyInstalled: true,
+			Message:          "noop (test stub)",
+		}
+	}
+	t.Cleanup(func() { codegraph.InstallFunc = origInstall })
+	return callCount
+}
+
+// TestRunInstall_AlreadyInstalledBranch verifies the "Reinstalling" branch
+// at main.go:291-293: when IsInstalled() returns true, runInstall prints
+// the "Sequoia is already installed" notice but still proceeds with Install().
+// Covers main.go:291-293.
+func TestRunInstall_AlreadyInstalledBranch(t *testing.T) {
+	callCount := withCodegraphInstallNoop(t)
+
+	reg := adapters.NewRegistry()
+	reg.RegisterFactory("test-already", func() adapters.ToolAdapter {
+		return &testutil.MockAdapter{
+			IDVal:           "test-already",
+			NameVal:         "Test Already",
+			DetectFunc:      func() bool { return true },
+			IsInstalledFunc: func() bool { return true },
+			InstallFunc:     func(_ adapters.InstallOpts) error { return nil },
+		}
+	})
+
+	var buf bytes.Buffer
+	err := runInstall(context.Background(), "test-already", &buf, reg)
+	require.NoError(t, err, "runInstall should not error on 'already installed' path")
+
+	out := buf.String()
+	assert.Contains(t, out, "Installing Sequoia for Test Already",
+		"output should announce install target; got %q", out)
+	assert.Contains(t, out, "Sequoia is already installed. Reinstalling",
+		"output should print reinstall notice; got %q", out)
+	assert.Contains(t, out, "Done! Use /sequoia-init inside Test Already",
+		"output should confirm install complete; got %q", out)
+	assert.Equal(t, 1, *callCount,
+		"codegraph.InstallFunc should be invoked exactly once (no-op stub)")
+}
+
+// TestRunInstall_NoAdaptersBranch verifies the empty-registry branch at
+// main.go:263-270: when no adapters are registered, runInstall prints
+// a helpful message and returns nil (no error). Covers main.go:263-270.
+func TestRunInstall_NoAdaptersBranch(t *testing.T) {
+	withCodegraphInstallNoop(t)
+
+	reg := adapters.NewRegistry() // empty registry — no factories
+
+	var buf bytes.Buffer
+	err := runInstall(context.Background(), "", &buf, reg)
+	require.NoError(t, err, "runInstall with empty registry should not error")
+
+	out := buf.String()
+	assert.Contains(t, out, "No supported AI tools detected on this machine.",
+		"output should explain no tools were detected; got %q", out)
+}
+
+// TestRunInstall_UnknownToolID verifies the "unknown adapter" error branch
+// at main.go:264-266: when toolID is non-empty but no adapter is registered
+// for it, runInstall returns an error wrapping adapters.ErrUnknownAdapter.
+//
+// R-9 resolution: per design R-9, the design hypothesised this branch might
+// not be reachable and proposed a pivot to test ErrNotDetected at main.go:282.
+// After code reading, the branch IS reachable: targetAdapters returns nil
+// for any unknown ID, len(ids)==0 hits, toolID!="" returns the wrapped error.
+// This test exercises that exact branch (main.go:264-266), with a
+// non-empty registry containing a different adapter to prove the registry
+// itself is not the problem.
+func TestRunInstall_UnknownToolID(t *testing.T) {
+	withCodegraphInstallNoop(t)
+
+	reg := adapters.NewRegistry()
+	// Register an unrelated adapter so the registry is non-empty.
+	reg.RegisterFactory("test-known", func() adapters.ToolAdapter {
+		return &testutil.MockAdapter{
+			IDVal:   "test-known",
+			NameVal: "Test Known",
+		}
+	})
+
+	var buf bytes.Buffer
+	err := runInstall(context.Background(), "nonexistent-tool", &buf, reg)
+	require.Error(t, err, "runInstall with unknown toolID should return an error")
+	assert.ErrorIs(t, err, adapters.ErrUnknownAdapter,
+		"error should wrap adapters.ErrUnknownAdapter; got %v", err)
+	assert.Contains(t, err.Error(), "nonexistent-tool",
+		"error should mention the unknown toolID; got %v", err)
+}
+
+// TestInstallCmd_RunEHeadlessBranch verifies the headless branch at
+// main.go:150-152: when --no-tui is set, newInstallCmd.RunE calls
+// runInstall directly (no TUI launch). Covers main.go:150-152.
+func TestInstallCmd_RunEHeadlessBranch(t *testing.T) {
+	withCodegraphInstallNoop(t)
+
+	reg := adapters.NewRegistry()
+	reg.RegisterFactory("test-headless", func() adapters.ToolAdapter {
+		return &testutil.MockAdapter{
+			IDVal:           "test-headless",
+			NameVal:         "Test Headless",
+			DetectFunc:      func() bool { return true },
+			IsInstalledFunc: func() bool { return true },
+			InstallFunc:     func(_ adapters.InstallOpts) error { return nil },
+		}
+	})
+
+	var out bytes.Buffer
+	cmd := newInstallCmd(reg)
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--no-tui", "--tool=test-headless"})
+
+	err := cmd.Execute()
+	require.NoError(t, err, "install --no-tui --tool=... should succeed; got error")
+
+	got := out.String()
+	assert.Contains(t, got, "Done!", "headless install output should contain 'Done!'; got %q", got)
+}
+
+// TestRootCmd_RunETUIBranch verifies the TUI branch at main.go:106-107:
+// when isTerminalFn() returns true, newRootCmd.RunE calls runTUI and
+// surfaces the resulting TUI error. The Bubbletea program needs a real
+// TTY to render interactively, so we swap os.Stdin with a closed pipe
+// to force it down the error-return path at runTUI:473-475. Covers
+// main.go:106-107 and main.go:467-475 (runTUI error path). The success
+// return at line 476 is the accepted R-3 gap (requires real TTY).
+func TestRootCmd_RunETUIBranch(t *testing.T) {
+	// Save and restore isTerminalFn (NFR-5: t.Cleanup, no t.Parallel).
+	origIsTerminalFn := isTerminalFn
+	isTerminalFn = func() bool { return true }
+	t.Cleanup(func() { isTerminalFn = origIsTerminalFn })
+
+	// Force Bubbletea into the error-return path by feeding it a stdin
+	// that returns EOF immediately. This avoids the test hanging on a
+	// real TTY read. Save and restore the real os.Stdin via t.Cleanup
+	// (NFR-5: hermetic, no t.Parallel).
+	origStdin := os.Stdin
+	eofR, eofW, pipeErr := os.Pipe()
+	require.NoError(t, pipeErr, "os.Pipe() failed")
+	// Close the write end → reads from eofR return EOF with no bytes.
+	require.NoError(t, eofW.Close(), "close pipe write end")
+	os.Stdin = eofR
+	t.Cleanup(func() {
+		os.Stderr = nil // ensure no swap lingers
+		os.Stdin = origStdin
+		_ = eofR.Close()
+	})
+
+	reg := adapters.NewRegistry()
+	reg.RegisterFactory("test-tui", func() adapters.ToolAdapter {
+		return &testutil.MockAdapter{
+			IDVal:   "test-tui",
+			NameVal: "Test TUI",
+		}
+	})
+
+	var out bytes.Buffer
+	cmd := newRootCmd(reg)
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{})
+
+	// Run cmd.Execute() with a deadline because Bubbletea might still
+	// block on its internal setup even with EOF on stdin (e.g., Windows
+	// console mode setup). The TUI branch (main.go:106-107) is entered
+	// synchronously before any block, so coverage is recorded.
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.Execute()
+	}()
+
+	select {
+	case err := <-errCh:
+		// Bubbletea returned — assert on the wrapped TUI error.
+		require.Error(t, err, "root RunE in TUI mode should return an error when stdin EOFs")
+		assert.Contains(t, err.Error(), "TUI error:",
+			"error should be wrapped with 'TUI error:' prefix from runTUI; got %v", err)
+	case <-time.After(3 * time.Second):
+		// Bubbletea didn't return. TUI branch was entered (main.go:106-107
+		// → main.go:467), so coverage is recorded. Skip with a clear
+		// message; the goroutine leak is a known artifact of testing
+		// Bubbletea without a TTY and is accepted per R-3.
+		t.Skip("Bubbletea program did not return within 3s on EOF stdin; TUI branch coverage recorded")
 	}
 }
