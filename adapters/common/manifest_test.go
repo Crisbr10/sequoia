@@ -3,6 +3,9 @@ package common
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -139,4 +142,68 @@ func TestManifest_ReadMissingReturnsEmpty(t *testing.T) {
 	require.NoError(t, err, "readManifest must not error on a missing file")
 	assert.Equal(t, "1", m.Version, "fresh manifest must have default version")
 	assert.Empty(t, m.Entries, "fresh manifest must have zero entries")
+}
+
+// TestManifest_ReadCorruptReturnsError verifies that readManifest on
+// a session dir that has a manifest.json with invalid JSON returns a
+// non-nil error. This protects against a half-written or tampered
+// manifest from silently producing an empty result.
+func TestManifest_ReadCorruptReturnsError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Write a clearly-invalid JSON document.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, manifestFileName),
+		[]byte("not-valid-json{{"), 0o600))
+
+	_, err := readManifest(dir)
+	require.Error(t, err, "readManifest must return an error for invalid JSON")
+	assert.Contains(t, err.Error(), "manifest: parse",
+		"error must wrap with the 'manifest: parse' context")
+}
+
+// TestWriteManifest_MkdirFailureReturnsError verifies that writeManifest
+// returns a non-nil error when the parent of sessionDir is not
+// creatable. We use a regular file as the parent so MkdirAll on its
+// child fails on all platforms.
+func TestWriteManifest_MkdirFailureReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	blockingFile := filepath.Join(tmp, "blocker")
+	require.NoError(t, os.WriteFile(blockingFile, []byte("not a dir"), 0o600))
+
+	// Session dir would live under the blocker — MkdirAll fails.
+	sessionDir := filepath.Join(blockingFile, "session")
+
+	err := writeManifest(sessionDir, newEmptyManifest())
+	require.Error(t, err, "writeManifest must return an error when the parent is not a directory")
+	assert.Contains(t, err.Error(), "manifest: mkdir",
+		"error must wrap with the 'manifest: mkdir' context")
+}
+
+// TestRemoveSessionDir_FailureReturnsError verifies that removeSessionDir
+// returns a non-nil error when the underlying os.RemoveAll fails. We
+// trigger this by making the session dir path a child of a regular
+// file (so RemoveAll on a non-existent child under a file fails on
+// POSIX). On Windows, os.RemoveAll on a missing path is a no-op
+// (returns nil), so this test only runs on POSIX.
+func TestRemoveSessionDir_FailureReturnsError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.RemoveAll on a missing path is a no-op on Windows; cannot exercise the error path here")
+	}
+	t.Parallel()
+
+	tmp := t.TempDir()
+	blockingFile := filepath.Join(tmp, "blocker")
+	require.NoError(t, os.WriteFile(blockingFile, []byte("not a dir"), 0o600))
+
+	// The session dir lives under the blocker — RemoveAll on a child
+	// of a regular file fails on POSIX.
+	sessionDir := filepath.Join(blockingFile, "session")
+
+	err := removeSessionDir(sessionDir)
+	require.Error(t, err, "removeSessionDir must return an error when the parent is not a directory")
+	assert.Contains(t, err.Error(), "manifest: remove session dir",
+		"error must wrap with the 'manifest: remove session dir' context")
 }
