@@ -579,9 +579,9 @@ func TestBaseAdapter_DetectCachedResultFalse(t *testing.T) {
 
 // TestBackupIsolation_NamespacedBackupStructure verifies that after a
 // successful install (no rollback), the backup directory uses the namespaced
-// structure {base}-{adapterID}-{suffix} with type-specific subdirectories
-// for skills and commands. It also verifies that no backup cleanup is
-// performed after a successful install.
+// structure <BackupHomeDir>/<adapterID>/<sessionSuffix> with type-specific
+// subdirectories for skills and commands. It also verifies that no backup
+// cleanup is performed after a successful install. REQ-BRP-02.
 func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
 	t.Parallel()
 
@@ -608,9 +608,19 @@ func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
 	err := a.Install(adapters.InstallOpts{})
 	require.NoError(t, err, "install should succeed with pre-existing target files")
 
-	// --- Verify backup directory uses namespaced structure ---
+	// --- Verify backup directory uses namespaced structure under central home ---
 	backupDir := a.LastBackupDir()
 	require.NotEmpty(t, backupDir, "LastBackupDir should be set after successful install")
+
+	// After PR 2 the path must live under BackupHomeDir() — i.e. the
+	// central <UserConfigDir>/sequoia/backups root — not under the
+	// per-tool <home>/err-test root the old layout used. REQ-BRP-02.
+	centralHome, err := common.BackupHomeDir()
+	require.NoError(t, err, "BackupHomeDir() must succeed for the test environment")
+	assert.True(t, strings.HasPrefix(backupDir, centralHome+string(filepath.Separator)),
+		"backup path %q must start with the central home %q (REQ-BRP-02)", backupDir, centralHome)
+	assert.NotContains(t, backupDir, ".sequoia-backup",
+		"backup path must not use the legacy per-tool .sequoia-backup marker")
 
 	// Backup path should contain the adapter ID.
 	assert.Contains(t, backupDir, "err-test",
