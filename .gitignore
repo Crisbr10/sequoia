@@ -78,7 +78,7 @@ sdd/
 # Coverage tool output (residue from local coverage iterations)
 cmd-*
 testutil-*
-verify-*
+verify-*.out
 
 # Engram MCP server session logs (stdout/stderr from server startup)
 .sequoia/engram-*.txt
