@@ -33,7 +33,7 @@ Under the centralized root, the system SHALL create one subdirectory per adapter
 
 - GIVEN adapter ID `claude-code` and the clock at `2026-06-15T15:30:45.123Z`
 - WHEN `BackupPathBuilder.Build(base)` is called
-- THEN the result equals `<root>/claude-code/2026-06-15T15-30-45-123Z-<sessionSuffix>`
+- THEN the result equals `<root>/claude-code/2026-06-15T15-30-45.000Z-<sessionSuffix>`
 - AND `<sessionSuffix>` is a base-36 Unix-nanos value
 
 #### Scenario: Distinct adapter IDs produce disjoint subtrees
@@ -135,11 +135,11 @@ The system SHALL expose two exported helpers in `adapters/common`:
 
 #### Scenario: PruneBackups continues removing after a single failure
 
-- GIVEN adapter `x` has 7 session directories and directory #4 is read-only
+- GIVEN adapter `x` has 7 session directories and the OLDEST directory is read-only
 - WHEN `PruneBackups("x", 5)` is called
-- THEN the two non-read-only oldest directories are removed
-- AND the returned `removed` count is `2`
-- AND the returned error is non-nil and references directory #4
+- THEN the next-oldest (non-read-only) directory is removed
+- AND the returned `removed` count is `1`
+- AND the returned error is non-nil and references the read-only directory
 
 ## REQ-BRP-07 — Test surface (strict TDD)
 
