@@ -157,7 +157,7 @@ func ReplaceFile(adapterID, path, content string) error {
 	}
 
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
-	sessionDir := newSessionDir(home, adapterID, suffix)
+	sessionDir := NewSessionDir(home, adapterID, suffix)
 	if err := os.MkdirAll(sessionDir, 0o700); err != nil {
 		return fmt.Errorf("replace file: session mkdir %s: %w", sessionDir, err)
 	}
@@ -208,17 +208,9 @@ func replaceFileLegacySidecar(path, content string) error {
 	return AtomicWriteFile(path, []byte(content), 0o644)
 }
 
-// newSessionDir produces the session directory path
-// <root>/<adapterID>/<ISO8601>-<suffix>/. The ISO-8601 prefix uses the
-// same layout as BackupPathBuilder.Build so the lex-sort == chron-sort
-// invariant holds for PruneBackups. Exposed at package level so
-// RestoreOrRemoveFile can compute the same path when scanning the
-// central home for a manifest entry.
-func newSessionDir(home, adapterID, suffix string) string {
-	now := time.Now()
-	isoPrefix := now.UTC().Format(sessionDirLayout)
-	return filepath.Join(home, adapterID, isoPrefix+"-"+suffix)
-}
+// findManifestEntry is now FindManifestEntry in manifest.go (PR 3
+// task 3.10 — consolidate manifest helpers). The strategy.go callers
+// use the exported version.
 
 // RestoreOrRemoveFile restores the original content of the file at
 // path from a backup stored in the central backup home, or removes
@@ -254,7 +246,7 @@ func RestoreOrRemoveFile(adapterID, path string) error {
 	// unavailable or no manifest entry matches, fall back to the
 	// per-tool sidecar.
 	if home, homeErr := BackupHomeDir(); homeErr == nil {
-		entry, sessionDir, found := findManifestEntry(home, adapterID, path)
+		entry, sessionDir, found := FindManifestEntry(home, adapterID, path)
 		if found {
 			backupName := filepath.Base(path) + ".backup"
 			backupPath := filepath.Join(sessionDir, backupName)
@@ -301,34 +293,6 @@ func RestoreOrRemoveFile(adapterID, path string) error {
 	}
 
 	return nil
-}
-
-// findManifestEntry scans <root>/<adapterID>/ for a session whose
-// manifest.json contains an entry matching originalPath. The first
-// match (in directory-listing order) wins. Returns the entry, the
-// session dir path, and a bool indicating whether anything was found.
-func findManifestEntry(root, adapterID, originalPath string) (manifestEntry, string, bool) {
-	adapterDir := filepath.Join(root, adapterID)
-	entries, err := os.ReadDir(adapterDir)
-	if err != nil {
-		return manifestEntry{}, "", false
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		sessionDir := filepath.Join(adapterDir, e.Name())
-		m, mErr := readManifest(sessionDir)
-		if mErr != nil {
-			continue
-		}
-		for _, ent := range m.Entries {
-			if ent.OriginalPath == originalPath {
-				return ent, sessionDir, true
-			}
-		}
-	}
-	return manifestEntry{}, "", false
 }
 
 // findBackupPath returns the path of the backup to restore for the given file.

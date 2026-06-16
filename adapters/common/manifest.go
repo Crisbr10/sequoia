@@ -148,3 +148,46 @@ func removeSessionDir(sessionDir string) error {
 	}
 	return nil
 }
+
+// NewSessionDir produces the session directory path
+// <root>/<adapterID>/<ISO8601>-<suffix>/. The ISO-8601 prefix uses
+// the same layout as BackupPathBuilder.Build so the lex-sort ==
+// chron-sort invariant holds for PruneBackups. Exposed (uppercase)
+// because both ReplaceFile and RestoreOrRemoveFile need to compute
+// session paths in the central home, and a single source of truth
+// avoids the two functions drifting on timestamp format.
+func NewSessionDir(home, adapterID, suffix string) string {
+	now := time.Now()
+	isoPrefix := now.UTC().Format(sessionDirLayout)
+	return filepath.Join(home, adapterID, isoPrefix+"-"+suffix)
+}
+
+// FindManifestEntry scans <root>/<adapterID>/ for a session whose
+// manifest.json contains an entry matching originalPath. The first
+// match (in directory-listing order) wins. Returns the entry, the
+// session dir path, and a bool indicating whether anything was found.
+// Exposed (uppercase) so RestoreOrRemoveFile can scan without
+// inlining the loop.
+func FindManifestEntry(root, adapterID, originalPath string) (manifestEntry, string, bool) {
+	adapterDir := filepath.Join(root, adapterID)
+	entries, err := os.ReadDir(adapterDir)
+	if err != nil {
+		return manifestEntry{}, "", false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		sessionDir := filepath.Join(adapterDir, e.Name())
+		m, mErr := readManifest(sessionDir)
+		if mErr != nil {
+			continue
+		}
+		for _, ent := range m.Entries {
+			if ent.OriginalPath == originalPath {
+				return ent, sessionDir, true
+			}
+		}
+	}
+	return manifestEntry{}, "", false
+}
