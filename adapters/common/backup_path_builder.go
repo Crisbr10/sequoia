@@ -48,18 +48,25 @@ func NewBackupPathBuilder(
 // rapid consecutive calls. See REQ-BRP-02, REQ-BRP-07.
 //
 // If BackupHomeDir() fails (e.g., the user's config dir is unwritable),
-// Build() falls back to the per-tool backupPathFn result so the install
-// does not abort.
+// Build() falls back to a per-tool path of the form
+// `<base>/.sequoia-backup/<adapterID>/<sessionSuffix>` so the install
+// does not abort. The fallback is best-effort and uses a hard-coded
+// path shape (no longer consulting the per-adapter `backupPathFn`),
+// because when BackupHomeDir() fails the per-adapter `backupPath` (if
+// it tried to delegate to BackupHomeDir) would fail too. Keeping the
+// fallback independent of BackupHomeDir makes it a true last resort.
 func (b *BackupPathBuilder) Build(base string) string {
 	now := time.Now()
 	sessionSuffix := strconv.FormatInt(now.UnixNano(), 36)
 
 	home, err := BackupHomeDir()
 	if err != nil {
-		// Safety-net fallback to the legacy per-tool path. This is a
-		// best-effort, not a recovery — the caller is expected to retry
-		// or surface a warning when the central home is unavailable.
-		return b.backupPathFn(base) + "-" + b.adapterID + "-" + sessionSuffix
+		// Safety-net fallback: independent of BackupHomeDir (which
+		// already failed) and independent of the per-adapter backupPath
+		// closure (which may itself delegate to BackupHomeDir). The
+		// fallback shape is `<base>/.sequoia-backup/<adapterID>/<suffix>`
+		// — same shape the legacy code path used to produce.
+		return filepath.Join(base, ".sequoia-backup", b.adapterID, sessionSuffix)
 	}
 
 	isoPrefix := now.UTC().Format(sessionDirLayout)

@@ -2,6 +2,7 @@
 package common
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -125,4 +126,43 @@ func TestBackupPathBuilder_Build_UniqueAcrossCalls(t *testing.T) {
 
 	assert.NotEqual(t, first, second,
 		"consecutive Build() calls must produce different paths")
+}
+
+// TestBackupPathBuilder_Build_SafetyNetSkipsBackupPathFn verifies
+// PR 3 task 3.11: the safety-net fallback in Build() no longer calls
+// the per-adapter `backupPathFn`. We point userConfigDir at a
+// read-only file so BackupHomeDir() fails (MkdirAll on a child of a
+// regular file fails on all platforms), then assert the returned
+// fallback path does NOT contain the sentinel we put in `backupPathFn`.
+//
+// Not parallel: the userConfigDir override is package-level.
+func TestBackupPathBuilder_Build_SafetyNetSkipsBackupPathFn(t *testing.T) {
+	tmp := t.TempDir()
+	// Create a regular file that will play the role of "UserConfigDir" —
+	// joining <file>/sequoia/backups is not creatable because the parent
+	// is a file. This forces BackupHomeDir() to fail.
+	blockingFile := filepath.Join(tmp, "blocking")
+	require.NoError(t, os.WriteFile(blockingFile, []byte("not a dir"), 0o600))
+
+	overrideUserConfigDir(t, func() (string, error) {
+		return blockingFile, nil
+	})
+
+	const sentinel = "SENTINEL_FN_PATH_SAFETY_NET_SHOULD_NOT_CONSULT"
+	bp := NewBackupPathBuilder(
+		func(string) string { return sentinel },
+		"claude-code",
+	)
+
+	result := bp.Build("/some/per-tool/base")
+
+	// The result MUST use the hard-coded `<base>/.sequoia-backup/<adapterID>/<suffix>`
+	// shape, NOT the per-adapter backupPathFn result. The sentinel must
+	// not appear anywhere in the fallback path.
+	assert.NotContains(t, result, sentinel,
+		"safety-net fallback must NOT consult the per-adapter backupPathFn (got %q)", result)
+	assert.Contains(t, result, string(filepath.Separator)+"claude-code"+string(filepath.Separator),
+		"safety-net fallback must include the adapter ID as a path segment (got %q)", result)
+	assert.Contains(t, result, ".sequoia-backup",
+		"safety-net fallback must use the legacy per-tool marker (got %q)", result)
 }
