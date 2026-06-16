@@ -2,7 +2,6 @@
 package common
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,13 +49,6 @@ func makeBaseAdapterWithSentinel(t *testing.T, home string) *BaseAdapter {
 		"central-test",
 	))
 	return a
-}
-
-// internalFileExists is the package-internal equivalent of common_test.fileExists.
-// Kept here so the package-common tests don't depend on the common_test package.
-func internalFileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 // =========================================================================
