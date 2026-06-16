@@ -37,8 +37,8 @@ func newAdapter(homeDir string) *Adapter {
 		skillsPath, commandsPath, systemPromptPath, versionFilePath, backupPath,
 		a.AddWarning))
 	pm := common.NewPromptManager(adapters.StrategyFileReplace,
-		func(base, content string) error { return common.ReplaceFile(systemPromptPath(base), content) },
-		func(base string) error { return common.RestoreOrRemoveFile(systemPromptPath(base)) })
+		func(base, content string) error { return common.ReplaceFile("cursor", systemPromptPath(base), content) },
+		func(base string) error { return common.RestoreOrRemoveFile("cursor", systemPromptPath(base)) })
 	pm.SetRollbackOnError(true)
 	a.SetPromptManager(pm)
 	a.SetBackup(common.NewBackupPathBuilder(backupPath, "cursor"))

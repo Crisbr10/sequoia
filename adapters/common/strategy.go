@@ -117,13 +117,21 @@ func RemoveMarkdownSection(path string) error {
 	return os.WriteFile(path, []byte(out), 0o644)
 }
 
-// ReplaceFile writes content to the file at path, creating a backup with a
-// timestamped name at path+".sequoia-backup-<suffix>" if the file already
-// exists and is not Sequoia-managed. A session-tracking file at
-// path+".sequoia-session" records the backup suffix so that
-// RestoreOrRemoveFile can locate the correct backup during uninstall.
-// Creates parent directories if needed.
-func ReplaceFile(path, content string) error {
+// ReplaceFile writes content to the file at path, creating a backup in
+// the central backup home under <BackupHomeDir>/<adapterID>/<session>/
+// if the file already exists and is not Sequoia-managed. A per-session
+// manifest.json inside the same session directory records the
+// original_path and the suffix used so RestoreOrRemoveFile can locate
+// the correct backup during uninstall (REQ-BRP-03).
+//
+// Creates parent directories of the target file if needed.
+//
+// If BackupHomeDir() cannot resolve the central root (e.g., the user's
+// config dir is unwritable), ReplaceFile falls back to the legacy
+// per-tool sidecar (.sequoia-backup-<suffix> + .sequoia-session) so
+// the install does not abort. The fallback is best-effort and
+// documented; the happy path always uses the central home.
+func ReplaceFile(adapterID, path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("replace file: mkdir %s: %w", filepath.Dir(path), err)
 	}
@@ -141,10 +149,52 @@ func ReplaceFile(path, content string) error {
 		return AtomicWriteFile(path, []byte(content), 0o644)
 	}
 
-	// Generate a unique timestamp suffix to avoid name collisions.
+	// Backup the original. Prefer the central-home + manifest layout;
+	// fall back to the legacy per-tool sidecar when BackupHomeDir() fails.
+	home, homeErr := BackupHomeDir()
+	if homeErr != nil {
+		return replaceFileLegacySidecar(path, content)
+	}
+
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	sessionDir := newSessionDir(home, adapterID, suffix)
+	if err := os.MkdirAll(sessionDir, 0o700); err != nil {
+		return fmt.Errorf("replace file: session mkdir %s: %w", sessionDir, err)
+	}
+
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
+	if err != nil {
+		return fmt.Errorf("replace file: backup read %s: %w", path, err)
+	}
+
+	backupName := filepath.Base(path) + ".backup"
+	backupPath := filepath.Join(sessionDir, backupName)
+	if err := AtomicWriteFile(backupPath, raw, 0o600); err != nil {
+		return fmt.Errorf("replace file: backup write %s: %w", backupPath, err)
+	}
+
+	entry := manifestEntry{
+		Version:      manifestSchemaVersion,
+		OriginalPath: path,
+		Suffix:       suffix,
+		CreatedAt:    time.Now().UTC(),
+		AdapterID:    adapterID,
+	}
+	if err := appendManifestEntry(sessionDir, entry); err != nil {
+		return fmt.Errorf("replace file: manifest append: %w", err)
+	}
+
+	return AtomicWriteFile(path, []byte(content), 0o644)
+}
+
+// replaceFileLegacySidecar is the safety-net fallback for ReplaceFile
+// when the central backup home is unavailable. It preserves the
+// pre-PR-3 sidecar format (.sequoia-backup-<suffix> +
+// .sequoia-session) at the target file's location. Kept private —
+// callers MUST go through ReplaceFile.
+func replaceFileLegacySidecar(path, content string) error {
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	backup := path + ".sequoia-backup-" + suffix
-
 	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is a known adapter-controlled file, not user input
 	if err != nil {
 		return fmt.Errorf("replace file: backup read %s: %w", path, err)
@@ -152,22 +202,46 @@ func ReplaceFile(path, content string) error {
 	if err := AtomicWriteFile(backup, raw, 0o600); err != nil {
 		return fmt.Errorf("replace file: backup write %s: %w", backup, err)
 	}
-
-	// Write a session file so RestoreOrRemoveFile can find the correct backup.
 	if err := AtomicWriteFile(path+".sequoia-session", []byte(suffix), 0o644); err != nil {
 		return fmt.Errorf("replace file: session: %w", err)
 	}
-
 	return AtomicWriteFile(path, []byte(content), 0o644)
 }
 
-// RestoreOrRemoveFile restores the original content from the session-tracked
-// backup (path+".sequoia-backup-<suffix>") if a .sequoia-session file exists.
-// If no session file is found, it falls back to the legacy predictable backup
-// name (path+".sequoia-backup") for backwards compatibility.
-// If the file is Sequoia-managed and has no backup, it deletes the file.
-// If the file doesn't exist or is not managed and has no backup, returns nil.
-func RestoreOrRemoveFile(path string) error {
+// newSessionDir produces the session directory path
+// <root>/<adapterID>/<ISO8601>-<suffix>/. The ISO-8601 prefix uses the
+// same layout as BackupPathBuilder.Build so the lex-sort == chron-sort
+// invariant holds for PruneBackups. Exposed at package level so
+// RestoreOrRemoveFile can compute the same path when scanning the
+// central home for a manifest entry.
+func newSessionDir(home, adapterID, suffix string) string {
+	now := time.Now()
+	isoPrefix := now.UTC().Format(sessionDirLayout)
+	return filepath.Join(home, adapterID, isoPrefix+"-"+suffix)
+}
+
+// RestoreOrRemoveFile restores the original content of the file at
+// path from a backup stored in the central backup home, or removes
+// the file if it is Sequoia-managed. The adapterID identifies the
+// per-adapter subdirectory under <BackupHomeDir>/<adapterID>/.
+//
+// RestoreOrRemoveFile scans every session directory under
+// <BackupHomeDir>/<adapterID>/ for a manifest.json that contains an
+// entry whose original_path matches path. The first match wins
+// (sessions are scanned in directory-listing order; the newest
+// session is the first candidate). The matching backup is restored
+// byte-for-byte, the session directory is removed, and the
+// originally targeted file is left with the pre-replace content.
+// See REQ-BRP-03 Scenario 2.
+//
+// If no manifest entry matches (e.g., the user installed before
+// the manifest format landed, or the file is unmanaged and has no
+// backup), RestoreOrRemoveFile falls back to the legacy per-tool
+// sidecar (path+".sequoia-session" + path+".sequoia-backup-<suffix>")
+// for backwards compatibility. If the file is Sequoia-managed and
+// no backup exists, it is removed. If the file does not exist or is
+// not managed and has no backup, returns nil.
+func RestoreOrRemoveFile(adapterID, path string) error {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -176,7 +250,30 @@ func RestoreOrRemoveFile(path string) error {
 		return fmt.Errorf("restore file: stat %s: %w", path, err)
 	}
 
-	// Determine the backup to restore from.
+	// Try the central-home + manifest restore first. If the home is
+	// unavailable or no manifest entry matches, fall back to the
+	// per-tool sidecar.
+	if home, homeErr := BackupHomeDir(); homeErr == nil {
+		entry, sessionDir, found := findManifestEntry(home, adapterID, path)
+		if found {
+			backupName := filepath.Base(path) + ".backup"
+			backupPath := filepath.Join(sessionDir, backupName)
+			raw, readErr := os.ReadFile(backupPath) //nolint:gosec // G304: backupPath derived from session dir + basename
+			if readErr != nil {
+				return fmt.Errorf("restore file: backup read %s: %w", backupPath, readErr)
+			}
+			if err := AtomicWriteFile(path, raw, 0o644); err != nil {
+				return fmt.Errorf("restore file: restore write %s: %w", path, err)
+			}
+			// Remove the session dir (and its manifest) — the spec says
+			// the session directory is removed on successful restore.
+			_ = removeSessionDir(sessionDir)
+			_ = entry
+			return nil
+		}
+	}
+
+	// Fall back to the legacy per-tool sidecar.
 	backup := findBackupPath(path)
 
 	if backup != "" {
@@ -204,6 +301,34 @@ func RestoreOrRemoveFile(path string) error {
 	}
 
 	return nil
+}
+
+// findManifestEntry scans <root>/<adapterID>/ for a session whose
+// manifest.json contains an entry matching originalPath. The first
+// match (in directory-listing order) wins. Returns the entry, the
+// session dir path, and a bool indicating whether anything was found.
+func findManifestEntry(root, adapterID, originalPath string) (manifestEntry, string, bool) {
+	adapterDir := filepath.Join(root, adapterID)
+	entries, err := os.ReadDir(adapterDir)
+	if err != nil {
+		return manifestEntry{}, "", false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		sessionDir := filepath.Join(adapterDir, e.Name())
+		m, mErr := readManifest(sessionDir)
+		if mErr != nil {
+			continue
+		}
+		for _, ent := range m.Entries {
+			if ent.OriginalPath == originalPath {
+				return ent, sessionDir, true
+			}
+		}
+	}
+	return manifestEntry{}, "", false
 }
 
 // findBackupPath returns the path of the backup to restore for the given file.

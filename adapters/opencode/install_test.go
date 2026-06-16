@@ -92,6 +92,12 @@ func TestInstall_Idempotent(t *testing.T) {
 }
 
 func TestInstall_PreservesExistingAgentsMD(t *testing.T) {
+	// PR 3: the backup moved to the central backup home and is now a
+	// <sessionDir>/AGENTS.md.backup inside <root>/opencode/. This test
+	// is re-enabled by the central-home round-trip test in
+	// adapters/common/strategy_central_test.go; the opencode-specific
+	// check below is kept as a "smoke" assertion that the per-tool
+	// directory does NOT contain a legacy sidecar.
 	t.Parallel()
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
@@ -104,22 +110,22 @@ func TestInstall_PreservesExistingAgentsMD(t *testing.T) {
 
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 
-	// The backup should have a timestamp suffix and contain the original content.
+	// After PR 3, the per-tool directory must NOT contain a legacy
+	// .sequoia-backup-* sidecar (the backup moved to the central home).
 	dir := filepath.Dir(agentsMDPath)
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-
-	found := false
 	for _, e := range entries {
-		if strings.Contains(e.Name(), ".sequoia-backup-") {
-			raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
-			require.NoError(t, err)
-			assert.Equal(t, originalContent, string(raw))
-			found = true
-			break
-		}
+		assert.False(t, strings.Contains(e.Name(), ".sequoia-backup-"),
+			"per-tool dir must not contain a legacy .sequoia-backup-* sidecar (found %s)", e.Name())
 	}
-	assert.True(t, found, "a timestamped backup should exist for existing content")
+
+	// The AGENTS.md itself must be the Sequoia-managed content now.
+	got, err := os.ReadFile(agentsMDPath)
+	require.NoError(t, err)
+	assert.NotEqual(t, originalContent, string(got),
+		"AGENTS.md must be replaced with Sequoia content after install")
+	_ = originalContent // originalContent is now used to assert "not equal" above; keep the variable for readability
 }
 
 func TestUninstall_RemovesAllFiles(t *testing.T) {
@@ -156,6 +162,12 @@ func TestUninstall_CleansAgentsMD(t *testing.T) {
 }
 
 func TestUninstall_PreservesOtherAgentsMD(t *testing.T) {
+	// PR 3: the round-trip (Install + Uninstall) restores the
+	// pre-install content from the central-home + manifest backup.
+	// The test now exercises the full manifest-based round-trip.
+	// The previous assertion (per-tool .sequoia-backup-* sidecar)
+	// is no longer relevant; see adapters/common/strategy_central_test.go
+	// for the canonical central-home round-trip test.
 	t.Parallel()
 	tmp := t.TempDir()
 	a := opencode.NewAdapter(tmp)
@@ -168,9 +180,12 @@ func TestUninstall_PreservesOtherAgentsMD(t *testing.T) {
 	require.NoError(t, a.Install(adapters.InstallOpts{}))
 	require.NoError(t, a.Uninstall(adapters.InstallOpts{}))
 
+	// After uninstall, the AGENTS.md must be restored to the
+	// pre-install content (the manifest-based restore succeeded).
 	raw, err := os.ReadFile(agentsMDPath)
 	require.NoError(t, err)
-	assert.Equal(t, originalContent, string(raw))
+	assert.Equal(t, originalContent, string(raw),
+		"AGENTS.md must be restored from the central-home + manifest backup after uninstall")
 }
 
 func TestStatus_AfterInstall(t *testing.T) {
