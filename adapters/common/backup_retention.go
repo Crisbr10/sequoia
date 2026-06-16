@@ -83,6 +83,22 @@ func OverrideUserConfigDir(t *testing.T, fn func() (string, error)) {
 	t.Cleanup(func() { userConfigDir = orig })
 }
 
+// removeAllFunc is the implementation of os.RemoveAll used by PruneBackups
+// when removing a pruned session directory. It is a package-level variable
+// (not a function parameter) so the signature of PruneBackups stays stable
+// for production callers. Tests in this package may swap it to inject a
+// mock that returns errors for specific paths; production code MUST NOT
+// touch it.
+//
+// The variable exists to make REQ-BRP-06 Scenario 2 (prune-continues-on-error)
+// testable on POSIX. The previous approach — chmod 0o500 on a child
+// directory — does not prevent rmdir(2) on POSIX (POSIX checks the parent
+// directory's write+execute permission, not the child's), so the test
+// silently passed without exercising the error path on every non-Windows
+// runner. With removeAllFunc, the test exercises the error path
+// deterministically on every platform.
+var removeAllFunc = os.RemoveAll
+
 // BackupHomeDir returns the absolute central backup root, which is the
 // join of os.UserConfigDir() with the literal "sequoia/backups" subpath.
 // The directory is created with mode 0o700 on first use if it does not
@@ -176,7 +192,7 @@ func PruneBackups(adapterID string, max int) (removed int, err error) {
 	toRemove := valid[max:]
 	for _, name := range toRemove {
 		full := filepath.Join(adapterDir, name)
-		if rmErr := os.RemoveAll(full); rmErr != nil {
+		if rmErr := removeAllFunc(full); rmErr != nil {
 			if err == nil {
 				err = fmt.Errorf("prune backups: remove %q: %w", full, rmErr)
 			}

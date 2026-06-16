@@ -2,6 +2,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -244,17 +245,19 @@ func TestPruneBackups_IgnoresCorruptNames(t *testing.T) {
 // must continue and still remove the other eligible dirs; the returned
 // error references the failed dir, and `removed` counts only successes.
 //
-// The fixture places 7 valid session dirs and marks the OLDEST (offset 0)
-// read-only. With max=5, the two oldest are to be removed: offset 0 (fails)
-// and offset 1 (succeeds). The remaining 5 (offsets 2..6) are kept.
+// The fixture pre-creates 7 valid session dirs and injects a removeAllFunc
+// that returns a synthetic error for the OLDEST dir only. With max=5, the
+// two oldest are to be removed: offset 0 (the synthetic error) and offset 1
+// (succeeds). The remaining 5 (offsets 2..6) are kept.
 //
-// On Windows the chmod read-only trick does not block os.RemoveAll, so
-// this test only runs on POSIX platforms.
+// The previous implementation used `os.Chmod(dir, 0o500)` to make the oldest
+// dir un-removable. That works on Windows (where the test was t.Skip'd) but
+// not on POSIX, where rmdir(2) checks the PARENT directory's permissions
+// rather than the child's — so the test silently passed on Windows runners
+// while exercising no error path on the four non-Windows CI platforms.
+// Using the removeAllFunc dependency-injection hook (defined in
+// backup_retention.go) makes the error path deterministic on every platform.
 func TestPruneBackups_ContinuesOnError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod read-only does not block os.RemoveAll on Windows")
-	}
-
 	tmp := t.TempDir()
 	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
@@ -266,19 +269,26 @@ func TestPruneBackups_ContinuesOnError(t *testing.T) {
 		name := sessionDirName(t, i)
 		dir := filepath.Join(adapterDir, name)
 		require.NoError(t, os.MkdirAll(dir, 0o700))
-		// Mark the oldest (offset 0) read-only so its removal fails.
-		if i == 0 {
-			require.NoError(t, os.Chmod(dir, 0o500),
-				"chmod read-only on the oldest session dir to force removal failure")
-		}
 	}
+
+	// Inject a removeAllFunc that fails for the oldest session dir only.
+	oldestName := sessionDirName(t, 0)
+	oldestPath := filepath.Join(adapterDir, oldestName)
+	original := removeAllFunc
+	removeAllFunc = func(path string) error {
+		if path == oldestPath {
+			return fmt.Errorf("simulated removal failure for %s", oldestName)
+		}
+		return original(path)
+	}
+	t.Cleanup(func() { removeAllFunc = original })
 
 	removed, err := PruneBackups("x", 5)
 	require.Error(t, err,
 		"PruneBackups must return an error when at least one removal fails")
 	assert.Equal(t, 1, removed,
-		"PruneBackups must still remove the 1 non-read-only oldest dir (offset 1)")
-	assert.Contains(t, err.Error(), sessionDirName(t, 0),
+		"PruneBackups must still remove the 1 non-failing oldest dir (offset 1)")
+	assert.Contains(t, err.Error(), oldestName,
 		"returned error must reference the directory that failed to remove")
 }
 

@@ -2,9 +2,9 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -163,32 +163,44 @@ func TestApplyRetention_NotInPrepare(t *testing.T) {
 
 // TestApplyRetention_WarningOnPruneError verifies REQ-BRP-04 Scenario
 // "Removal errors do not fail the install": when a per-entry removal
-// fails (simulated by a read-only session dir), applyRetention must
-// surface a warning via AddWarning and the install still succeeds.
+// fails, applyRetention must surface a warning via AddWarning and the
+// install still succeeds.
 //
-// Skipped on Windows because chmod 0o500 does not block os.RemoveAll.
-// On POSIX, we mark the OLDEST session read-only; with 7 sessions
-// and max=5, PruneBackups fails on the read-only one and returns an
-// error — which applyRetention converts to a warning.
+// The fixture pre-seeds 7 session dirs and injects a removeAllFunc that
+// returns a synthetic error for the OLDEST dir only. With max=5, the two
+// oldest are to be removed: offset 0 (the synthetic error) and offset 1
+// (succeeds). applyRetention converts the PruneBackups error into a
+// warning prefixed with "backup retention:".
 //
-// Not parallel: the userConfigDir override is package-level.
+// The previous implementation used `os.Chmod(dir, 0o500)` to make the
+// oldest dir un-removable. That works on Windows (where the test was
+// t.Skip'd) but not on POSIX, where rmdir(2) checks the PARENT directory's
+// permissions rather than the child's — so the test silently passed on
+// Windows runners while exercising no error path on the four non-Windows
+// CI platforms. Using the removeAllFunc dependency-injection hook
+// (defined in backup_retention.go) makes the error path deterministic on
+// every platform.
+//
+// Not parallel: the userConfigDir override and removeAllFunc are both
+// package-level.
 func TestApplyRetention_WarningOnPruneError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod read-only does not block os.RemoveAll on Windows")
-	}
-
 	home := retentionTestHome(t)
 	adapterDir := seedRetentionSessions(t, 7)
 
-	// Mark the OLDEST session read-only so its removal fails.
+	// Inject a removeAllFunc that fails for the oldest session dir only.
 	entries, err := os.ReadDir(adapterDir)
 	require.NoError(t, err)
 	require.NotEmpty(t, entries, "test fixture must contain session dirs")
-	oldest := filepath.Join(adapterDir, entries[0].Name())
-	require.NoError(t, os.Chmod(oldest, 0o500),
-		"chmod the oldest session dir to read-only so its removal fails")
-	// Restore permissions at test end so TempDir cleanup works.
-	t.Cleanup(func() { _ = os.Chmod(oldest, 0o700) })
+	oldestName := entries[0].Name()
+	oldestPath := filepath.Join(adapterDir, oldestName)
+	original := removeAllFunc
+	removeAllFunc = func(path string) error {
+		if path == oldestPath {
+			return fmt.Errorf("simulated removal failure for %s", oldestName)
+		}
+		return original(path)
+	}
+	t.Cleanup(func() { removeAllFunc = original })
 
 	a := makeRetentionAdapter(t, home)
 
