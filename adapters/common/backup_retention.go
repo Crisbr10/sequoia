@@ -1,3 +1,34 @@
+// Package common (backup_retention.go) centralizes the per-adapter backup
+// layout and retention policy used by every tool adapter.
+//
+// Retention policy:
+//   - All backups are written under a single root resolved by joining
+//     os.UserConfigDir() with the "sequoia/backups" subpath
+//     (BackupHomeDir). Linux/macOS: ~/.config/sequoia/backups/.
+//     Windows: %APPDATA%\sequoia\backups\.
+//   - The root is created with mode 0o700 on first use.
+//   - Each adapter's session is stored under <root>/<adapterID>/<...>/
+//     where the session directory name combines an ISO-8601 UTC timestamp
+//     (2006-01-02T15-04-05.000Z) with a base-36 UnixNanos suffix.
+//   - At most DefaultMaxBackupsPerAdapter (5) sessions per adapter are
+//     retained; older sessions are pruned by PruneBackups, keeping the
+//     newest by ISO-8601 lex order (which matches chronological order for
+//     the fixed-width prefix).
+//   - Removal errors are surfaced as warnings — they do not fail the
+//     install.
+//
+// Public surface:
+//   - BackupHomeDir() (string, error): returns the central root, creating
+//     it on first use. Errors include the failing path and the
+//     "sequoia/backups" suffix in the message for diagnostics.
+//   - PruneBackups(adapterID string, max int) (removed int, err error):
+//     returns the count of removed sessions and the first error, continuing
+//     on per-entry error. A missing adapter directory is (0, nil).
+//   - DefaultMaxBackupsPerAdapter = 5: the cap passed to PruneBackups.
+//
+// This file does not own the session directory contents or the manifest
+// schema for ReplaceFile/RestoreOrRemoveFile — those live in the install
+// flow (see strategy.go and base_adapter.go).
 package common
 
 import (
