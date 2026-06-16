@@ -111,8 +111,11 @@ func TestMockFS_TemplateNotFound(t *testing.T) {
 // Scenario "Install with mock filesystem — complete pipeline succeeds".
 // Uses fullInstallTestAdapter which is configured with installembed.FS and
 // verifies every expected output file is created with correct content.
+//
+// Not parallel: fullInstallTestAdapter installs a package-level
+// OverrideUserConfigDir hook that races with parallel tests.
 func TestMockFS_InstallFullPipeline(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -153,8 +156,10 @@ func TestMockFS_InstallFullPipeline(t *testing.T) {
 
 // TestMockFS_InstallFullPipeline_StatusReportsInstalled verifies that
 // Status() reports the adapter as installed after a successful Install.
+//
+// Not parallel: see TestMockFS_InstallFullPipeline.
 func TestMockFS_InstallFullPipeline_StatusReportsInstalled(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)

@@ -198,6 +198,13 @@ func TestUninstall_PartialFailure(t *testing.T) {
 func installTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 	t.Helper()
 
+	// Isolate the package-level userConfigDir hook on a per-test basis so
+	// parallel BaseAdapter.Apply() invocations do not race on the shared
+	// central backup home. Capture t.TempDir() once — see the matching
+	// comment in fullInstallTestAdapter for why capture-once matters.
+	centralHome := t.TempDir()
+	common.OverrideUserConfigDir(t, func() (string, error) { return centralHome, nil })
+
 	a := &common.BaseAdapter{}
 	a.SetIDName("test-adapter", "Test Adapter")
 	a.SetPaths(common.NewPathResolver(
@@ -231,7 +238,10 @@ func installTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 // TestInstall_ReturnsSentinelError verifies that a failed Install wraps
 // adapters.ErrInstallFailed so callers can detect it with errors.Is.
 func TestInstall_ReturnsSentinelError(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — installTestAdapter installs a
+	// package-level OverrideUserConfigDir hook that races with parallel
+	// tests. Matches the "Not parallel: this test mutates the package-level
+	// userConfigDir hook" pattern in the package-common internal test files.
 
 	home := t.TempDir()
 	a := installTestAdapter(t, home)
@@ -316,6 +326,13 @@ func TestBaseAdapter_AddWarning_ThreadSafety(t *testing.T) {
 func warningsTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 	t.Helper()
 
+	// Isolate the package-level userConfigDir hook on a per-test basis so
+	// parallel BaseAdapter.Apply() invocations do not race on the shared
+	// central backup home. Capture t.TempDir() once — see the matching
+	// comment in fullInstallTestAdapter for why capture-once matters.
+	centralHome := t.TempDir()
+	common.OverrideUserConfigDir(t, func() (string, error) { return centralHome, nil })
+
 	a := &common.BaseAdapter{}
 	a.SetIDName("warn-adapter", "Warning Adapter")
 	a.SetPaths(common.NewPathResolver(
@@ -345,7 +362,9 @@ func warningsTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 // TestBaseAdapter_WarningsClearedOnInstall verifies that warnings are cleared
 // when Install() starts (even if Install later fails).
 func TestBaseAdapter_WarningsClearedOnInstall(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — warningsTestAdapter installs a
+	// package-level OverrideUserConfigDir hook that races with parallel
+	// tests. See TestInstall_ReturnsSentinelError.
 
 	home := t.TempDir()
 	a := warningsTestAdapter(t, home)
@@ -445,8 +464,16 @@ func TestBaseAdapter_HomeDirOverrideBypassesCache(t *testing.T) {
 // output files as before the backup isolation change. The backup directory
 // structure should be the only difference; installed file content must be
 // byte-for-byte identical regardless of backup path changes.
+//
+// Not parallel: fullInstallTestAdapter installs a per-test
+// OverrideUserConfigDir hook on the package-level userConfigDir variable.
+// Running this test in parallel with other override-using tests would
+// race on that variable; the path comparison below would observe a
+// sibling test's central home and fail. Matches the
+// "Not parallel: this test mutates the package-level userConfigDir hook"
+// pattern in the package-common internal test files.
 func TestBackupIsolation_FreshInstallProducesIdenticalOutput(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -582,8 +609,17 @@ func TestBaseAdapter_DetectCachedResultFalse(t *testing.T) {
 // structure <BackupHomeDir>/<adapterID>/<sessionSuffix> with type-specific
 // subdirectories for skills and commands. It also verifies that no backup
 // cleanup is performed after a successful install. REQ-BRP-02.
+//
+// Not parallel: fullInstallTestAdapter installs a per-test
+// OverrideUserConfigDir hook on the package-level userConfigDir variable.
+// The path comparison below reads BackupHomeDir() directly; if a sibling
+// parallel test swapped the override mid-execution, this test would
+// observe the sibling's central home and the assertion would fail
+// (centralHome != this test's home). Matches the
+// "Not parallel: this test mutates the package-level userConfigDir hook"
+// pattern in the package-common internal test files.
 func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)

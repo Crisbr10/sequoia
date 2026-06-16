@@ -86,6 +86,18 @@ func (c *checkpointCtx) Err() error {
 func fullInstallTestAdapter(t *testing.T, home string) *common.BaseAdapter {
 	t.Helper()
 
+	// Isolate the package-level userConfigDir hook on a per-test basis so
+	// parallel BaseAdapter.Apply() invocations do not race on the shared
+	// central backup home. Capture t.TempDir() once — the closure is
+	// invoked multiple times during a single test (Install + explicit
+	// BackupHomeDir() reads), and each t.TempDir() call returns a fresh
+	// subdir, so calling it inside the closure would make the override
+	// return a different path on every read. The captured `centralHome` is
+	// independent of the adapter's local `home` — the two scopes are
+	// intentionally disjoint.
+	centralHome := t.TempDir()
+	common.OverrideUserConfigDir(t, func() (string, error) { return centralHome, nil })
+
 	a := &common.BaseAdapter{}
 	a.SetIDName("err-test", "Error Test")
 	a.SetPaths(common.NewPathResolver(
@@ -152,8 +164,13 @@ func failingWriteAdapter(t *testing.T, home string, rollback bool) *common.BaseA
 // Scenario "Context cancellation before any work":
 // A pre-cancelled context causes Install to return immediately without
 // creating any directories or files.
+//
+// Not parallel: fullInstallTestAdapter installs a package-level
+// OverrideUserConfigDir hook (via the new race-fix commit). Running this
+// in parallel with other override-using tests would race on the shared
+// userConfigDir variable.
 func TestInstall_PreCancelledContext_NoWorkDone(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -182,8 +199,10 @@ func TestInstall_PreCancelledContext_NoWorkDone(t *testing.T) {
 // TestInstall_CheckpointContext_AfterStaging verifies that when the context
 // is cancelled at checkpoint 3 (end of Download, after staging, before Stage),
 // Prepare has created directories but no files are installed.
+//
+// Not parallel: see TestInstall_PreCancelledContext_NoWorkDone.
 func TestInstall_CheckpointContext_AfterStaging(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -205,8 +224,10 @@ func TestInstall_CheckpointContext_AfterStaging(t *testing.T) {
 // TestInstall_CheckpointContext_AfterSkillInstall verifies that when the
 // context is cancelled at checkpoint 5 (after skill install, before commands),
 // the skill installer is rolled back, and no command files are installed.
+//
+// Not parallel: see TestInstall_PreCancelledContext_NoWorkDone.
 func TestInstall_CheckpointContext_AfterSkillInstall(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -230,8 +251,10 @@ func TestInstall_CheckpointContext_AfterSkillInstall(t *testing.T) {
 // TestInstall_CheckpointContext_AfterCommandsInstall verifies that when
 // the context is cancelled at checkpoint 6 (after commands install), both
 // the skill and command installers are rolled back.
+//
+// Not parallel: see TestInstall_PreCancelledContext_NoWorkDone.
 func TestInstall_CheckpointContext_AfterCommandsInstall(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -256,7 +279,7 @@ func TestInstall_CheckpointContext_AfterCommandsInstall(t *testing.T) {
 // context is cancelled at checkpoint 7 (after system prompt write), both
 // installers are rolled back, but the system prompt IS written.
 func TestInstall_CheckpointContext_AfterSystemPrompt(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see TestInstall_PreCancelledContext_NoWorkDone.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -283,8 +306,10 @@ func TestInstall_CheckpointContext_AfterSystemPrompt(t *testing.T) {
 // TestInstall_CheckpointContext_FullSuccess verifies that without any
 // cancellation (cancelAt=6, beyond all checkpoints), Install succeeds
 // and all expected files are created.
+//
+// Not parallel: see TestInstall_PreCancelledContext_NoWorkDone.
 func TestInstall_CheckpointContext_FullSuccess(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := fullInstallTestAdapter(t, home)
@@ -619,8 +644,13 @@ func TestInstall_VersionFileWriteFailure(t *testing.T) {
 
 // TestInstall_SystemPromptFailure_Rollback verifies REQ-TEST-ERRORS
 // "System prompt write fails, rollback=true → skill+commands rolled back".
+//
+// Not parallel: failingWriteAdapter wraps fullInstallTestAdapter, which
+// installs a package-level OverrideUserConfigDir hook. The rollback path
+// in Install() depends on the override staying stable for the test's
+// duration. See TestInstall_PreCancelledContext_NoWorkDone.
 func TestInstall_SystemPromptFailure_Rollback(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := failingWriteAdapter(t, home, true) // rollback=true
@@ -644,8 +674,10 @@ func TestInstall_SystemPromptFailure_Rollback(t *testing.T) {
 
 // TestInstall_SystemPromptFailure_NoRollback verifies REQ-TEST-ERRORS
 // "System prompt write fails, rollback=false → skill+commands NOT rolled back".
+//
+// Not parallel: see TestInstall_SystemPromptFailure_Rollback.
 func TestInstall_SystemPromptFailure_NoRollback(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	a := failingWriteAdapter(t, home, false) // rollback=false
@@ -670,8 +702,10 @@ func TestInstall_SystemPromptFailure_NoRollback(t *testing.T) {
 // TestInstall_SystemPromptFailure_RollbackBackupDir verifies that when
 // rollback=true on system prompt failure, the backup directory still
 // exists with the rolled-back skill file.
+//
+// Not parallel: see TestInstall_SystemPromptFailure_Rollback.
 func TestInstall_SystemPromptFailure_RollbackBackupDir(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
 	// Pre-create the skill file so Installer backs it up.
