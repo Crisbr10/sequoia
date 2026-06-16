@@ -99,11 +99,11 @@ func TestBaseAdapter_Prepare_BackupDirUsesCentralHome(t *testing.T) {
 }
 
 // =========================================================================
-// Task 2.8 (RED) — centralBackupDir helper exists
+// Task 2.8 (RED) — CentralBackupDir helper exists
 // =========================================================================
 
 // TestBaseAdapter_CentralBackupDir_JoinsHomeAndSubdir verifies the
-// private helper centralBackupDir(targetSubdir) returns the per-install
+// exported helper CentralBackupDir(targetSubdir) returns the per-install
 // session root joined with targetSubdir. The session root lives under
 // the central home (REQ-BRP-02) and is shared across calls within the
 // same install so the per-installer subdirectories ("skills" and
@@ -124,20 +124,20 @@ func TestBaseAdapter_CentralBackupDir_JoinsHomeAndSubdir(t *testing.T) {
 	require.NoError(t, a.Prepare(adapters.InstallOpts{}))
 	sessionDir := a.LastBackupDir()
 
-	// centralBackupDir("") returns the cached session dir exactly.
-	gotRoot := a.centralBackupDir("")
+	// CentralBackupDir("") returns the cached session dir exactly.
+	gotRoot := a.CentralBackupDir("")
 	assert.Equal(t, sessionDir, gotRoot,
-		"centralBackupDir(\"\") must return the cached session dir")
+		"CentralBackupDir(\"\") must return the cached session dir")
 
-	// centralBackupDir("skills") returns sessionDir/skills.
-	gotSkills := a.centralBackupDir("skills")
+	// CentralBackupDir("skills") returns sessionDir/skills.
+	gotSkills := a.CentralBackupDir("skills")
 	assert.Equal(t, filepath.Join(sessionDir, "skills"), gotSkills,
-		"centralBackupDir(\"skills\") must return <sessionDir>/skills")
+		"CentralBackupDir(\"skills\") must return <sessionDir>/skills")
 
-	// centralBackupDir("commands") returns sessionDir/commands.
-	gotCmds := a.centralBackupDir("commands")
+	// CentralBackupDir("commands") returns sessionDir/commands.
+	gotCmds := a.CentralBackupDir("commands")
 	assert.Equal(t, filepath.Join(sessionDir, "commands"), gotCmds,
-		"centralBackupDir(\"commands\") must return <sessionDir>/commands")
+		"CentralBackupDir(\"commands\") must return <sessionDir>/commands")
 
 	// All paths must live under the central home.
 	assert.True(t, strings.HasPrefix(sessionDir, centralHome+string(filepath.Separator)),
@@ -150,14 +150,14 @@ func TestBaseAdapter_CentralBackupDir_JoinsHomeAndSubdir(t *testing.T) {
 	// The sentinel must not leak into any result.
 	for _, p := range []string{sessionDir, gotSkills, gotCmds} {
 		assert.NotContains(t, p, "SENTINEL_FN_PATH",
-			"centralBackupDir result %q must not consult the per-tool backupPathFn on the happy path", p)
+			"CentralBackupDir result %q must not consult the per-tool backupPathFn on the happy path", p)
 		assert.NotContains(t, p, ".sequoia-backup",
-			"centralBackupDir result %q must not use the legacy per-tool .sequoia-backup marker", p)
+			"CentralBackupDir result %q must not use the legacy per-tool .sequoia-backup marker", p)
 	}
 }
 
 // TestBaseAdapter_CentralBackupDir_CachesSessionDir verifies that multiple
-// centralBackupDir calls within a single install share the same session
+// CentralBackupDir calls within a single install share the same session
 // root, so the per-installer subdirectories ("skills" and "commands")
 // land in the same session directory under the central home (REQ-BRP-02).
 //
@@ -169,9 +169,9 @@ func TestBaseAdapter_CentralBackupDir_CachesSessionDir(t *testing.T) {
 	a := makeBaseAdapterWithSentinel(t, home)
 	require.NoError(t, a.Prepare(adapters.InstallOpts{}))
 
-	firstRoot := a.centralBackupDir("")
-	firstSkills := a.centralBackupDir("skills")
-	firstCmds := a.centralBackupDir("commands")
+	firstRoot := a.CentralBackupDir("")
+	firstSkills := a.CentralBackupDir("skills")
+	firstCmds := a.CentralBackupDir("commands")
 
 	// All three paths share the same parent (the session dir).
 	assert.Equal(t, firstRoot, filepath.Dir(firstSkills),
@@ -181,10 +181,10 @@ func TestBaseAdapter_CentralBackupDir_CachesSessionDir(t *testing.T) {
 
 	// A second round of calls returns the same paths (idempotent within
 	// one install).
-	assert.Equal(t, firstRoot, a.centralBackupDir(""),
-		"centralBackupDir must cache the session dir for repeated calls")
-	assert.Equal(t, firstSkills, a.centralBackupDir("skills"),
-		"centralBackupDir must return the same skills dir on repeated calls")
-	assert.Equal(t, firstCmds, a.centralBackupDir("commands"),
-		"centralBackupDir must return the same commands dir on repeated calls")
+	assert.Equal(t, firstRoot, a.CentralBackupDir(""),
+		"CentralBackupDir must cache the session dir for repeated calls")
+	assert.Equal(t, firstSkills, a.CentralBackupDir("skills"),
+		"CentralBackupDir must return the same skills dir on repeated calls")
+	assert.Equal(t, firstCmds, a.CentralBackupDir("commands"),
+		"CentralBackupDir must return the same commands dir on repeated calls")
 }

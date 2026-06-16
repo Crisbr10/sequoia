@@ -192,6 +192,18 @@ func (a *BaseAdapter) LastBackupDir() string {
 	return a.lastBackupDir
 }
 
+// SetLastBackupDir records the backup directory path so it can be
+// retrieved later via LastBackupDir(). Custom Install() implementations
+// (e.g., the Codex adapter) call this after routing their backup dirs
+// through CentralBackupDir() so the BackupDirGetter interface reports
+// the central-home session dir to the pipeline/TUI (REQ-BRP-02).
+// Thread-safe.
+func (a *BaseAdapter) SetLastBackupDir(dir string) {
+	a.mu.Lock()
+	a.lastBackupDir = dir
+	a.mu.Unlock()
+}
+
 // clearWarnings removes all accumulated warnings. Caller must hold a.mu or
 // call from a context where no concurrent access is possible (e.g., start of
 // Install/Uninstall before any goroutine shares the adapter).
@@ -306,7 +318,7 @@ func (a *BaseAdapter) Strategy() Strategy {
 	return a
 }
 
-// centralBackupDir returns the absolute backup directory used for the
+// CentralBackupDir returns the absolute backup directory used for the
 // current install session, optionally joined with targetSubdir. The
 // location is sourced from BackupHomeDir() so all adapters share a single
 // central root (REQ-BRP-02).
@@ -316,12 +328,16 @@ func (a *BaseAdapter) Strategy() Strategy {
 // subdirectories (e.g., "skills" and "commands") all live under the same
 // session root. The cache is cleared at the start of Prepare().
 //
+// This method is exported so custom Install() implementations (e.g.,
+// the Codex adapter) can route their per-installer backup subdirs
+// through the same central-home path as BaseAdapter.Stage().
+//
 // If BackupHomeDir() fails (e.g., the user's config dir is unwritable),
 // the per-tool BackupPathBuilder.Build() result is used as a safety-net
 // fallback so the install does not abort. The fallback is best-effort —
 // callers should treat an error from the per-tool path as a warning, not
 // a hard failure.
-func (a *BaseAdapter) centralBackupDir(targetSubdir string) string {
+func (a *BaseAdapter) CentralBackupDir(targetSubdir string) string {
 	a.mu.Lock()
 	sessionDir := a.centralSessionDir
 	if sessionDir == "" {
@@ -374,9 +390,9 @@ func (a *BaseAdapter) Prepare(opts adapters.InstallOpts) error {
 
 	// Session root under the central backup home. Stage() will join the
 	// per-installer subdirs ("skills" / "commands") onto this same root
-	// via the centralBackupDir helper so skills and commands share one
+	// via the CentralBackupDir helper so skills and commands share one
 	// session directory (REQ-BRP-02).
-	backupDir := a.centralBackupDir("")
+	backupDir := a.CentralBackupDir("")
 	a.mu.Lock()
 	a.lastBackupDir = backupDir
 	a.mu.Unlock()
@@ -503,7 +519,7 @@ func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
 	skillInstaller := NewInstaller(InstallerConfig{
 		SourceDir: ss.stagingDir,
 		TargetDir: skillsDir,
-		BackupDir: a.centralBackupDir("skills"),
+		BackupDir: a.CentralBackupDir("skills"),
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -519,7 +535,7 @@ func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
 	cmdInstaller := NewInstaller(InstallerConfig{
 		SourceDir: ss.stagingDir,
 		TargetDir: commandsDir,
-		BackupDir: a.centralBackupDir("commands"),
+		BackupDir: a.CentralBackupDir("commands"),
 		Files:     CommandFiles(),
 	})
 	if err := cmdInstaller.Run(); err != nil {

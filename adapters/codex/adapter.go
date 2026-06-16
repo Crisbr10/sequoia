@@ -121,13 +121,15 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 		}
 	}
 
-	// Generate a unique backup path via BackupPathBuilder.
-	baseBackup := a.BuildBackupPath(base)
+	// Use the central-home backup dir for both the skill and command
+	// installers. The session dir is allocated by CentralBackupDir("")
+	// and joined with the per-installer subdir for each call (REQ-BRP-02).
+	baseBackup := a.CentralBackupDir("")
 
 	skillInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: skillsPath(base),
-		BackupDir: filepath.Join(baseBackup, "skills"),
+		BackupDir: a.CentralBackupDir("skills"),
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -137,7 +139,7 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 	cmdInstaller := common.NewInstaller(common.InstallerConfig{
 		SourceDir: staging,
 		TargetDir: commandsPath(base),
-		BackupDir: filepath.Join(baseBackup, "commands"),
+		BackupDir: a.CentralBackupDir("commands"),
 		Files:     common.CommandFiles(),
 	})
 	if err := cmdInstaller.Run(); err != nil {
@@ -159,6 +161,9 @@ func (a *Adapter) Install(opts adapters.InstallOpts) (err error) {
 	if err := os.WriteFile(versionFilePath(base), []byte(common.Version+"\n"), 0o644); err != nil {
 		return fmt.Errorf("install: write version file: %w", err)
 	}
+
+	// Record the session dir for the TUI Info message (BackupDirGetter).
+	a.SetLastBackupDir(baseBackup)
 
 	return nil
 }
