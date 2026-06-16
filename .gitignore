@@ -12,6 +12,8 @@ coverage
 coverage.out
 coverage_*
 coverage*.out
+cov_*
+cov_*.out
 
 # Test binary
 *.test

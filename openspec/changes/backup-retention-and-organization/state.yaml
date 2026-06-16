@@ -1,0 +1,21 @@
+schema: spec-driven
+change: backup-retention-and-organization
+status: proposed
+created: 2026-06-16
+owner: sequoia-ai
+phases:
+  - name: propose
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/proposal.md
+  - name: spec
+    status: pending
+  - name: design
+    status: pending
+  - name: tasks
+    status: pending
+  - name: apply
+    status: pending
+  - name: verify
+    status: pending
+  - name: archive
+    status: pending
