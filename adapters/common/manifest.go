@@ -35,20 +35,31 @@ type manifestEntry struct {
 
 // manifest is the per-session document stored at
 // <sessionDir>/manifest.json. It lists every ReplaceFile backup the
-// session performed, plus the schema version. See REQ-BRP-03.
+// session performed, the schema version, and the session creation
+// timestamp. The top-level CreatedAt is the session wall-clock at the
+// moment the first ReplaceFile ran (set by newEmptyManifest and
+// preserved across appends). See REQ-BRP-03.
+//
+// Schema (locked by design):
+//
+//	{version, created_at, entries:[{version, original_path, suffix, created_at, adapter_id}]}
 type manifest struct {
-	Version string          `json:"version"`
-	Entries []manifestEntry `json:"entries"`
+	Version   string          `json:"version"`
+	CreatedAt time.Time       `json:"created_at"`
+	Entries   []manifestEntry `json:"entries"`
 }
 
 // newEmptyManifest returns a fresh manifest with the current schema
-// version and an empty (but non-nil) entry slice. The slice is non-nil
-// so the JSON encoder always emits `"entries": []` instead of
-// `"entries": null` for the empty case.
+// version, a UTC session-creation timestamp, and an empty (but non-nil)
+// entry slice. The slice is non-nil so the JSON encoder always emits
+// `"entries": []` instead of `"entries": null` for the empty case.
+// The CreatedAt is set here (not in writeManifest) so a read followed
+// by an append preserves the original session timestamp.
 func newEmptyManifest() manifest {
 	return manifest{
-		Version: manifestSchemaVersion,
-		Entries: []manifestEntry{},
+		Version:   manifestSchemaVersion,
+		CreatedAt: time.Now().UTC(),
+		Entries:   []manifestEntry{},
 	}
 }
 
@@ -79,6 +90,13 @@ func readManifest(sessionDir string) (manifest, error) {
 	}
 	if m.Version == "" {
 		m.Version = manifestSchemaVersion
+	}
+	if m.CreatedAt.IsZero() {
+		// Legacy manifest written before the top-level CreatedAt was added.
+		// Stamp it with the read time so the field is always present in
+		// the in-memory representation. New manifests always have it set
+		// by newEmptyManifest.
+		m.CreatedAt = time.Now().UTC()
 	}
 	return m, nil
 }

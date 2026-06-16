@@ -58,6 +58,72 @@ func TestManifestEntry_JSONRoundTrip(t *testing.T) {
 		"adapter_id must round-trip")
 }
 
+// TestManifest_TopLevelCreatedAtRoundTrip verifies REQ-BRP-03 — the
+// top-level created_at field of the manifest must round-trip through
+// JSON serialization. The design's locked schema is
+// {version, created_at, entries:[...]}; if a writer drops created_at,
+// downstream tooling (audit, diff) loses the session timestamp.
+func TestManifest_TopLevelCreatedAtRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	original := newEmptyManifest()
+	require.True(t, !original.CreatedAt.IsZero(),
+		"newEmptyManifest must stamp a non-zero session creation time")
+	original.Entries = []manifestEntry{
+		{
+			Version:      "1",
+			OriginalPath: "/home/alice/.config/opencode/AGENTS.md",
+			Suffix:       "k2j9m4",
+			CreatedAt:    time.Date(2026, 6, 15, 15, 30, 45, 0, time.UTC),
+			AdapterID:    "opencode",
+		},
+	}
+
+	raw, err := json.Marshal(original)
+	require.NoError(t, err, "marshal manifest")
+
+	// The serialized form MUST contain the top-level "created_at" key.
+	// We assert this by string check (cheap) so a regression that drops
+	// the JSON tag surfaces clearly, not via a field-equals check that
+	// could pass if both sides are zero.
+	require.Contains(t, string(raw), `"created_at"`,
+		"manifest JSON must include the top-level created_at field per REQ-BRP-03 / design schema")
+
+	var decoded manifest
+	require.NoError(t, json.Unmarshal(raw, &decoded), "unmarshal manifest")
+	assert.True(t, original.CreatedAt.Equal(decoded.CreatedAt),
+		"top-level created_at must round-trip (got %s, want %s)",
+		decoded.CreatedAt, original.CreatedAt)
+	assert.Equal(t, "1", decoded.Version,
+		"version must round-trip alongside created_at")
+	require.Len(t, decoded.Entries, 1,
+		"entries must round-trip alongside created_at")
+	assert.Equal(t, original.Entries[0], decoded.Entries[0],
+		"entry payload must round-trip unchanged")
+}
+
+// TestManifest_ReadLegacyMissingCreatedAt verifies backward
+// compatibility: a manifest.json written before the top-level
+// created_at was added must still load via readManifest without
+// error; the field is stamped with the read time as a sensible
+// default so downstream code can rely on a non-zero CreatedAt.
+//
+// The test writes a manifest JSON literal that omits created_at,
+// then calls readManifest and asserts CreatedAt is non-zero.
+func TestManifest_ReadLegacyMissingCreatedAt(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Hand-written legacy manifest: no top-level created_at.
+	legacy := []byte(`{"version":"1","entries":[]}` + "\n")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "manifest.json"), legacy, 0o600))
+
+	m, err := readManifest(dir)
+	require.NoError(t, err, "readManifest must tolerate legacy manifests without created_at")
+	assert.False(t, m.CreatedAt.IsZero(),
+		"readManifest must stamp a non-zero CreatedAt for legacy manifests so the in-memory representation is uniform")
+}
+
 // TestManifest_AppendAndRead verifies that appendManifestEntry on a
 // freshly-written manifest (or on a new manifest that does not exist
 // yet) produces a manifest with one entry, and that readManifest
