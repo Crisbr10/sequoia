@@ -17,7 +17,7 @@ import (
 // =========================================================================
 
 // centralAdapterTestHome is the temp dir the userConfigDir override returns
-// for these tests. Capture once per test so overrideUserConfigDir and the
+// for these tests. Capture once per test so OverrideUserConfigDir and the
 // assertions see the same path (t.TempDir() returns a fresh subdir per call).
 func centralAdapterTestHome(t *testing.T) string {
 	t.Helper()
@@ -68,7 +68,7 @@ func makeBaseAdapterWithSentinel(t *testing.T, home string) *BaseAdapter {
 // other tests that also override it.
 func TestBaseAdapter_Prepare_BackupDirUsesCentralHome(t *testing.T) {
 	home := centralAdapterTestHome(t)
-	overrideUserConfigDir(t, func() (string, error) { return home, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return home, nil })
 
 	a := makeBaseAdapterWithSentinel(t, home)
 
@@ -104,7 +104,7 @@ func TestBaseAdapter_Prepare_BackupDirUsesCentralHome(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestBaseAdapter_CentralBackupDir_JoinsHomeAndSubdir(t *testing.T) {
 	home := centralAdapterTestHome(t)
-	overrideUserConfigDir(t, func() (string, error) { return home, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return home, nil })
 
 	a := makeBaseAdapterWithSentinel(t, home)
 
@@ -156,7 +156,7 @@ func TestBaseAdapter_CentralBackupDir_JoinsHomeAndSubdir(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestBaseAdapter_CentralBackupDir_CachesSessionDir(t *testing.T) {
 	home := centralAdapterTestHome(t)
-	overrideUserConfigDir(t, func() (string, error) { return home, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return home, nil })
 
 	a := makeBaseAdapterWithSentinel(t, home)
 	require.NoError(t, a.Prepare(adapters.InstallOpts{}))

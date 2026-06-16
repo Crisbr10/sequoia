@@ -1,4 +1,4 @@
-//nolint:gosec // test file: uses t.TempDir() and overrideUserConfigDir hook, no real user paths
+//nolint:gosec // test file: uses t.TempDir() and OverrideUserConfigDir hook, no real user paths
 package common
 
 import (
@@ -74,7 +74,7 @@ func makeRetentionAdapter(t *testing.T, home string) *BaseAdapter {
 func seedRetentionSessions(t *testing.T, count int) string {
 	t.Helper()
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	centralHome, err := BackupHomeDir()
 	require.NoError(t, err)

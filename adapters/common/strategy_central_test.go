@@ -1,4 +1,4 @@
-//nolint:gosec // test file: uses t.TempDir() and overrideUserConfigDir hook, no real user paths
+//nolint:gosec // test file: uses t.TempDir() and OverrideUserConfigDir hook, no real user paths
 package common
 
 import (
@@ -69,7 +69,7 @@ func readManifestJSON(t *testing.T, sessionDir string) manifest {
 // Not parallel: the userConfigDir override is package-level.
 func TestReplaceFile_WritesToCentralHome_WithManifest(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	home, err := BackupHomeDir()
 	require.NoError(t, err, "BackupHomeDir() must succeed on a writable parent")
@@ -131,7 +131,7 @@ func TestReplaceFile_WritesToCentralHome_WithManifest(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestReplaceFile_NoBackupWhenManaged(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 
@@ -164,7 +164,7 @@ func TestReplaceFile_BackupPermissionsOwnerOnly(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 
@@ -192,7 +192,7 @@ func TestReplaceFile_BackupPermissionsOwnerOnly(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestReplaceFile_NoBackupWhenFileMissing(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 
@@ -218,7 +218,7 @@ func TestReplaceFile_NoBackupWhenFileMissing(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestReplaceFile_TwoCallsProduceTwoSessions(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 
@@ -296,7 +296,7 @@ func TestManifest_PersistedToDisk(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestRestoreOrRemoveFile_RestoresFromCentralHome(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 
@@ -338,7 +338,7 @@ func TestRestoreOrRemoveFile_RestoresFromCentralHome(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestRestoreOrRemoveFile_NoManifestEntryNoOp(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	targetDir := t.TempDir()
 	targetPath := filepath.Join(targetDir, "AGENTS.md")
@@ -362,7 +362,7 @@ func TestRestoreOrRemoveFile_NoManifestEntryNoOp(t *testing.T) {
 // Not parallel: the userConfigDir override is package-level.
 func TestRestoreOrRemoveFile_ManagedFileRemovedWhenNoBackup(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	targetDir := t.TempDir()
 	targetPath := filepath.Join(targetDir, "AGENTS.md")

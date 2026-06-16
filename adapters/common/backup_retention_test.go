@@ -24,7 +24,7 @@ import (
 // hook and observe the wrong UserConfigDir value.
 func TestBackupHomeDir_ReturnsAndCreatesPath(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	home, err := BackupHomeDir()
 	require.NoError(t, err, "BackupHomeDir() should succeed on a writable parent")
@@ -54,7 +54,7 @@ func TestBackupHomeDir_ReturnsAndCreatesPath(t *testing.T) {
 // Not parallel: this test mutates the package-level userConfigDir hook.
 func TestBackupHomeDir_IsIdempotent(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	first, err := BackupHomeDir()
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestBackupHomeDir_WrapsErrorsWithContext(t *testing.T) {
 	blockingFile := filepath.Join(tmp, "blocking")
 	require.NoError(t, os.WriteFile(blockingFile, []byte("not a dir"), 0o600))
 
-	overrideUserConfigDir(t, func() (string, error) {
+	OverrideUserConfigDir(t, func() (string, error) {
 		return blockingFile, nil
 	})
 
@@ -175,7 +175,7 @@ func TestPruneBackups_NoOpBelowMax(t *testing.T) {
 // no new directories.
 func TestPruneBackups_MissingAdapterDir(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	// Create the root but not the adapter dir.
 	_, err := BackupHomeDir()
@@ -198,7 +198,7 @@ func TestPruneBackups_MissingAdapterDir(t *testing.T) {
 // pruning must still keep exactly `max` valid dirs, and no panic is raised.
 func TestPruneBackups_IgnoresCorruptNames(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 	adapterDir := filepath.Join(home, "x")
@@ -256,7 +256,7 @@ func TestPruneBackups_ContinuesOnError(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
 	adapterDir := filepath.Join(home, "x")
@@ -308,7 +308,7 @@ func TestPruneBackups_AtExactlyMaxIsNoOp(t *testing.T) {
 func setupAdapterFixture(t *testing.T, adapterID string, count int) (home string, adapterDir string) {
 	t.Helper()
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	h, err := BackupHomeDir()
 	require.NoError(t, err)
@@ -336,19 +336,8 @@ func readSortedDir(t *testing.T, dir string) []string {
 	return names
 }
 
-// overrideUserConfigDir swaps the package-level userConfigDir hook for the
-// duration of the test, restoring the previous value on cleanup.
-//
-// Note: do NOT call t.TempDir() inside the override closure AND again in the
-// test body — t.TempDir() returns a fresh subdir on every call, so the two
-// values would not match. Capture the temp dir in a local variable first:
-//
-//	tmp := t.TempDir()
-//	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
-
-func overrideUserConfigDir(t *testing.T, fn func() (string, error)) {
-	t.Helper()
-	orig := userConfigDir
-	userConfigDir = fn
-	t.Cleanup(func() { userConfigDir = orig })
-}
+// OverrideUserConfigDir is defined in backup_retention.go (it must be
+// exported in a non-test file so the `package common_test` external test
+// package can call it from its helpers — e.g. fullInstallTestAdapter,
+// installTestAdapter, warningsTestAdapter — and from the 5 direct-build
+// error-path tests in base_adapter_error_test.go).

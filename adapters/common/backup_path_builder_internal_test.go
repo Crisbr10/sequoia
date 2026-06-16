@@ -26,7 +26,7 @@ var sessionSuffixPattern = regexp.MustCompile(`^[0-9a-z]+$`)
 // Not parallel: this test mutates the package-level userConfigDir hook.
 func TestBackupPathBuilder_Build_UsesCentralHome(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	home, err := BackupHomeDir()
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestBackupPathBuilder_Build_UsesCentralHome(t *testing.T) {
 // Not parallel: this test mutates the package-level userConfigDir hook.
 func TestBackupPathBuilder_Build_DisjointForDifferentAdapters(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	_, err := BackupHomeDir()
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestBackupPathBuilder_Build_DisjointForDifferentAdapters(t *testing.T) {
 // Not parallel: this test mutates the package-level userConfigDir hook.
 func TestBackupPathBuilder_Build_UniqueAcrossCalls(t *testing.T) {
 	tmp := t.TempDir()
-	overrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
 
 	_, err := BackupHomeDir()
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestBackupPathBuilder_Build_SafetyNetSkipsBackupPathFn(t *testing.T) {
 	blockingFile := filepath.Join(tmp, "blocking")
 	require.NoError(t, os.WriteFile(blockingFile, []byte("not a dir"), 0o600))
 
-	overrideUserConfigDir(t, func() (string, error) {
+	OverrideUserConfigDir(t, func() (string, error) {
 		return blockingFile, nil
 	})
 

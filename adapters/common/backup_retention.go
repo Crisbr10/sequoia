@@ -36,6 +36,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"testing"
 	"time"
 )
 
@@ -52,10 +53,35 @@ const DefaultMaxBackupsPerAdapter = 5
 const backupHomeSubpath = "sequoia/backups"
 
 // userConfigDir returns the user's config directory. It is a package-level
-// variable so tests can override it via the test hook in
-// backup_retention_test.go (overrideUserConfigDir). Production callers MUST
+// variable so tests can override it via the test hook
+// OverrideUserConfigDir (defined below in this file). Production callers MUST
 // use BackupHomeDir() and MUST NOT touch this variable directly.
 var userConfigDir = os.UserConfigDir
+
+// OverrideUserConfigDir is a test helper that swaps the package-level
+// userConfigDir hook for the duration of the test, restoring the previous
+// value on t.Cleanup. It is exported (rather than living in a *_test.go
+// file) so that both the `package common` internal test package and the
+// `package common_test` external test package can call it from their
+// helper functions and direct test bodies.
+//
+// Production code MUST NOT call OverrideUserConfigDir. It exists solely to
+// isolate the central backup home on a per-test basis and to fix the
+// `go test -race` contention on the package-level userConfigDir hook.
+//
+// Note: do NOT call t.TempDir() inside the override closure AND again in
+// the test body — t.TempDir() returns a fresh subdir on every call, so
+// the two values would not match. Capture the temp dir in a local
+// variable first:
+//
+//	tmp := t.TempDir()
+//	OverrideUserConfigDir(t, func() (string, error) { return tmp, nil })
+func OverrideUserConfigDir(t *testing.T, fn func() (string, error)) {
+	t.Helper()
+	orig := userConfigDir
+	userConfigDir = fn
+	t.Cleanup(func() { userConfigDir = orig })
+}
 
 // BackupHomeDir returns the absolute central backup root, which is the
 // join of os.UserConfigDir() with the literal "sequoia/backups" subpath.
