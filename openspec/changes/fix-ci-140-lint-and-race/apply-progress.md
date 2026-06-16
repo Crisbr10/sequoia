@@ -139,7 +139,7 @@ the comment "Not parallel: this test mutates the package-level userConfigDir
 hook").
 
 This apply **extends that pattern to the new external-package callers**:
-14 tests in `base_adapter_error_test.go` and `base_adapter_test.go` and
+20 tests in `base_adapter_error_test.go` and `base_adapter_test.go` and
 `base_adapter_mockfs_test.go` that go through the override-having helpers
 no longer call `t.Parallel()`. Each test has a 3-line comment explaining
 why (`// Intentionally not t.Parallel() — see ...` plus a `// Not parallel: ...`
@@ -147,14 +147,14 @@ paragraph on the doc comment). This is a behavior change to the tests
 (they run serially with each other) but it is the **minimum** change
 needed to make the override-based race fix actually fix the race.
 
-**Tests that dropped `t.Parallel()` (16 total):**
+**Tests that dropped `t.Parallel()` (20 total):**
 
 `base_adapter_test.go` (4): `TestInstall_ReturnsSentinelError`,
 `TestBaseAdapter_WarningsClearedOnInstall`,
 `TestBackupIsolation_FreshInstallProducesIdenticalOutput`,
 `TestBackupIsolation_NamespacedBackupStructure`.
 
-`base_adapter_error_test.go` (10): `TestInstall_PreCancelledContext_NoWorkDone`,
+`base_adapter_error_test.go` (14): `TestInstall_PreCancelledContext_NoWorkDone`,
 `TestInstall_CheckpointContext_AfterStaging`,
 `TestInstall_CheckpointContext_AfterSkillInstall`,
 `TestInstall_CheckpointContext_AfterCommandsInstall`,
@@ -174,7 +174,7 @@ plus the 5 direct-build tests from Commit 4
 `base_adapter_mockfs_test.go` (2): `TestMockFS_InstallFullPipeline`,
 `TestMockFS_InstallFullPipeline_StatusReportsInstalled`.
 
-Total: 16 tests dropped `t.Parallel()`. None of the 9 other parallel tests
+Total: 20 tests dropped `t.Parallel()`. None of the 9 other parallel tests
 in `adapters/common/` (NilDetector, NilPaths, NilPrompt, HomeDirUnavailable,
 Uninstall, AddWarning, BaseCachesUserHomeDir, HomeDirOverrideBypassesCache,
 DetectCached*) needed a change because they don't call
@@ -205,7 +205,7 @@ on a parallel test that calls `a.Install()`; the grep heuristic is:
 `go test -race ./adapters/common/... -count=10` from any CGO-enabled
 runner.
 
-### 4.3 Advisory — 16 tests lost `t.Parallel()`
+### 4.3 Advisory — 20 tests lost `t.Parallel()`
 
 This is documented and intentional (see Resolved Risks 3.3). The
 trade-off is necessary to make the override-based race fix work. The
@@ -326,7 +326,7 @@ Tests with the override added (direct-build, Commit 4):
 
 Tests with `t.Parallel()` removed (Commit 3 + Commit 4):
 - 4 in `base_adapter_test.go`
-- 10 in `base_adapter_error_test.go`
+- 14 in `base_adapter_error_test.go`
 - 2 in `base_adapter_mockfs_test.go`
 - See Resolved Risks 3.3 for the full list
 
