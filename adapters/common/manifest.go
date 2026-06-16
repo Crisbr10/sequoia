@@ -37,7 +37,7 @@ type manifestEntry struct {
 // <sessionDir>/manifest.json. It lists every ReplaceFile backup the
 // session performed, plus the schema version. See REQ-BRP-03.
 type manifest struct {
-	Version string         `json:"version"`
+	Version string          `json:"version"`
 	Entries []manifestEntry `json:"entries"`
 }
 
