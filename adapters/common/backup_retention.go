@@ -48,10 +48,11 @@ func BackupHomeDir() (string, error) {
 }
 
 // backupRootFrom joins a user config dir with the central backup subpath.
-// It is a small pure helper extracted so the path-prefix construction
-// has a single source of truth and is trivially testable.
+// The subpath comes from the `backupHomeSubpath` constant so the path
+// construction and the error-wrapping in BackupHomeDir share a single
+// source of truth.
 func backupRootFrom(cfg string) string {
-	return filepath.Join(cfg, "sequoia", "backups")
+	return filepath.Join(cfg, backupHomeSubpath)
 }
 
 // sessionDirLayout is the ISO-8601 UTC timestamp format used as the prefix
