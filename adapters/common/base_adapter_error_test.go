@@ -405,10 +405,17 @@ func TestBaseAdapter_NilPrompt_PromptStrategyReturnsZero(t *testing.T) {
 // path pattern that can be tested for. To actually cause MkdirTemp to fail,
 // we use a malformed prefix containing a null byte, which os.MkdirTemp
 // rejects.
+//
+// Not parallel: this test builds a BaseAdapter directly (no helper) and
+// calls a.Install(), which reads the package-level userConfigDir. The
+// per-test override below isolates the central backup home; t.Parallel()
+// would race on the package-level variable.
 func TestInstall_StagingDirCreationFailure(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
+	// Isolate the package-level userConfigDir hook on a per-test basis.
+	common.OverrideUserConfigDir(t, func() (string, error) { return t.TempDir(), nil })
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("staging-fail", "Staging Fail")
@@ -449,10 +456,14 @@ func TestInstall_StagingDirCreationFailure(t *testing.T) {
 // TestInstall_SkillTemplateNotFound verifies REQ-TEST-ERRORS
 // "Skill template | template not found in embed.FS | returns wrapped error".
 // Uses the testFS (from shared_test.go) which lacks "templates/skill.md.tmpl".
+//
+// Not parallel: see TestInstall_StagingDirCreationFailure.
 func TestInstall_SkillTemplateNotFound(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
+	// Isolate the package-level userConfigDir hook on a per-test basis.
+	common.OverrideUserConfigDir(t, func() (string, error) { return t.TempDir(), nil })
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("tmpl-fail", "Template Fail")
@@ -491,10 +502,14 @@ func TestInstall_SkillTemplateNotFound(t *testing.T) {
 // "System prompt render | template not found | returns wrapped error".
 // Skill template is present (installembed.FS has "templates/skill.md.tmpl")
 // but the system prompt template is set to a non-existent path.
+//
+// Not parallel: see TestInstall_StagingDirCreationFailure.
 func TestInstall_SystemPromptTemplateNotFound(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
+	// Isolate the package-level userConfigDir hook on a per-test basis.
+	common.OverrideUserConfigDir(t, func() (string, error) { return t.TempDir(), nil })
 
 	a := &common.BaseAdapter{}
 	a.SetIDName("sys-tmpl-fail", "Sys Template Fail")
@@ -536,8 +551,13 @@ func TestInstall_SystemPromptTemplateNotFound(t *testing.T) {
 // TestInstall_BaseResolutionFailure verifies REQ-TEST-ERRORS
 // "Base resolution | resolveBase returns error | returns wrapped error".
 // Install should not proceed if the base directory cannot be resolved.
+//
+// Not parallel: see TestInstall_StagingDirCreationFailure.
 func TestInstall_BaseResolutionFailure(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
+
+	// Isolate the package-level userConfigDir hook on a per-test basis.
+	common.OverrideUserConfigDir(t, func() (string, error) { return t.TempDir(), nil })
 
 	baseErr := errors.New("cannot determine home directory")
 
@@ -597,10 +617,15 @@ func TestInstall_HomeDirUnavailable(t *testing.T) {
 // "Version file write | AtomicWriteFile fails | returns wrapped error".
 // We make the version file path point to a directory (which os.Rename can't
 // overwrite with a file), causing AtomicWriteFile to fail.
+//
+// Not parallel: see TestInstall_StagingDirCreationFailure.
 func TestInstall_VersionFileWriteFailure(t *testing.T) {
-	t.Parallel()
+	// Intentionally not t.Parallel() — see comment above.
 
 	home := t.TempDir()
+	// Isolate the package-level userConfigDir hook on a per-test basis.
+	common.OverrideUserConfigDir(t, func() (string, error) { return t.TempDir(), nil })
+
 	// Pre-create the version path as a directory — AtomicWriteFile will fail
 	// because os.Rename cannot replace a directory with a file.
 	versionDir := filepath.Join(home, "version-is-dir")
