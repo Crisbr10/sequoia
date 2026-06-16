@@ -6,45 +6,45 @@
 
 ### PR 1 — Foundation (`backup_retention.go` + `BackupPathBuilder`)
 
-- [ ] **1.1** RED — `BackupHomeDir` path and 0o700 mode test
-- [ ] **1.2** GREEN — `BackupHomeDir` implementation
-- [ ] **1.3** RED — `PruneBackups` with 7-session fixture
-- [ ] **1.4** GREEN — `PruneBackups` implementation
-- [ ] **1.5** RED — `DefaultMaxBackupsPerAdapter == 5` constant test
-- [ ] **1.6** RED — `BackupPathBuilder.Build` uses central home
-- [ ] **1.7** GREEN — `BackupPathBuilder.Build` delegates to `BackupHomeDir`
-- [ ] **1.8** REFACTOR — path-prefix helper extraction
+- [x] **1.1** RED — `BackupHomeDir` path and 0o700 mode test
+- [x] **1.2** GREEN — `BackupHomeDir` implementation
+- [x] **1.3** RED — `PruneBackups` with 7-session fixture
+- [x] **1.4** GREEN — `PruneBackups` implementation
+- [x] **1.5** RED — `DefaultMaxBackupsPerAdapter == 5` constant test
+- [x] **1.6** RED — `BackupPathBuilder.Build` uses central home
+- [x] **1.7** GREEN — `BackupPathBuilder.Build` delegates to `BackupHomeDir`
+- [x] **1.8** REFACTOR — path-prefix helper extraction
 
 ### PR 2 — Installer wiring (`BaseAdapter` + TUI note + test updates)
 
-- [ ] **2.1** RED — `BaseAdapter.Prepare` writes to central home
-- [ ] **2.2** GREEN — `BaseAdapter.Prepare` uses `BackupHomeDir()`
-- [ ] **2.3** GREEN — `BaseAdapter.Stage` passes central `BackupDir`
-- [ ] **2.4** GREEN — Update existing tests with old `.sequoia-backup` path assertions
-- [ ] **2.5** RED — TUI `Info` message notes pre-existing scattered backups
-- [ ] **2.6** GREEN — TUI `Info` adds migration note
-- [ ] **2.7** RED — `Codex` adapter `Install` backup goes to central home
-- [ ] **2.8** REFACTOR — `centralBackupDir` helper
+- [x] **2.1** RED — `BaseAdapter.Prepare` writes to central home
+- [x] **2.2** GREEN — `BaseAdapter.Prepare` uses `BackupHomeDir()`
+- [x] **2.3** GREEN — `BaseAdapter.Stage` passes central `BackupDir`
+- [x] **2.4** GREEN — Update existing tests with old `.sequoia-backup` path assertions
+- [x] **2.5** RED — TUI `Info` message notes pre-existing scattered backups
+- [x] **2.6** GREEN — TUI `Info` adds migration note
+- [x] **2.7** RED — `Codex` adapter `Install` backup goes to central home
+- [x] **2.8** REFACTOR — `centralBackupDir` helper
 
 ### PR 3 — ReplaceFile + manifest + retention hook
 
-- [ ] **3.1** RED — `manifestEntry` JSON round-trip
-- [ ] **3.2** GREEN — `manifestEntry` and `manifest` types
-- [ ] **3.3** RED — `ReplaceFile` writes to central home with manifest
-- [ ] **3.4** GREEN — `ReplaceFile` writes to central home + manifest
-- [ ] **3.5** RED — `RestoreOrRemoveFile` reads from central home via manifest
-- [ ] **3.6** GREEN — `RestoreOrRemoveFile` reads manifest + restores
-- [ ] **3.7** RED — Retention hook: 6 installs → exactly 5 session dirs
-- [ ] **3.8** GREEN — `applyRetention` private method hooked in `Apply()`
-- [ ] **3.9** RED — Retention warning path on prune error
-- [ ] **3.10** REFACTOR — Consolidate manifest helpers
-- [ ] **3.11** GREEN — Per-adapter `paths.go` delegates to central home
+- [x] **3.1** RED — `manifestEntry` JSON round-trip
+- [x] **3.2** GREEN — `manifestEntry` and `manifest` types
+- [x] **3.3** RED — `ReplaceFile` writes to central home with manifest
+- [x] **3.4** GREEN — `ReplaceFile` writes to central home + manifest
+- [x] **3.5** RED — `RestoreOrRemoveFile` reads from central home via manifest
+- [x] **3.6** GREEN — `RestoreOrRemoveFile` reads manifest + restores
+- [x] **3.7** RED — Retention hook: 6 installs → exactly 5 session dirs
+- [x] **3.8** GREEN — `applyRetention` private method hooked in `Apply()`
+- [x] **3.9** RED — Retention warning path on prune error
+- [x] **3.10** REFACTOR — Consolidate manifest helpers
+- [x] **3.11** GREEN — Per-adapter `paths.go` delegates to central home
 
 ### Cross-PR
 
-- [ ] **X.1** Package doc for `backup_retention.go`
-- [ ] **X.2** CHANGELOG entry
-- [ ] **X.3** `openspec/config.yaml` rules check
+- [x] **X.1** Package doc for `backup_retention.go`
+- [x] **X.2** CHANGELOG entry
+- [x] **X.3** `openspec/config.yaml` rules check
 
 ---
 

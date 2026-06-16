@@ -1,21 +1,35 @@
 schema: spec-driven
 change: backup-retention-and-organization
-status: proposed
+status: archived
 created: 2026-06-16
+archived: 2026-06-16
+commit: 9c1dad2
 owner: sequoia-ai
 phases:
   - name: propose
     status: complete
     artifact: openspec/changes/backup-retention-and-organization/proposal.md
   - name: spec
-    status: pending
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/specs/backup-retention-and-organization/spec.md
   - name: design
-    status: pending
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/design.md
   - name: tasks
-    status: pending
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/tasks.md
   - name: apply
-    status: pending
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/apply-progress.md
   - name: verify
-    status: pending
+    status: complete
+    artifacts:
+      - openspec/changes/backup-retention-and-organization/verify-report.md
+      - openspec/changes/backup-retention-and-organization/verify-report-pr2.md
+      - openspec/changes/backup-retention-and-organization/verify-report-pr3a.md
+      - openspec/changes/backup-retention-and-organization/verify-report-pr3b.md
+      - openspec/changes/backup-retention-and-organization/verify-report-pr35.md
   - name: archive
-    status: pending
+    status: complete
+    artifact: openspec/changes/backup-retention-and-organization/archive-report.md
+    archived_to: openspec/changes/archive/2026-06-16-backup-retention-and-organization
