@@ -4,7 +4,9 @@ package common
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -153,4 +155,82 @@ func TestApplyRetention_NotInPrepare(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 6, len(entries),
 		"Prepare must NOT trigger applyRetention (got %d, want 6)", len(entries))
+}
+
+// =========================================================================
+// Task 3.9 (RED) — Retention warning path on prune error
+// =========================================================================
+
+// TestApplyRetention_WarningOnPruneError verifies REQ-BRP-04 Scenario
+// "Removal errors do not fail the install": when a per-entry removal
+// fails (simulated by a read-only session dir), applyRetention must
+// surface a warning via AddWarning and the install still succeeds.
+//
+// Skipped on Windows because chmod 0o500 does not block os.RemoveAll.
+// On POSIX, we mark the OLDEST session read-only; with 7 sessions
+// and max=5, PruneBackups fails on the read-only one and returns an
+// error — which applyRetention converts to a warning.
+//
+// Not parallel: the userConfigDir override is package-level.
+func TestApplyRetention_WarningOnPruneError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod read-only does not block os.RemoveAll on Windows")
+	}
+
+	home := retentionTestHome(t)
+	adapterDir := seedRetentionSessions(t, 7)
+
+	// Mark the OLDEST session read-only so its removal fails.
+	entries, err := os.ReadDir(adapterDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries, "test fixture must contain session dirs")
+	oldest := filepath.Join(adapterDir, entries[0].Name())
+	require.NoError(t, os.Chmod(oldest, 0o500),
+		"chmod the oldest session dir to read-only so its removal fails")
+	// Restore permissions at test end so TempDir cleanup works.
+	t.Cleanup(func() { _ = os.Chmod(oldest, 0o700) })
+
+	a := makeRetentionAdapter(t, home)
+
+	// applyRetention must NOT panic and must NOT return an error.
+	// The contract is: errors -> AddWarning, not return.
+	assert.NotPanics(t, func() { a.applyRetention() },
+		"applyRetention must not panic on prune error")
+
+	// The install (caller) still succeeds — the install is not failed
+	// by a retention error.
+
+	warnings := a.Warnings()
+	require.NotEmpty(t, warnings,
+		"applyRetention must record at least one warning on prune error")
+	foundRetentionWarning := false
+	for _, w := range warnings {
+		if strings.HasPrefix(w, "backup retention:") {
+			foundRetentionWarning = true
+			break
+		}
+	}
+	assert.True(t, foundRetentionWarning,
+		"Warnings() must include a message prefixed with 'backup retention:' (got %v)", warnings)
+}
+
+// TestApplyRetention_NoWarningOnSuccess verifies the symmetric case:
+// when pruning succeeds, no warning is added.
+//
+// Not parallel: the userConfigDir override is package-level.
+func TestApplyRetention_NoWarningOnSuccess(t *testing.T) {
+	home := retentionTestHome(t)
+	adapterDir := seedRetentionSessions(t, 7)
+
+	a := makeRetentionAdapter(t, home)
+	a.applyRetention()
+
+	assert.Empty(t, a.Warnings(),
+		"applyRetention must NOT add a warning on successful prune (got %v)", a.Warnings())
+
+	// Sanity: the cap is enforced.
+	entries, err := os.ReadDir(adapterDir)
+	require.NoError(t, err)
+	assert.Equal(t, DefaultMaxBackupsPerAdapter, len(entries),
+		"applyRetention must leave exactly DefaultMaxBackupsPerAdapter session dirs on success")
 }
