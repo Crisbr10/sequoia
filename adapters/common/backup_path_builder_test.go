@@ -1,6 +1,7 @@
 package common_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,50 +12,78 @@ import (
 	"github.com/Crisbr10/sequoia/adapters/common"
 )
 
+// cleanupCentralHome removes the per-adapter session dir created by the test
+// from the real (or override) BackupHomeDir. Best-effort: errors are
+// ignored because tests run with t.TempDir() / user-config fallbacks and
+// the on-disk state is incidental.
+func cleanupCentralHome(t *testing.T, adapterID string) {
+	t.Helper()
+	cfg, err := os.UserConfigDir()
+	if err != nil {
+		return
+	}
+	adapterDir := filepath.Join(cfg, "sequoia", "backups", adapterID)
+	_ = os.RemoveAll(adapterDir)
+}
+
 // =========================================================================
 // TestBackupPathBuilder_Build_IncludesAdapterID
 // =========================================================================
 
-// TestBackupPathBuilder_Build_IncludesAdapterID verifies that Build() includes
-// the adapter ID in the generated backup path, allowing different tool
-// adapters to share the same base without backup collisions.
+// TestBackupPathBuilder_Build_IncludesAdapterID verifies that after PR 1,
+// Build() produces paths of the form <BackupHomeDir>/<adapterID>/<...>,
+// no longer the per-tool backupPathFn(base) result. REQ-BRP-02.
+//
+// The custom backupPathFn passed to NewBackupPathBuilder is a safety-net
+// fallback only; on the happy path it is NOT consulted.
 func TestBackupPathBuilder_Build_IncludesAdapterID(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(func() { cleanupCentralHome(t, "claude-code") })
 
 	bp := common.NewBackupPathBuilder(
-		func(base string) string { return filepath.Join(base, "backup") },
+		func(base string) string { return "SENTINEL_SHOULD_NOT_APPEAR" },
 		"claude-code",
 	)
 
-	result := bp.Build("/tmp/test-base")
-	assert.Contains(t, result, "claude-code",
-		"Build() should include the adapter ID in the backup path")
-	assert.Contains(t, result, "test-base",
-		"Build() should include the base directory path")
-	assert.Contains(t, result, "backup",
-		"Build() should delegate to backupPathFn for the base path")
+	result := bp.Build("/tmp/irrelevant-base")
+
+	// Adapter ID is a path segment in the central home.
+	assert.Contains(t, result,
+		string(filepath.Separator)+"claude-code"+string(filepath.Separator),
+		"Build() must contain /<adapterID>/ as a path segment (got %q)", result)
+	// Per-tool markers from the OLD format must NOT appear.
+	assert.NotContains(t, result, "irrelevant-base",
+		"Build() must not contain the per-tool base path")
+	assert.NotContains(t, result, "SENTINEL_SHOULD_NOT_APPEAR",
+		"Build() must not invoke backupPathFn on the happy path")
+	assert.NotContains(t, result, ".sequoia-backup",
+		"Build() must not contain the legacy per-tool marker")
 }
 
 // =========================================================================
 // TestBackupPathBuilder_Build_UsesBackupPathFn
 // =========================================================================
 
-// TestBackupPathBuilder_Build_UsesBackupPathFn triangulates: verifies that
-// Build() delegates to the backupPathFn with the provided base, using a
-// different path function than the first test.
+// TestBackupPathBuilder_Build_UsesBackupPathFn triangulates with a
+// different adapter ID to confirm the new format is used uniformly across
+// adapters (REQ-BRP-02 Scenario "distinct adapter IDs produce disjoint
+// subtrees").
 func TestBackupPathBuilder_Build_UsesBackupPathFn(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(func() { cleanupCentralHome(t, "gemini-cli") })
 
 	bp := common.NewBackupPathBuilder(
-		func(base string) string { return filepath.Join(base, "custom-backup") },
+		func(base string) string { return "SENTINEL_SHOULD_NOT_APPEAR" },
 		"gemini-cli",
 	)
 
 	result := bp.Build("/another/base")
-	assert.Contains(t, result, "custom-backup",
-		"Build() should use the custom backupPathFn")
-	assert.Contains(t, result, "gemini-cli",
-		"Build() should include the adapter ID")
+
+	assert.Contains(t, result,
+		string(filepath.Separator)+"gemini-cli"+string(filepath.Separator),
+		"Build() must contain /<adapterID>/ as a path segment (got %q)", result)
+	assert.NotContains(t, result, "another/base",
+		"Build() must not contain the per-tool base path")
+	assert.NotContains(t, result, "SENTINEL_SHOULD_NOT_APPEAR",
+		"Build() must not invoke backupPathFn on the happy path")
 }
 
 // =========================================================================

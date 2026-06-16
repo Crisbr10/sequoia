@@ -616,17 +616,17 @@ func TestBackupIsolation_NamespacedBackupStructure(t *testing.T) {
 	assert.Contains(t, backupDir, "err-test",
 		"backup path should contain the adapter ID")
 
-	// Backup path should have format: {base}-{adapterID}-{sessionSuffix}
-	// The session suffix is a base-36 timestamp, so after "err-test-" there
-	// should be another segment (the suffix).
+	// Backup path should have format: <BackupHomeDir>/<adapterID>/<sessionSuffix>
+	// (REQ-BRP-02). The session suffix is a base-36 timestamp, so after
+	// "err-test" there should be a path separator followed by the suffix.
 	adapterIdx := strings.LastIndex(backupDir, "err-test")
 	require.True(t, adapterIdx >= 0, "backup path should contain adapter ID")
 	suffixStart := adapterIdx + len("err-test")
 	assert.True(t, suffixStart < len(backupDir),
 		"backup path should have a session suffix after the adapter ID")
-	// The character right after the adapter ID should be "-".
-	assert.Equal(t, byte('-'), backupDir[suffixStart],
-		"backup path should separate adapter ID and suffix with '-'")
+	// The character right after the adapter ID should be the path separator.
+	assert.Equal(t, byte(filepath.Separator), backupDir[suffixStart],
+		"backup path should separate adapter ID and suffix with the path separator")
 
 	// --- Verify type-specific backup subdirectories ---
 	skillBackupDir := filepath.Join(backupDir, "skills")

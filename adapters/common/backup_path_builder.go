@@ -1,16 +1,22 @@
 package common
 
 import (
+	"path/filepath"
 	"strconv"
 	"time"
 )
 
 // BackupPathBuilder generates unique backup directory paths for tool
-// adapters. Each call to Build() appends a base-36 session suffix to
-// prevent directory name collisions across multiple install attempts.
+// adapters. Each call to Build() produces a fresh session directory under
+// the central backup root returned by BackupHomeDir().
 //
 // BackupPathBuilder is constructed once per adapter and injected into
 // BaseAdapter via SetBackup().
+//
+// The legacy `backupPathFn` is retained as a safety-net fallback: if
+// BackupHomeDir() cannot resolve the central root (e.g., the user's
+// config directory is unwritable), Build() falls back to the per-tool
+// path so installs can still proceed. The happy path never consults it.
 type BackupPathBuilder struct {
 	backupPathFn func(base string) string
 	adapterID    string
@@ -18,6 +24,10 @@ type BackupPathBuilder struct {
 
 // NewBackupPathBuilder creates a BackupPathBuilder with the given path
 // function and adapter identifier.
+//
+// The path function is a legacy per-tool path constructor used as a
+// fallback only. Production callers can pass any non-nil closure; the
+// happy-path Build() ignores it.
 func NewBackupPathBuilder(
 	backupPathFn func(base string) string,
 	adapterID string,
@@ -28,10 +38,30 @@ func NewBackupPathBuilder(
 	}
 }
 
-// Build generates a unique backup path by combining the base path from
-// backupPathFn, the adapter ID, and a millisecond-resolution session suffix.
-// Format: {backupPathFn(base)}-{adapterID}-{sessionSuffix}
+// Build generates a unique backup session directory path of the form:
+//
+//	<BackupHomeDir>/<adapterID>/<ISO8601-UTC>-<base36-UnixNanos>/
+//
+// The ISO-8601 prefix sorts lexicographically the same as chronologically,
+// so a descending lex sort yields the newest sessions first (used by
+// PruneBackups). The base-36 nanos suffix guarantees uniqueness across
+// rapid consecutive calls. See REQ-BRP-02, REQ-BRP-07.
+//
+// If BackupHomeDir() fails (e.g., the user's config dir is unwritable),
+// Build() falls back to the per-tool backupPathFn result so the install
+// does not abort.
 func (b *BackupPathBuilder) Build(base string) string {
-	sessionSuffix := strconv.FormatInt(time.Now().UnixNano(), 36)
-	return b.backupPathFn(base) + "-" + b.adapterID + "-" + sessionSuffix
+	now := time.Now()
+	sessionSuffix := strconv.FormatInt(now.UnixNano(), 36)
+
+	home, err := BackupHomeDir()
+	if err != nil {
+		// Safety-net fallback to the legacy per-tool path. This is a
+		// best-effort, not a recovery — the caller is expected to retry
+		// or surface a warning when the central home is unavailable.
+		return b.backupPathFn(base) + "-" + b.adapterID + "-" + sessionSuffix
+	}
+
+	isoPrefix := now.UTC().Format(sessionDirLayout)
+	return filepath.Join(home, b.adapterID, isoPrefix+"-"+sessionSuffix)
 }
