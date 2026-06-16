@@ -200,11 +200,17 @@ func runInstallSteps(ctx context.Context, t model.ToolState, ch chan<- model.Pro
 	if getter, ok := adapter.(adapters.BackupDirGetter); ok {
 		dir := getter.LastBackupDir()
 		if dir != "" {
+			// REQ-BRP-05: surface a one-line note that pre-existing
+			// scattered backups from prior sequoia versions remain at
+			// their original locations. The note is appended to the
+			// central-home path so the TUI can show both pieces in a
+			// single Info string.
+			info := dir + " — pre-existing scattered backups from prior sequoia versions remain at their original locations."
 			sendProgress(ctx, ch, model.ProgressMsg{
 				ToolID: toolID,
 				Step:   InstallSteps[len(InstallSteps)-1],
 				Done:   true,
-				Info:   dir,
+				Info:   info,
 			})
 		}
 	}
