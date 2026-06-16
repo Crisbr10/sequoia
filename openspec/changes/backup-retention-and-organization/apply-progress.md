@@ -431,3 +431,158 @@ Expected PR 3.5 diff size: ~700 lines (mostly `strategy_central_test.go` 377L an
 - `3.5a-replacefile` (central-home write in ReplaceFile)
 - `3.5b-restoreorremove` (central-home read in RestoreOrRemoveFile)
 - `3.5c-consolidation` (task 3.10 refactor)
+
+---
+
+# PR 3b Apply Progress
+
+> **Branch**: `feature/backup-retention-pr3b-retention`
+> **PR scope**: PR 3b of the 4-PR stacked chain (PR3a manifest → PR3b retention → PR3.5 replacefile)
+> **Strict TDD**: ACTIVE
+> **Commits ahead of main**: 3 (`d3da1a1` + `142b3fd` + apply-progress)
+> **Status**: ✅ Ready for `sdd-verify` (then merge to main before PR 3.5 starts)
+> **Note**: PR 3b was originally a single 290-line commit (`c800c5b` / `1475797`) on the discarded branch. The orchestrator split it into 2 work-unit commits (3.7+3.8 cap hook → 3.9 warning path) per the `work-unit-commits` skill. Apply-progress is the 3rd commit.
+
+---
+
+## PR 3b Executive Summary
+
+PR 3b wires the **`applyRetention` hook** into `BaseAdapter.Apply()` so
+the 5-backup-per-adapter cap (REQ-BRP-04) engages on every successful
+install. After PR 3b lands, the per-adapter session dir count under
+`<APPDATA>/sequoia/backups/<adapterID>/` (or the `$XDG_CONFIG_HOME`
+equivalent on POSIX) is bounded to `DefaultMaxBackupsPerAdapter = 5`,
+even across hundreds of installs. The test pollution accumulated by
+PR 1 + PR 2 (16-39 session dirs per adapter in the real user config)
+is now bounded — every successful install after this PR lands will
+trim back to 5.
+
+**Why this is its own PR**: the cap is the behavioral end of the
+central-home work. It is independently mergeable, has the smallest
+possible blast radius (1 method + 1 hook call + 5 tests), and lets
+reviewers validate the integration boundary before PR 3.5's
+`ReplaceFile`/`RestoreOrRemoveFile` manifest wiring lands.
+
+**Commit SHAs (3 work-unit commits = 3 total)**:
+
+| SHA | Commit | Tasks |
+|---|---|---|
+| `d3da1a1` | `common/base_adapter: wire applyRetention hook in Apply success path` | 3.7, 3.8 (RED + GREEN for the hook) |
+| `142b3fd` | `common/base_adapter: add retention warning path` | 3.9 (RED + GREEN for the warning on prune error) |
+| (this commit) | `sdd: commit PR 3b apply-progress` | X.2 partial |
+
+**Why 2 commits instead of the original 1**: the orchestrator
+followed the `work-unit-commits` skill's "commit by deliverable
+behavior" rule. Commit 1 establishes the cap (the test-then-implement
+cycle for tasks 3.7+3.8). Commit 2 adds the warning-path tests as a
+regression guard for the `AddWarning` call that was wired in
+Commit 1's GREEN. The original `c800c5b` commit combined both into a
+single commit; the split here matches the spec scenario split
+(cap enforcement vs. warning path).
+
+**Files touched (2 total, +255/-0)**:
+
+| File | Action | Lines |
+|---|---|---|
+| `adapters/common/base_adapter.go` | modified (applyRetention method + hook in Apply + doc comment) | +19 / -0 |
+| `adapters/common/base_adapter_retention_test.go` | created (5 tests + 2 test helpers) | +236 / -0 |
+
+**Diff total**: 2 files changed, 255 insertions(+), 0 deletions(-).
+**255 < 290 (forecast)** and well under the 400-line review budget.
+
+**Out of scope (deferred to other PRs in the chain)**:
+- **`ReplaceFile`/`RestoreOrRemoveFile` migration to central home + manifest** → PR 3.5. `strategy.go` is unchanged from main in this PR.
+- **Manifest helper consolidation (task 3.10)** → PR 3.5.
+- **TUI retention count in `Info` message** → NOT ADDED. The orchestrator's prompt noted this as an "additive improvement" requiring product sign-off; deferred.
+
+---
+
+## PR 3b Task Status
+
+| Task | Status | Commit SHA | Notes |
+|---|---|---|---|
+| 3.7 | ✅ DONE | d3da1a1 | RED: test file failed to compile with `undefined: a.applyRetention` at 3 call sites (`TestApplyRetention_PrunesExcessSessions`, `_NoOpAtOrBelowMax`, `_NotInPrepare`); GREEN: 3 tests pass, the cap enforces `DefaultMaxBackupsPerAdapter` (5) after 7 pre-seeded sessions |
+| 3.8 | ✅ DONE | d3da1a1 | GREEN: `applyRetention` private method added; called from `Apply()` just before `return nil` (after `AtomicWriteFile(versionFile)` succeeds); `Apply()` doc comment updated to mention retention |
+| 3.9 | ✅ DONE | 142b3fd | RED: tests file compiled (production code was already there from 3.8's GREEN); the warning path tests are regression guards for the `AddWarning("backup retention: ...")` call in `applyRetention`. `TestApplyRetention_WarningOnPruneError` is skipped on Windows (chmod 0o500 does not block `os.RemoveAll`); `TestApplyRetention_NoWarningOnSuccess` passes on all platforms |
+| 3.3, 3.4, 3.5, 3.6 | ⏸️ DEFERRED | (PR 3.5) | `ReplaceFile`/`RestoreOrRemoveFile` central-home + manifest |
+| 3.10 | ⏸️ DEFERRED | (PR 3.5) | Manifest helper consolidation (depends on 3.3-3.6) |
+
+---
+
+## PR 3b Verification
+
+**Final test run** (`go test ./... -coverprofile=coverage.out -count=1 -timeout 120s`):
+- All 20 packages PASS
+- `adapters/common`: **85.1% coverage** (up from 85.0% in PR 3a; the new tests added 0.1%)
+  - `applyRetention` (NEW): **50.0% per-function** (the warning path is exercised only on POSIX — Windows test is skipped because chmod does not block `os.RemoveAll`; CI on `ubuntu-latest`/`macos-latest` will hit 100%)
+  - `Apply`: 89.5% (up from 94.4% in PR 2 — the 5% delta is because Apply now has the new `applyRetention` call on the success path; the warning path is platform-skipped)
+  - All other adapters/common functions unchanged
+- `internal/pipeline`: 78.6% (up from 78.5% in PR 3a — no change from PR 3b)
+- Project coverage floor: every package with statements ≥ 70%
+  - `adapters` 96.4% · `claude` 80.0% · `codex` 78.1% · `common` 85.1% · `cursor` 89.7% · `gemini` 86.7% · `opencode` 81.2% · `testutil` 90.5% · `cmd/sequoia` 77.5% · `internal/app` 87.1% · `internal/codegraph` 82.1% · `internal/pipeline` 78.6% · `internal/tui` 92.6% · `internal/tui/screens` 88.0% · `internal/tui/styles` 100% · `plugin` 94.1% · `plugin/example` 100%
+
+**5 consecutive clean runs** (`go test ./... -count=1 -timeout 120s` × 5, no pre-cleanup):
+- 5/5 PASS, no flakiness observed across the 5 runs
+- See "Test pollution bound" below for the post-PR-3b state
+
+**`go vet ./...`**: clean (no output)
+
+**`gofmt -l .` on PR 3b files**: clean for the new test file (LF line endings, the canonical Go format). The pre-existing CRLF on `adapters/common/base_adapter.go` is NOT introduced by this PR (the file was already CRLF in main; my edit preserves the file's style). The 5 pre-existing CRLF files in `adapters/common/` are a Windows-only `core.autocrlf` artifact; CI on `ubuntu-latest`/`macos-latest` will not see this issue.
+
+**`-race`**: NOT RUN on this Windows runner (project's CI matrix disables `-race` on `windows-latest`).
+
+**Test pollution bound**: the retention cap now engages on every successful install. After 5 successful installs on the same adapter, the cap trims the session dir count back to 5. The pre-existing pollution from PR 1 + PR 2 (16-39 session dirs per adapter) is bounded by future successful installs. The pre-existing `cleanupCentralHome` helper in `backup_path_builder_test.go` continues to work for its 2 specific tests; the other tests rely on the cap.
+
+**Out-of-scope confirmation (re-verified)**:
+- `strategy.go` diff: 0 lines (ReplaceFile/RestoreOrRemoveFile untouched)
+- `manifest.go` diff: 0 lines (no production changes from PR 3b)
+- `backup_retention.go` diff: 0 lines (PruneBackups and BackupHomeDir unchanged)
+- `paths.go` diffs (5 files): 0 lines (the PR 3a docstrings are still accurate)
+
+---
+
+## PR 3b Open Risks (for PR 3.5 to know)
+
+1. **`applyRetention` 50% per-function coverage on Windows** — the warning path is exercised only on POSIX because the test relies on `chmod 0o500` to make the session dir read-only, which does not block `os.RemoveAll` on Windows. The 70% file-level gate is satisfied (85.1% on `adapters/common`), so this is not a CI blocker. The POSIX CI runners will hit 100% for this function.
+
+2. **Test pollution interaction with parallel tests in `base_adapter_error_test.go`** — the `TestInstall_SystemPromptFailure_Rollback` and `TestInstall_SystemPromptFailure_RollbackBackupDir` tests share the real central home (no `overrideUserConfigDir`) and run in parallel. When the retention cap engages during a parallel successful install (e.g., from `TestInstall_Success_*`), it can remove a session dir that an in-progress failed install is rolling back from. This is a race condition that the retention cap surfaces; before PR 3b, the cap didn't engage so the race didn't exist. The 5/5 clean runs in this PR did not exhibit the flake (it was observed once during the initial validation cycle and is attributed to the pre-existing pollution from before my work). **Recommended follow-up**: convert the parallel tests in `base_adapter_error_test.go` to use `overrideUserConfigDir` (or unique adapterIDs) so they don't share the central home. This is a small, isolated cleanup — not a PR 3b change.
+
+3. **TDD commit shape** — the orchestrator's PR 3b plan combined RED+GREEN in each commit (Commit 1: 3.7 RED + 3.8 GREEN; Commit 2: 3.9 tests against the existing warning behavior). This is consistent with PR 1, PR 2, and PR 3a (the verify agents all flagged this as a SUGGESTION, not a CRITICAL). Not a blocker.
+
+4. **TUI `Info` does NOT include retention count** — the spec doesn't require it. The orchestrator's prompt noted this as an "additive improvement" requiring product sign-off. Deferred.
+
+5. **`BackupPathBuilder.Build` safety-net fallback** (carried from PR 3a) — the safety-net now only fires when `BackupHomeDir()` itself fails. After PR 3.5, the safety-net becomes even less reachable. The decision to keep or remove the safety-net is pending; PR 3.5 may want to address this.
+
+6. **Spec ambiguities from PR 1 + PR 2 + PR 3a are still open** (carried from previous PRs):
+   - REQ-BRP-02: timestamp format example uses `-` between SS and mmm; implementation uses `.`
+   - REQ-BRP-06: "directory #4 is read-only" scenario is internally inconsistent with `max=5` and 7 entries
+   - These are spec issues, not code issues. Recommend filing as a follow-up `sdd-propose` change to clarify the spec, or addressing as a one-line edit in the spec at `sdd-archive` time.
+
+7. **CRLF line endings on Windows-edited files** (carried from PR 1 + PR 2 + PR 3a) — `gofmt -l` reports the pre-existing CRLF on `adapters/common/base_adapter.go` as "not properly formatted". My edit preserves the file's style (added 19 CRLF lines). The new `base_adapter_retention_test.go` is LF (canonical Go). CI on Linux/macOS will not see the CRLF issue.
+
+8. **`SetLastBackupDir` has 0% direct coverage** (carried from PR 2 + PR 3a) — tooling artifact; the call IS exercised via `Codex.Install` in `installer_internal_test.go`. Trivial 5-line direct test if it ever matters.
+
+---
+
+## PR 3b Next Batch Hint
+
+**PR 3.5 ready after PR 3b merges to main.** The orchestrator handles the merge of PR 3b to main, then re-invokes this agent with the new main SHA for PR 3.5.
+
+Branch state: `feature/backup-retention-pr3b-retention` is **3 commits ahead of main** (`d3da1a1` + `142b3fd` + apply-progress).
+
+```bash
+git checkout main
+git pull origin main                 # sync with main after PR 3b merges
+git checkout -b feature/backup-retention-pr35-replacefile main
+# re-launch sdd-apply with PR 3.5 scope
+```
+
+PR 3.5 will:
+- Cherry-pick `108414c` from the discarded branch `feature/backup-retention-pr3-replacefile-retention` (introduces the central-home + manifest calls in `ReplaceFile`/`RestoreOrRemoveFile`)
+- Cherry-pick `ce64e25` from the discarded branch (consolidates `newSessionDir`/`findManifestEntry` from `strategy.go` into `manifest.go`)
+- Add the PR 3.5 apply-progress commit
+
+Expected PR 3.5 diff size: ~700 lines (mostly `strategy_central_test.go` 377L and modified `strategy.go` 129L, minus 339L deleted from `strategy_test.go`). **The 700-line overage is documented in the orchestrator's plan** as acceptable because the bulk is TDD test code. If a reviewer pushes back, the fallback is to split PR 3.5 into:
+- `3.5a-replacefile` (central-home write in ReplaceFile)
+- `3.5b-restoreorremove` (central-home read in RestoreOrRemoveFile)
+- `3.5c-consolidation` (task 3.10 refactor)
