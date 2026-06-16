@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Crisbr10/sequoia/adapters"
 )
@@ -62,6 +64,11 @@ type BaseAdapter struct {
 	// Install or Uninstall operation. Exposed via LastBackupDir() for
 	// BackupDirGetter interface conformance (REQ-BUG-004).
 	lastBackupDir string
+	// centralSessionDir caches the per-install session directory produced
+	// by centralBackupDir(). It is generated lazily on first call and
+	// cleared at the start of Prepare() so each install gets a fresh
+	// session root under the central backup home (REQ-BRP-02).
+	centralSessionDir string
 
 	// strategyState holds per-operation state for the Strategy interface
 	// phased lifecycle. Populated by Prepare/Download/Stage and consumed
@@ -299,6 +306,44 @@ func (a *BaseAdapter) Strategy() Strategy {
 	return a
 }
 
+// centralBackupDir returns the absolute backup directory used for the
+// current install session, optionally joined with targetSubdir. The
+// location is sourced from BackupHomeDir() so all adapters share a single
+// central root (REQ-BRP-02).
+//
+// The session directory is generated lazily on first call within an
+// install and cached for subsequent calls, so the per-installer
+// subdirectories (e.g., "skills" and "commands") all live under the same
+// session root. The cache is cleared at the start of Prepare().
+//
+// If BackupHomeDir() fails (e.g., the user's config dir is unwritable),
+// the per-tool BackupPathBuilder.Build() result is used as a safety-net
+// fallback so the install does not abort. The fallback is best-effort —
+// callers should treat an error from the per-tool path as a warning, not
+// a hard failure.
+func (a *BaseAdapter) centralBackupDir(targetSubdir string) string {
+	a.mu.Lock()
+	sessionDir := a.centralSessionDir
+	if sessionDir == "" {
+		home, err := BackupHomeDir()
+		if err != nil {
+			// Safety-net fallback: per-tool BackupPathBuilder. Empty
+			// "base" is fine on the happy path; the fallback path
+			// ignores the value and falls back to the per-tool layout.
+			sessionDir = a.backup.Build("")
+		} else {
+			// Build the session dir directly: <home>/<adapterID>/<ISO8601>-<suffix>
+			now := time.Now()
+			isoPrefix := now.UTC().Format(sessionDirLayout)
+			suffix := strconv.FormatInt(now.UnixNano(), 36)
+			sessionDir = filepath.Join(home, a.adapterID, isoPrefix+"-"+suffix)
+		}
+		a.centralSessionDir = sessionDir
+	}
+	a.mu.Unlock()
+	return filepath.Join(sessionDir, targetSubdir)
+}
+
 // Prepare sets up directories and backup paths for the install operation.
 // It clears warnings from previous operations, checks context cancellation,
 // resolves the base directory, creates target directories, and generates
@@ -309,6 +354,11 @@ func (a *BaseAdapter) Prepare(opts adapters.InstallOpts) error {
 	// Reset and clear state for a new operation.
 	a.clearWarnings()
 	a.strategyState = nil
+	// Clear the cached session dir so each new install gets a fresh
+	// central-home session subdirectory (REQ-BRP-02).
+	a.mu.Lock()
+	a.centralSessionDir = ""
+	a.mu.Unlock()
 
 	if err := checkContext(opts.Context); err != nil {
 		return fmt.Errorf("prepare: %w", err)
@@ -322,7 +372,11 @@ func (a *BaseAdapter) Prepare(opts adapters.InstallOpts) error {
 	skillsDir := a.paths.skillsPathFn(base)
 	commandsDir := a.paths.commandsPathFn(base)
 
-	backupDir := a.backup.Build(base)
+	// Session root under the central backup home. Stage() will join the
+	// per-installer subdirs ("skills" / "commands") onto this same root
+	// via the centralBackupDir helper so skills and commands share one
+	// session directory (REQ-BRP-02).
+	backupDir := a.centralBackupDir("")
 	a.mu.Lock()
 	a.lastBackupDir = backupDir
 	a.mu.Unlock()
@@ -449,7 +503,7 @@ func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
 	skillInstaller := NewInstaller(InstallerConfig{
 		SourceDir: ss.stagingDir,
 		TargetDir: skillsDir,
-		BackupDir: filepath.Join(ss.backupDir, "skills"),
+		BackupDir: a.centralBackupDir("skills"),
 		Files:     []string{"SKILL.md"},
 	})
 	if err := skillInstaller.Run(); err != nil {
@@ -465,7 +519,7 @@ func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
 	cmdInstaller := NewInstaller(InstallerConfig{
 		SourceDir: ss.stagingDir,
 		TargetDir: commandsDir,
-		BackupDir: filepath.Join(ss.backupDir, "commands"),
+		BackupDir: a.centralBackupDir("commands"),
 		Files:     CommandFiles(),
 	})
 	if err := cmdInstaller.Run(); err != nil {
