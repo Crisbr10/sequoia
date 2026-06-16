@@ -90,6 +90,13 @@ func (i *Installer) Prepare() error {
 		}
 
 		dst := filepath.Join(cfg.BackupDir, name)
+		// The central-home layout introduced in PR 1 places the file under
+		// <session>/commands/<name> (or skills/, etc.); copyFile does not
+		// create intermediate directories, so ensure the parent of dst
+		// exists before the copy.
+		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+			return fmt.Errorf("prepare: create backup subdir %q: %w", filepath.Dir(dst), err)
+		}
 		if err := copyFile(src, dst); err != nil {
 			return fmt.Errorf("prepare: backup %q: %w", name, err)
 		}
