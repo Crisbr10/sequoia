@@ -557,6 +557,10 @@ func (a *BaseAdapter) Stage(opts adapters.InstallOpts) error {
 // If the system prompt write fails and rollback-on-error is enabled,
 // previously staged skill and command files are rolled back.
 //
+// On success, Apply also runs applyRetention to enforce the
+// 5-backup-per-adapter cap (REQ-BRP-04). Retention errors are
+// surfaced as warnings via AddWarning, not as install failures.
+//
 // Must be called after Stage.
 func (a *BaseAdapter) Apply(opts adapters.InstallOpts) error {
 	ss := a.strategyState
@@ -586,7 +590,22 @@ func (a *BaseAdapter) Apply(opts adapters.InstallOpts) error {
 		return fmt.Errorf("apply: write version file: %w", err)
 	}
 
+	// REQ-BRP-04: bound the per-adapter session dir count after a
+	// successful apply. Retention errors are warnings, not failures.
+	a.applyRetention()
+
 	return nil
+}
+
+// applyRetention is the post-Apply hook that enforces the
+// 5-backup-per-adapter cap (REQ-BRP-04). It is best-effort:
+// failures from PruneBackups are recorded via AddWarning and the
+// install still succeeds. The hook is private because it is part of
+// the Strategy lifecycle, not part of the public API.
+func (a *BaseAdapter) applyRetention() {
+	if _, err := PruneBackups(a.ID(), DefaultMaxBackupsPerAdapter); err != nil {
+		a.AddWarning(fmt.Sprintf("backup retention: %v", err))
+	}
 }
 
 // Rollback undoes the effects of Stage by rolling back both the skill
