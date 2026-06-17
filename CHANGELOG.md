@@ -5,6 +5,12 @@ All notable changes to Sequoia will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.37] — 2026-06-17
+
+### Fixed
+
+- **Install scripts detect source-only releases**: `install.ps1` and `install.sh` now detect when a GitHub release exists on the remote but the expected precompiled binary asset is missing (a "source-only" release published without GoReleaser). When this happens, the installer emits a specific `source-only release` error message with actionable remediation (install a previous version, open an issue at https://github.com/Crisbr10/sequoia/issues) instead of the previous generic 404 message. PowerShell path uses the GitHub Releases API by tag (with 10s timeout); bash path covers both curl and wget. API failure on the follow-up check falls back to the existing generic network error so the installer never hangs.
+
 ## [1.0.6] — 2026-05-17
 
 ### Fixed
