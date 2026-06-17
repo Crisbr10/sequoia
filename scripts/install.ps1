@@ -198,6 +198,40 @@ try {
     try {
         Invoke-WebRequestWithRetry -Uri $DownloadUrl -OutFile (Join-Path $TempDir $Tarball)
     } catch {
+        # REQ-IER-01: Distinguish HTTP 404 (source-only release or missing tag)
+        # from generic network errors. PS 5.1's $_.Exception.Response may be
+        # null on some failures, so we also string-match as a fallback.
+        $is404 = $false
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            if ($_.Exception.Response.StatusCode.value__ -eq 404) {
+                $is404 = $true
+            }
+        }
+        if ($_ -match '404|Not Found') {
+            $is404 = $true
+        }
+
+        if ($is404) {
+            # Query the GitHub Releases API to see if the tag exists.
+            # If it does, this is a source-only release (tag exists, no asset).
+            try {
+                $releasesApiUrl = "https://api.github.com/repos/$Repo/releases/tags/$ResolvedVersion"
+                $apiResponse = Invoke-WebRequest -Uri $releasesApiUrl -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+                if ($apiResponse.StatusCode -eq 200) {
+                    # Tag exists but the binary asset was not found — source-only release.
+                    Write-Err "Release $ResolvedVersion exists on GitHub but no precompiled binary asset was found."
+                    Write-Err "This is a source-only release (published without GoReleaser binaries)."
+                    Write-Err "Try installing a previous version, e.g.:"
+                    Write-Err "  irm https://raw.githubusercontent.com/$Repo/main/scripts/install.ps1 | iex -Version \$PrevVersion"
+                    Write-Err "Or report this at: https://github.com/Crisbr10/sequoia/issues"
+                    exit $EXIT_NETWORK
+                }
+            } catch {
+                # API lookup failed (timeout, DNS, rate limit, etc.) —
+                # fall through to the generic error message.
+            }
+        }
+
         Write-Err "Download failed. Please check:"
         Write-Err "  - Internet connectivity"
         Write-Err "  - Repo=$Repo (correct GitHub org/repo?)"

@@ -231,6 +231,85 @@ func TestInstallPs1ChecksumMandatory(t *testing.T) {
 	})
 }
 
+// TestInstallPs1SourceOnlyReleaseDetection validates REQ-IER-01: when the
+// PowerShell binary download fails with HTTP 404, the script must query the
+// GitHub Releases API for the tag and emit a source-only-release error with
+// actionable remediation guidance, instead of the generic "Download failed"
+// message that conflates a missing tag with a source-only release.
+func TestInstallPs1SourceOnlyReleaseDetection(t *testing.T) {
+	content, err := os.ReadFile("install.ps1")
+	require.NoError(t, err, "scripts/install.ps1 must exist")
+
+	script := string(content)
+
+	t.Run("contains source-only release marker", func(t *testing.T) {
+		// REQ-IER-01: marker string is the regression-test anchor.
+		assert.Contains(t, script, "source-only release",
+			"install.ps1 must contain the 'source-only release' marker for the specific 404 branch")
+	})
+
+	t.Run("queries GitHub releases API by tag", func(t *testing.T) {
+		// REQ-IER-01: the script must query /releases/tags/$ResolvedVersion
+		// to distinguish a source-only release from a missing tag.
+		assert.Contains(t, script, "releases/tags/$ResolvedVersion",
+			"install.ps1 must query the GitHub Releases API by tag (releases/tags/$ResolvedVersion)")
+		assert.Contains(t, script, "api.github.com/repos/$Repo",
+			"install.ps1 must build the API URL from the configured $Repo variable")
+	})
+
+	t.Run("emits remediation text for previous version", func(t *testing.T) {
+		// REQ-IER-03: actionable remediation must suggest a previous version.
+		assert.Contains(t, script, "previous version",
+			"install.ps1 source-only-release error must mention 'previous version' as remediation")
+	})
+
+	t.Run("emits remediation link to issues page", func(t *testing.T) {
+		// REQ-IER-03: actionable remediation must include the issues link.
+		assert.Contains(t, script, "https://github.com/Crisbr10/sequoia/issues",
+			"install.ps1 source-only-release error must include the Crisbr10/sequoia issues link")
+	})
+}
+
+// TestInstallShSourceOnlyReleaseDetection validates REQ-IER-02: when the bash
+// binary download fails with HTTP 404, the script must query the GitHub
+// Releases API for the tag and emit a source-only-release error with
+// actionable remediation. Both curl and wget branches must be covered.
+func TestInstallShSourceOnlyReleaseDetection(t *testing.T) {
+	content, err := os.ReadFile("install.sh")
+	require.NoError(t, err, "scripts/install.sh must exist")
+
+	script := string(content)
+
+	t.Run("contains source-only release marker", func(t *testing.T) {
+		// REQ-IER-02: marker string is the regression-test anchor.
+		assert.Contains(t, script, "source-only release",
+			"install.sh must contain the 'source-only release' marker for the specific 404 branch")
+	})
+
+	t.Run("queries GitHub releases API by tag in both branches", func(t *testing.T) {
+		// REQ-IER-02: the script must query /releases/tags/${VERSION} in
+		// both the curl branch and the wget branch. Count must be >= 2.
+		count := strings.Count(script, "releases/tags/${VERSION}")
+		assert.GreaterOrEqual(t, count, 2,
+			"install.sh must query the GitHub Releases API by tag in both curl and wget branches (count >= 2)")
+
+		assert.Contains(t, script, "api.github.com/repos/${REPO}",
+			"install.sh must build the API URL from the configured ${REPO} variable")
+	})
+
+	t.Run("emits remediation text for previous version", func(t *testing.T) {
+		// REQ-IER-03: actionable remediation must suggest a previous version.
+		assert.Contains(t, script, "previous version",
+			"install.sh source-only-release error must mention 'previous version' as remediation")
+	})
+
+	t.Run("emits remediation link to issues page", func(t *testing.T) {
+		// REQ-IER-03: actionable remediation must include the issues link.
+		assert.Contains(t, script, "https://github.com/Crisbr10/sequoia/issues",
+			"install.sh source-only-release error must include the Crisbr10/sequoia issues link")
+	})
+}
+
 // TestInstallShPathValidation validates install.sh path security (IS-SEC-001).
 // The script must reject dangerous input before any filesystem operation.
 func TestInstallShPathValidation(t *testing.T) {

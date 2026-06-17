@@ -273,6 +273,21 @@ log_info "  URL: ${DOWNLOAD_URL}"
 
 if [ "$DOWNLOADER" = "curl" ]; then
     if ! curl -fsSL --retry 3 --retry-delay 2 -o "${TMPDIR}/${TARBALL}" "$DOWNLOAD_URL"; then
+        CURL_EXIT=$?
+        # REQ-IER-02: curl -f exits with 22 on HTTP 4xx (e.g. 404). Distinguish
+        # source-only release from generic network errors.
+        if [ "$CURL_EXIT" -eq 22 ]; then
+            RELEASES_API_URL="https://api.github.com/repos/${REPO}/releases/tags/${VERSION}"
+            if curl -fsSL --max-time 10 "$RELEASES_API_URL" >/dev/null 2>&1; then
+                # Tag exists but no precompiled binary asset — source-only release.
+                log_error "Release ${VERSION} exists on GitHub but no precompiled binary asset was found."
+                log_error "This is a source-only release (published without GoReleaser binaries)."
+                log_error "Try installing a previous version, e.g.:"
+                log_error "  VERSION=vX.Y.Z bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh)\""
+                log_error "Or report this at: https://github.com/Crisbr10/sequoia/issues"
+                exit $EXIT_NETWORK
+            fi
+        fi
         log_error "Download failed. Please check:"
         log_error "  - Internet connectivity"
         log_error "  - REPO=${REPO} (correct GitHub org/repo?)"
@@ -281,6 +296,21 @@ if [ "$DOWNLOADER" = "curl" ]; then
     fi
 else
     if ! wget -q --retry-connrefused --tries=3 -O "${TMPDIR}/${TARBALL}" "$DOWNLOAD_URL"; then
+        WGET_EXIT=$?
+        # REQ-IER-02: wget exits with 8 on server-error responses (e.g. 404).
+        # Distinguish source-only release from generic network errors.
+        if [ "$WGET_EXIT" -eq 8 ]; then
+            RELEASES_API_URL="https://api.github.com/repos/${REPO}/releases/tags/${VERSION}"
+            if wget -q --timeout=10 --tries=1 -O /dev/null "$RELEASES_API_URL" 2>/dev/null; then
+                # Tag exists but no precompiled binary asset — source-only release.
+                log_error "Release ${VERSION} exists on GitHub but no precompiled binary asset was found."
+                log_error "This is a source-only release (published without GoReleaser binaries)."
+                log_error "Try installing a previous version, e.g.:"
+                log_error "  VERSION=vX.Y.Z bash -c \"\$(wget -qO- https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh)\""
+                log_error "Or report this at: https://github.com/Crisbr10/sequoia/issues"
+                exit $EXIT_NETWORK
+            fi
+        fi
         log_error "Download failed. Please check:"
         log_error "  - Internet connectivity"
         log_error "  - REPO=${REPO} (correct GitHub org/repo?)"
